@@ -1,0 +1,113 @@
+{
+  "name": "venel-filemanager",
+  "displayName": "VenEl File Manager",
+  "description": "Modern interactive File Explorer for VS Code & Cursor with Grid View, Instant Previews & Native Drive Navigation.",
+  "version": "1.0.0",
+  "publisher": "venel",
+  "author": {
+    "name": "Venkatesh Ellur"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/venkateshellur/VenEl.FileManagerPlugin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/venkateshellur/VenEl.FileManagerPlugin/issues"
+  },
+  "homepage": "https://github.com/venkateshellur/VenEl.FileManagerPlugin#readme",
+  "icon": "media/logo.png",
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "file manager",
+    "file explorer",
+    "finder",
+    "mcp",
+    "grid view",
+    "preview",
+    "venel"
+  ],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "venel.filemanager.open",
+        "title": "Open File Manager Tab",
+        "category": "VenEl",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "venel.filemanager.checkServer",
+        "title": "Check Server Status",
+        "category": "VenEl",
+        "icon": "$(sync)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "venel-filemanager-activitybar",
+          "title": "VenEl File Manager",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "venel-filemanager-activitybar": [
+        {
+          "id": "venel.filemanager.sidebar",
+          "name": "VenEl Files",
+          "type": "webview"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "venel.filemanager.open",
+          "when": "view == venel.filemanager.sidebar",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "VenEl File Manager",
+      "properties": {
+        "venel.filemanager.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:5050",
+          "description": "URL of the local VenEl MCP FileManager server."
+        },
+        "venel.filemanager.showStatusBarItem": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a quick-access item in the status bar."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package --no-dependencies",
+    "publish:vscode": "vsce publish",
+    "publish:ovsx": "ovsx publish"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.2.1",
+    "ovsx": "^0.9.3",
+    "typescript": "^5.3.3"
+  }
+}
