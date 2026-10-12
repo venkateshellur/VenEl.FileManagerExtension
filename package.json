@@ -2,7 +2,7 @@
   "name": "venel-filemanager",
   "displayName": "VenEl File Manager",
   "description": "Modern interactive File Explorer for VS Code & Cursor with Grid View, Instant Previews & Native Drive Navigation.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "venkateshellur",
   "author": {
     "name": "Venkatesh Ellur"

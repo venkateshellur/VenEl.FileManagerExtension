@@ -1,4 +1,5 @@
 import * as http from 'http';
+import * as https from 'https';
 import * as vscode from 'vscode';
 
 export class ServerManager {
@@ -12,7 +13,9 @@ export class ServerManager {
         return new Promise((resolve) => {
             try {
                 const url = new URL(urlStr + '/api/files/roots');
-                const req = http.get(url, { timeout: 2500 }, (res) => {
+                const client = url.protocol === 'https:' ? https : http;
+                const req = client.get(url, { timeout: 4000 }, (res) => {
+                    res.resume();
                     if (res.statusCode && res.statusCode >= 200 && res.statusCode < 400) {
                         resolve({ online: true, message: `Connected to VenEl engine at ${urlStr}` });
                     } else {
