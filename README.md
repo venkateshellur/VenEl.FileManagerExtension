@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://marketplace.visualstudio.com/items?itemName=venel.venel-filemanager"><img src="https://img.shields.io/visual-studio-marketplace/v/venel.venel-filemanager?style=flat-square&color=6c5ce7&label=VS%20Marketplace" alt="VS Marketplace"/></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=venkateshellur.venel-filemanager"><img src="https://img.shields.io/visual-studio-marketplace/v/venkateshellur.venel-filemanager?style=flat-square&color=6c5ce7&label=VS%20Marketplace" alt="VS Marketplace"/></a>
   <a href="https://open-vsx.org/extension/venel/venel-filemanager"><img src="https://img.shields.io/open-vsx/v/venel/venel-filemanager?style=flat-square&color=2ecc71&label=Open%20VSX" alt="Open VSX"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"/></a>
 </p>
