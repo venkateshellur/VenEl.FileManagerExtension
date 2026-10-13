@@ -158,6 +158,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     <button class="btn-primary" onclick="openTab()">
         <span>🚀 Open in Editor Tab</span>
     </button>
+    <div style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 6px; text-align: center; line-height: 1.4; opacity: 0.85;">
+        💡 <em>First launch warms up the Kestrel engine (~3–5s); subsequent opens are instant.</em>
+    </div>
 
     <div class="status-card">
         <div class="status-row">

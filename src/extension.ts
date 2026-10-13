@@ -49,7 +49,7 @@ export async function activate(context: vscode.ExtensionContext) {
         statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
         statusBarItem.command = 'venel.filemanager.open';
         statusBarItem.text = '$(folder) VenEl Files';
-        statusBarItem.tooltip = 'Click to open VenEl File Manager';
+        statusBarItem.tooltip = 'Click to open VenEl File Manager (First launch initializes engine; subsequent launches are instant)';
         statusBarItem.show();
         context.subscriptions.push(statusBarItem);
     }
