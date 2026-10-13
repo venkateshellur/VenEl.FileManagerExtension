@@ -163,50 +163,57 @@
             width: 280px;
         }
 
-        /* Dropdown */
+        /* Dropdown - Solid, Opaque & High Contrast */
         .path-dropdown {
             position: absolute;
             top: calc(100% + 6px);
             left: 0;
             right: 0;
-            background: #18181c;
-            border: 1px solid var(--border-color);
+            background-color: #1a1a22 !important;
+            background: #1a1a22 !important;
+            opacity: 1 !important;
+            border: 1px solid rgba(255, 255, 255, 0.18) !important;
             border-radius: 8px;
-            box-shadow: 0 14px 35px rgba(0, 0, 0, 0.7);
+            box-shadow: 0 18px 45px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
             max-height: 380px;
             overflow-y: auto;
-            z-index: 1000;
+            z-index: 9999 !important;
             display: flex;
             flex-direction: column;
             padding: 6px 0;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
         }
         .dropdown-section-title {
             font-size: 10px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.8px;
-            color: var(--text-muted);
+            color: #9c9cb2 !important;
+            background-color: #141418 !important;
             padding: 8px 14px 4px;
         }
         .dropdown-item {
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 7px 14px;
+            padding: 8px 14px;
             cursor: pointer;
             font-size: 13px;
-            color: var(--text-main);
-            transition: background 0.15s;
+            color: #f1f2f6 !important;
+            background-color: #1a1a22 !important;
+            transition: background 0.15s, color 0.15s;
         }
         .dropdown-item:hover {
-            background: var(--hover-bg);
+            background-color: rgba(108, 92, 231, 0.35) !important;
+            color: #ffffff !important;
         }
         .dropdown-item i {
             font-style: normal;
             font-size: 16px;
         }
         .dropdown-item .item-sub {
-            color: var(--text-muted);
+            color: #8c8c9e !important;
             font-size: 11px;
             margin-left: auto;
             max-width: 50%;
@@ -216,8 +223,8 @@
         }
         .dropdown-divider {
             height: 1px;
-            background: var(--border-color);
-            margin: 6px 0;
+            background: rgba(255, 255, 255, 0.1) !important;
+            margin: 4px 0;
         }
 
         /* Main Content Layout */
@@ -586,6 +593,7 @@
     <div class="status-bar">
         <span id="status-items-count">0 items</span>
         <span id="status-selected-info">No selection</span>
+        <span style="margin-left: auto; opacity: 0.7; font-size: 11px;">VenEl File Manager &bull; Venkatesh Ellur</span>
     </div>
 
     <!-- Right Click Context Menu -->

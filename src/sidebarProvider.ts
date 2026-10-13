@@ -185,6 +185,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         <li>⚡ Zero configuration — works immediately</li>
     </ul>
 
+    <div style="margin-top: auto; padding-top: 14px; border-top: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.08)); font-size: 11px; color: var(--vscode-descriptionForeground); text-align: center;">
+        Developer: <strong style="color: var(--vscode-foreground);">Venkatesh Ellur</strong>
+    </div>
+
     <script>
         const vscode = acquireVsCodeApi();
         function openTab() {
