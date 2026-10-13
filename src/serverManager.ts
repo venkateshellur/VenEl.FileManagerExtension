@@ -16,6 +16,11 @@ export class ServerManager {
             }
         }
 
+        // If our built-in local engine is already active, return immediately with 0ms latency!
+        if (LocalServer.serverUrl) {
+            return LocalServer.serverUrl;
+        }
+
         // Otherwise, check if localhost:5050 is active and responding to /api/files/roots with 200 OK
         const local5050Health = await this.pingUrl('http://localhost:5050');
         if (local5050Health.online) {

@@ -167,10 +167,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                 <strong>Ready & Online</strong>
             </span>
         </div>
-        <div class="status-row" style="color: var(--vscode-descriptionForeground); font-size: 11px;">
-            <span>Endpoint:</span>
-            <span>${health.url}</span>
-        </div>
+
     </div>
 
     <button class="btn-secondary" onclick="checkHealth()">
