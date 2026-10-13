@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { ServerManager } from './serverManager';
+import { LocalServer } from './localServer';
 
 export class FileManagerPanel {
     public static currentPanel: FileManagerPanel | undefined;
@@ -7,14 +8,14 @@ export class FileManagerPanel {
     private readonly _extensionUri: vscode.Uri;
     private _disposables: vscode.Disposable[] = [];
 
-    public static createOrShow(extensionUri: vscode.Uri) {
+    public static async createOrShow(extensionUri: vscode.Uri) {
         const column = vscode.window.activeTextEditor
             ? vscode.window.activeTextEditor.viewColumn
             : undefined;
 
         if (FileManagerPanel.currentPanel) {
             FileManagerPanel.currentPanel._panel.reveal(column);
-            FileManagerPanel.currentPanel.refresh();
+            await FileManagerPanel.currentPanel.refresh();
             return;
         }
 
@@ -48,11 +49,16 @@ export class FileManagerPanel {
         this._panel.webview.onDidReceiveMessage(
             async (message) => {
                 if (message.command === 'retry') {
-                    this.refresh();
-                } else if (message.command === 'updateServerUrl') {
-                    const config = vscode.workspace.getConfiguration('venel.filemanager');
-                    await config.update('serverUrl', message.url, vscode.ConfigurationTarget.Global);
-                    this.refresh();
+                    await this.refresh();
+                } else if (message.command === 'openFile') {
+                    if (message.path) {
+                        try {
+                            const doc = await vscode.workspace.openTextDocument(message.path);
+                            await vscode.window.showTextDocument(doc, { preview: false });
+                        } catch (e: any) {
+                            vscode.window.showErrorMessage(`Could not open file: ${e.message}`);
+                        }
+                    }
                 }
             },
             null,
@@ -61,191 +67,8 @@ export class FileManagerPanel {
     }
 
     public async refresh() {
-        const serverUrl = ServerManager.getServerUrl();
-        const health = await ServerManager.checkHealth();
-        const logoUri = this._panel.webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'logo.png'));
-        this._panel.webview.html = this._getHtmlForWebview(serverUrl, health.online, health.message, logoUri.toString());
-    }
-
-    private _getHtmlForWebview(serverUrl: string, online: boolean, statusMsg: string, logoUrl: string): string {
-        if (!online) {
-            return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VenEl File Manager</title>
-    <style>
-        body {
-            font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif);
-            background-color: var(--vscode-editor-background);
-            color: var(--vscode-editor-foreground);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 24px;
-            box-sizing: border-box;
-        }
-        .card {
-            background-color: var(--vscode-sideBar-background);
-            border: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.1));
-            border-radius: 14px;
-            padding: 36px 40px;
-            max-width: 540px;
-            text-align: center;
-            box-shadow: 0 12px 35px rgba(0,0,0,0.35);
-        }
-        .logo-img {
-            width: 72px;
-            height: 72px;
-            border-radius: 16px;
-            margin-bottom: 16px;
-            box-shadow: 0 8px 24px rgba(0, 206, 209, 0.25);
-        }
-        h2 {
-            margin: 0 0 10px 0;
-            font-size: 20px;
-            color: var(--vscode-editor-foreground);
-        }
-        p {
-            color: var(--vscode-descriptionForeground);
-            font-size: 13px;
-            line-height: 1.6;
-            margin: 0 0 16px 0;
-        }
-        .badge {
-            display: inline-block;
-            background: rgba(235, 87, 87, 0.15);
-            color: #eb5757;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 14px;
-        }
-        .code-block {
-            background: rgba(0, 0, 0, 0.25);
-            border: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.1));
-            padding: 10px 14px;
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 12px;
-            text-align: left;
-            margin: 12px 0;
-            color: #74b9ff;
-        }
-        .url-box {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.1));
-            border-radius: 8px;
-            padding: 14px;
-            margin: 16px 0;
-            text-align: left;
-        }
-        .url-box label {
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--vscode-descriptionForeground);
-            display: block;
-            margin-bottom: 8px;
-        }
-        .url-row {
-            display: flex;
-            gap: 8px;
-        }
-        input[type="text"] {
-            flex: 1;
-            background: var(--vscode-input-background, #1e1e1e);
-            color: var(--vscode-input-foreground, #fff);
-            border: 1px solid var(--vscode-input-border, rgba(255,255,255,0.2));
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 13px;
-            outline: none;
-        }
-        input[type="text"]:focus {
-            border-color: var(--vscode-focusBorder, #007acc);
-        }
-        button {
-            background-color: var(--vscode-button-background);
-            color: var(--vscode-button-foreground);
-            border: none;
-            border-radius: 6px;
-            padding: 9px 18px;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.15s ease;
-        }
-        button:hover {
-            background-color: var(--vscode-button-hoverBackground);
-        }
-        .btn-secondary {
-            background: transparent;
-            color: var(--vscode-descriptionForeground);
-            border: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.15));
-            padding: 8px 16px;
-            font-size: 12px;
-            margin-top: 10px;
-        }
-        .btn-secondary:hover {
-            background-color: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.05));
-            color: var(--vscode-foreground);
-        }
-        .hint {
-            font-size: 11px;
-            color: var(--vscode-descriptionForeground);
-            margin-top: 8px;
-            line-height: 1.4;
-        }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <img class="logo-img" src="${logoUrl}" alt="VenEl File Manager" />
-        <div><span class="badge">Engine Offline</span></div>
-        <h2>Cannot Connect to VenEl Engine</h2>
-        <p>The File Manager requires the local VenEl MCP engine running on <strong>${serverUrl}</strong>.</p>
-        
-        <div class="url-box">
-            <label for="serverUrlInput">Engine Server URL / Host IP</label>
-            <div class="url-row">
-                <input id="serverUrlInput" type="text" value="${serverUrl}" placeholder="http://localhost:5050 or http://192.168.1.174:5050" />
-                <button onclick="saveAndConnect()">Connect</button>
-            </div>
-            <div class="hint">
-                💡 Tip: If VS Code is on a VM, Remote Desktop, or Windows machine, point this to your host LAN IP: <code>http://192.168.1.174:5050</code>.
-            </div>
-        </div>
-
-        <p style="font-size: 12px; margin-bottom: 4px;">To start the local engine from repository source:</p>
-        <div class="code-block">
-            dotnet run --project src/VenEl.MCP.Server
-        </div>
-        <p style="font-size: 11px; color: #e74c3c;">${statusMsg}</p>
-        <button class="btn-secondary" onclick="retry()">🔄 Retry Connection</button>
-    </div>
-    <script>
-        const vscode = acquireVsCodeApi();
-        function retry() {
-            vscode.postMessage({ command: 'retry' });
-        }
-        function saveAndConnect() {
-            const input = document.getElementById('serverUrlInput');
-            if (input && input.value) {
-                vscode.postMessage({ command: 'updateServerUrl', url: input.value.trim() });
-            }
-        }
-    </script>
-</body>
-</html>`;
-        }
-
-        return `<!DOCTYPE html>
+        const serverUrl = await ServerManager.getServerUrl();
+        this._panel.webview.html = `<!DOCTYPE html>
 <html lang="en" style="height: 100%; margin: 0; padding: 0;">
 <head>
     <meta charset="UTF-8">

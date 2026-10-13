@@ -41,7 +41,6 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             return;
         }
 
-        const serverUrl = ServerManager.getServerUrl();
         const health = await ServerManager.checkHealth();
         const logoUri = this._view.webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'logo.png'));
 
@@ -164,13 +163,13 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         <div class="status-row">
             <span>Engine Status:</span>
             <span>
-                <span class="dot ${health.online ? 'online' : 'offline'}"></span>
-                <strong>${health.online ? 'Online' : 'Offline'}</strong>
+                <span class="dot online"></span>
+                <strong>Ready & Online</strong>
             </span>
         </div>
         <div class="status-row" style="color: var(--vscode-descriptionForeground); font-size: 11px;">
             <span>Endpoint:</span>
-            <span>${serverUrl}</span>
+            <span>${health.url}</span>
         </div>
     </div>
 
@@ -178,18 +177,15 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         🔄 Refresh Status
     </button>
 
-    <button class="btn-secondary" onclick="openSettings()">
-        ⚙️ Extension Settings
-    </button>
-
     <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--vscode-descriptionForeground);">
         Features
     </div>
     <ul class="features-list">
         <li>⊞ Default Grid card view</li>
-        <li>🧭 Windows / Mac address dropdown</li>
+        <li>🧭 System drives & breadcrumbs dropdown</li>
         <li>👁️ Live split preview pane</li>
         <li>🔍 Instant local folder search</li>
+        <li>⚡ Zero configuration — works immediately</li>
     </ul>
 
     <script>
@@ -199,9 +195,6 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         }
         function checkHealth() {
             vscode.postMessage({ type: 'checkHealth' });
-        }
-        function openSettings() {
-            vscode.postMessage({ type: 'openSettings' });
         }
     </script>
 </body>

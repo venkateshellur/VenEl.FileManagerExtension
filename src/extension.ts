@@ -2,11 +2,19 @@ import * as vscode from 'vscode';
 import { FileManagerPanel } from './fileManagerPanel';
 import { SidebarProvider } from './sidebarProvider';
 import { ServerManager } from './serverManager';
+import { LocalServer } from './localServer';
 
 let statusBarItem: vscode.StatusBarItem;
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
     console.log('VenEl File Manager extension activating...');
+
+    // Automatically ensure built-in local engine is active on install!
+    try {
+        await LocalServer.ensureRunning();
+    } catch (e) {
+        console.error('Failed to pre-start local engine:', e);
+    }
 
     // 1. Register Sidebar Webview View Provider in Activity Bar
     const sidebarProvider = new SidebarProvider(context.extensionUri);
