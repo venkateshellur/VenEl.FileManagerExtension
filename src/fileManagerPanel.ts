@@ -63,10 +63,11 @@ export class FileManagerPanel {
     public async refresh() {
         const serverUrl = ServerManager.getServerUrl();
         const health = await ServerManager.checkHealth();
-        this._panel.webview.html = this._getHtmlForWebview(serverUrl, health.online, health.message);
+        const logoUri = this._panel.webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'logo.png'));
+        this._panel.webview.html = this._getHtmlForWebview(serverUrl, health.online, health.message, logoUri.toString());
     }
 
-    private _getHtmlForWebview(serverUrl: string, online: boolean, statusMsg: string): string {
+    private _getHtmlForWebview(serverUrl: string, online: boolean, statusMsg: string, logoUrl: string): string {
         if (!online) {
             return `<!DOCTYPE html>
 <html lang="en">
@@ -96,9 +97,12 @@ export class FileManagerPanel {
             text-align: center;
             box-shadow: 0 12px 35px rgba(0,0,0,0.35);
         }
-        .icon {
-            font-size: 48px;
-            margin-bottom: 14px;
+        .logo-img {
+            width: 72px;
+            height: 72px;
+            border-radius: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 8px 24px rgba(0, 206, 209, 0.25);
         }
         h2 {
             margin: 0 0 10px 0;
@@ -202,8 +206,8 @@ export class FileManagerPanel {
 </head>
 <body>
     <div class="card">
-        <div class="icon">🔌</div>
-        <div class="badge">Engine Offline</div>
+        <img class="logo-img" src="${logoUrl}" alt="VenEl File Manager" />
+        <div><span class="badge">Engine Offline</span></div>
         <h2>Cannot Connect to VenEl Engine</h2>
         <p>The File Manager requires the local VenEl MCP engine running on <strong>${serverUrl}</strong>.</p>
         
@@ -214,11 +218,11 @@ export class FileManagerPanel {
                 <button onclick="saveAndConnect()">Connect</button>
             </div>
             <div class="hint">
-                💡 If VS Code is on a VM, Remote Desktop, or another machine on the LAN, enter your host IP (e.g. <code>http://192.168.1.174:5050</code>).
+                💡 Tip: If VS Code is on a VM, Remote Desktop, or Windows machine, point this to your host LAN IP: <code>http://192.168.1.174:5050</code>.
             </div>
         </div>
 
-        <p style="font-size: 12px; margin-bottom: 4px;">To run the local engine from repository source:</p>
+        <p style="font-size: 12px; margin-bottom: 4px;">To start the local engine from repository source:</p>
         <div class="code-block">
             dotnet run --project src/VenEl.MCP.Server
         </div>

@@ -43,6 +43,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
         const serverUrl = ServerManager.getServerUrl();
         const health = await ServerManager.checkHealth();
+        const logoUri = this._view.webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'logo.png'));
 
         this._view.webview.html = `<!DOCTYPE html>
 <html lang="en">
@@ -65,8 +66,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             align-items: center;
             gap: 10px;
         }
-        .header-icon {
-            font-size: 24px;
+        .header-logo {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 206, 209, 0.3);
         }
         .title {
             font-size: 14px;
@@ -145,7 +149,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 </head>
 <body>
     <div class="header">
-        <div class="header-icon">📁</div>
+        <img class="header-logo" src="${logoUri}" alt="VenEl File Manager" />
         <div>
             <div class="title">VenEl File Manager</div>
             <div style="font-size: 11px; color: var(--vscode-descriptionForeground);">Visual MCP Explorer</div>
