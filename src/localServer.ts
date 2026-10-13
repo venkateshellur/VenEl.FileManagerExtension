@@ -39,6 +39,21 @@ export class LocalServer {
         });
     }
 
+    private static parseJsonBody(req: http.IncomingMessage): Promise<any> {
+        return new Promise((resolve) => {
+            let data = '';
+            req.on('data', chunk => { data += chunk; });
+            req.on('end', () => {
+                try {
+                    resolve(data ? JSON.parse(data) : {});
+                } catch {
+                    resolve({});
+                }
+            });
+            req.on('error', () => resolve({}));
+        });
+    }
+
     private static startServer(port: number): Promise<void> {
         return new Promise((resolve, reject) => {
             const server = http.createServer(async (req, res) => {
@@ -91,16 +106,18 @@ export class LocalServer {
                             if (entry.name.startsWith('.')) continue;
                             const isDir = entry.isDirectory();
                             let size = 0;
-                            if (!isDir) {
-                                try {
-                                    const stat = await fs.promises.stat(path.join(targetPath, entry.name));
-                                    size = stat.size;
-                                } catch {}
-                            }
+                            let modified = '';
+                            try {
+                                const stat = await fs.promises.stat(path.join(targetPath, entry.name));
+                                size = isDir ? 0 : stat.size;
+                                modified = stat.mtime.toISOString();
+                            } catch {}
+
                             items.push({
                                 name: entry.name,
                                 type: isDir ? 'Directory' : 'File',
-                                size: size
+                                size: size,
+                                modified: modified
                             });
                         }
 
@@ -158,6 +175,143 @@ export class LocalServer {
                         }
                         res.writeHead(200, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({ ok: true }));
+                        return;
+                    }
+
+                    // ══════════════════════════════════════════════════════════
+                    // 🚀 CRUD FILE SYSTEM ENDPOINTS
+                    // ══════════════════════════════════════════════════════════
+
+                    // 7. Create New Folder
+                    if (pathname === '/api/files/newFolder' && req.method === 'POST') {
+                        const body = await LocalServer.parseJsonBody(req);
+                        const { currentPath, folderName } = body;
+                        if (!currentPath || !folderName) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'currentPath and folderName are required' }));
+                            return;
+                        }
+                        const targetDir = path.join(currentPath, folderName);
+                        await fs.promises.mkdir(targetDir, { recursive: true });
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ success: true, path: targetDir }));
+                        return;
+                    }
+
+                    // 8. Create New File
+                    if (pathname === '/api/files/newFile' && req.method === 'POST') {
+                        const body = await LocalServer.parseJsonBody(req);
+                        const { currentPath, fileName, content } = body;
+                        if (!currentPath || !fileName) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'currentPath and fileName are required' }));
+                            return;
+                        }
+                        const targetFile = path.join(currentPath, fileName);
+                        await fs.promises.writeFile(targetFile, content || '', 'utf8');
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ success: true, path: targetFile }));
+                        return;
+                    }
+
+                    // 9. Rename File or Folder
+                    if (pathname === '/api/files/rename' && req.method === 'POST') {
+                        const body = await LocalServer.parseJsonBody(req);
+                        const { oldPath, newName } = body;
+                        if (!oldPath || !newName) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'oldPath and newName are required' }));
+                            return;
+                        }
+                        const parentDir = path.dirname(oldPath);
+                        const newPath = path.join(parentDir, newName);
+                        await fs.promises.rename(oldPath, newPath);
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ success: true, path: newPath }));
+                        return;
+                    }
+
+                    // 10. Delete File or Folder
+                    if (pathname === '/api/files/delete' && req.method === 'POST') {
+                        const body = await LocalServer.parseJsonBody(req);
+                        const { targetPath } = body;
+                        if (!targetPath || !fs.existsSync(targetPath)) {
+                            res.writeHead(404, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Path not found' }));
+                            return;
+                        }
+                        const stat = await fs.promises.stat(targetPath);
+                        if (stat.isDirectory()) {
+                            await fs.promises.rm(targetPath, { recursive: true, force: true });
+                        } else {
+                            await fs.promises.unlink(targetPath);
+                        }
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ success: true }));
+                        return;
+                    }
+
+                    // 11. Copy File or Folder
+                    if (pathname === '/api/files/copy' && req.method === 'POST') {
+                        const body = await LocalServer.parseJsonBody(req);
+                        const { source, destinationDir } = body;
+                        if (!source || !destinationDir || !fs.existsSync(source)) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Valid source and destinationDir are required' }));
+                            return;
+                        }
+                        const baseName = path.basename(source);
+                        let destPath = path.join(destinationDir, baseName);
+                        
+                        // If copying into same directory, add " - Copy"
+                        if (fs.existsSync(destPath) && path.dirname(source) === destinationDir) {
+                            const ext = path.extname(baseName);
+                            const nameWithoutExt = path.basename(baseName, ext);
+                            destPath = path.join(destinationDir, `${nameWithoutExt} - Copy${ext}`);
+                        }
+
+                        await fs.promises.cp(source, destPath, { recursive: true });
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ success: true, path: destPath }));
+                        return;
+                    }
+
+                    // 12. Move / Cut File or Folder
+                    if (pathname === '/api/files/move' && req.method === 'POST') {
+                        const body = await LocalServer.parseJsonBody(req);
+                        const { source, destinationDir } = body;
+                        if (!source || !destinationDir || !fs.existsSync(source)) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Valid source and destinationDir are required' }));
+                            return;
+                        }
+                        const baseName = path.basename(source);
+                        const destPath = path.join(destinationDir, baseName);
+                        await fs.promises.rename(source, destPath);
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ success: true, path: destPath }));
+                        return;
+                    }
+
+                    // 13. File Properties / Details
+                    if (pathname === '/api/files/details') {
+                        const targetPath = reqUrl.searchParams.get('path');
+                        if (!targetPath || !fs.existsSync(targetPath)) {
+                            res.writeHead(404, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Path not found' }));
+                            return;
+                        }
+                        const stat = await fs.promises.stat(targetPath);
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({
+                            name: path.basename(targetPath),
+                            path: targetPath,
+                            isDirectory: stat.isDirectory(),
+                            size: stat.size,
+                            created: stat.birthtime.toISOString(),
+                            modified: stat.mtime.toISOString(),
+                            accessed: stat.atime.toISOString()
+                        }));
                         return;
                     }
 
