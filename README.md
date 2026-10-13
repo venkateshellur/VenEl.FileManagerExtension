@@ -85,6 +85,18 @@ Works seamlessly on:
 
 ---
 
+## 📬 Contact & Connect
+
+Developed with ❤️ by **Venkatesh Ellur**.
+
+* 💼 **LinkedIn:** [linkedin.com/in/venkateshellur](https://www.linkedin.com/in/venkateshellur/)
+* 🐙 **GitHub:** [@venkateshellur](https://github.com/venkateshellur)
+* 💡 **Issues & Feedback:** [GitHub Issues](https://github.com/venkateshellur/VenEl.FileManagerPlugin/issues)
+
+Feel free to connect on LinkedIn for collaborations, questions, or feedback!
+
+---
+
 ## 📄 License
 
-MIT © [Venkatesh Ellur](https://github.com/venkateshellur)
+MIT © [Venkatesh Ellur](https://www.linkedin.com/in/venkateshellur/)

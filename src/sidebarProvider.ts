@@ -188,8 +188,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         <li>⚡ Zero configuration — works immediately</li>
     </ul>
 
-    <div style="margin-top: auto; padding-top: 14px; border-top: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.08)); font-size: 11px; color: var(--vscode-descriptionForeground); text-align: center;">
-        Developer: <strong style="color: var(--vscode-foreground);">Venkatesh Ellur</strong>
+    <div style="margin-top: auto; padding-top: 14px; border-top: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.08)); font-size: 11px; color: var(--vscode-descriptionForeground); text-align: center; line-height: 1.6;">
+        Developer: <strong style="color: var(--vscode-foreground);">Venkatesh Ellur</strong><br/>
+        <a href="https://www.linkedin.com/in/venkateshellur/" style="color: var(--vscode-textLink-foreground, #3794ff); text-decoration: none; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; margin-top: 4px;">
+            <span>🔗 Connect on LinkedIn</span>
+        </a>
     </div>
 
     <script>
