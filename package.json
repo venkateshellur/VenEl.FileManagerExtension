@@ -2,7 +2,7 @@
   "name": "venel-filemanager",
   "displayName": "VenEl File Manager",
   "description": "Modern interactive File Explorer for VS Code & Cursor with Grid View, Instant Previews & Native Drive Navigation.",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "publisher": "venkateshellur",
   "author": {
     "name": "Venkatesh Ellur",
@@ -11,12 +11,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/venkateshellur/VenEl.FileManagerPlugin.git"
+    "url": "https://github.com/venkateshellur/VenEl.FileManagerExtension.git"
   },
   "bugs": {
-    "url": "https://github.com/venkateshellur/VenEl.FileManagerPlugin/issues"
+    "url": "https://github.com/venkateshellur/VenEl.FileManagerExtension/issues"
   },
-  "homepage": "https://github.com/venkateshellur/VenEl.FileManagerPlugin#readme",
+  "homepage": "https://github.com/venkateshellur/VenEl.FileManagerExtension#readme",
   "icon": "media/logo.png",
   "categories": [
     "Visualization",
@@ -96,12 +96,12 @@
         "venel.filemanager.autoStartKestrel": {
           "type": "boolean",
           "default": true,
-          "description": "Automatically detect and spin up the .NET Kestrel server in the background if dotnet is available."
+          "description": "Automatically detect and spin up the backend file engine in the background."
         },
         "venel.filemanager.kestrelServerPath": {
           "type": "string",
           "default": "",
-          "description": "Optional custom path to the VenEl.MCP.Server binary or project."
+          "description": "Optional custom path to the backend server binary or project."
         },
         "venel.filemanager.directOpenEditor": {
           "type": "boolean",

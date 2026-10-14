@@ -22,7 +22,7 @@ Standard IDE file trees are built for project codebases, but they are clunky and
 
 **VenEl File Manager** embeds a full-featured, OS-grade file manager directly inside your editor:
 
-* ⚡ **Zero-Touch Background Setup**: Spins up behind the scenes immediately upon extension install. Auto-detects and launches the .NET Kestrel server in the background (or uses embedded Node engine) so clicking the icon is instantaneous with 0ms delay.
+* ⚡ **Zero-Touch Background Setup**: Spins up behind the scenes immediately upon extension install. Auto-detects and launches the high-performance local engine in the background (or uses embedded fallback engine) so clicking the icon is instantaneous with 0ms delay.
 * ⊞ **Multi-View Engine**: Browse in **Details**, **List**, **Grid / Medium Icons**, **Large Icons**, or **Small Icons (Compact)**.
 * 🤖 **Machine-Level Agent Search**: Blazingly fast system-wide search powered by macOS Spotlight (`mdfind`) and Windows search index with 1-click jump to containing folders.
 * ↔️ **Draggable Resizable Splitters**: Adjust your Quick Access sidebar and Live Preview pane widths smoothly with mouse drag, double-click reset, and persistent memory.
@@ -95,7 +95,7 @@ Developed with ❤️ by **Venkatesh Ellur**.
 
 * 💼 **LinkedIn:** [linkedin.com/in/venkateshellur](https://www.linkedin.com/in/venkateshellur/)
 * 🐙 **GitHub:** [@venkateshellur](https://github.com/venkateshellur)
-* 💡 **Issues & Feedback:** [GitHub Issues](https://github.com/venkateshellur/VenEl.FileManagerPlugin/issues)
+* 💡 **Issues & Feedback:** [GitHub Issues](https://github.com/venkateshellur/VenEl.FileManagerExtension/issues)
 
 Feel free to connect on LinkedIn for collaborations, questions, or feedback!
 

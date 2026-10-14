@@ -154,8 +154,8 @@ export class FileManagerPanel {
     <div id="loading-overlay">
         <div class="spinner"></div>
         <div class="loading-title">Starting VenEl Engine...</div>
-        <div class="loading-hint">First launch takes a few seconds while ASP.NET Core Kestrel warms up routes and scans system drives. Subsequent launches and folder navigations are instant!</div>
-        <div class="loading-badge">⚡ Warm-up in progress</div>
+        <div class="loading-hint">First launch takes a few moments while the engine initializes routes and scans system drives. Subsequent launches and folder navigations are instant!</div>
+        <div class="loading-badge">⚡ Initialization in progress</div>
     </div>
     ${serverUrl !== 'about:blank' ? `<iframe id="engine-frame" src="${serverUrl}" onload="onFrameLoad()"></iframe>` : ''}
     <script>

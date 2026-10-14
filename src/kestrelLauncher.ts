@@ -51,7 +51,7 @@ export class KestrelLauncher {
                 return undefined;
             }
 
-            this.log(`Auto-starting Kestrel server in background: ${dotnetPath} "${serverDll}"`);
+            this.log(`Auto-starting backend engine in background: ${dotnetPath} "${serverDll}"`);
 
             const proc = child_process.spawn(dotnetPath, [serverDll], {
                 cwd: path.dirname(serverDll),
@@ -66,38 +66,38 @@ export class KestrelLauncher {
 
             proc.stdout?.on('data', (chunk) => {
                 const text = chunk.toString();
-                this.log(`[Kestrel STDOUT] ${text.trimEnd()}`);
+                this.log(`[Engine STDOUT] ${text.trimEnd()}`);
             });
 
             proc.stderr?.on('data', (chunk) => {
                 const text = chunk.toString();
-                this.log(`[Kestrel STDERR] ${text.trimEnd()}`);
+                this.log(`[Engine STDERR] ${text.trimEnd()}`);
             });
 
             proc.on('error', (err) => {
-                this.log(`[Kestrel Error] ${err.message}`);
+                this.log(`[Engine Error] ${err.message}`);
                 this._process = undefined;
             });
 
             proc.on('exit', (code, signal) => {
-                this.log(`[Kestrel Exited] code=${code}, signal=${signal}`);
+                this.log(`[Engine Exited] code=${code}, signal=${signal}`);
                 this._process = undefined;
             });
 
-            // Poll for up to 3500ms until Kestrel responds to /api/files/roots
+            // Poll for up to 3500ms until backend responds to /api/files/roots
             const startTime = Date.now();
             while (Date.now() - startTime < 3500) {
                 await new Promise((r) => setTimeout(r, 150));
                 if (await this.pingKestrel()) {
-                    this.log('Kestrel server is successfully online and ready on http://localhost:5050');
+                    this.log('Backend engine is successfully online and ready on http://localhost:5050');
                     return 'http://localhost:5050';
                 }
             }
 
-            this.log('Kestrel server did not respond within timeout, falling back.');
+            this.log('Backend engine did not respond within timeout, falling back.');
             return undefined;
         } catch (e: any) {
-            this.log(`Failed to start Kestrel server: ${e?.message || e}`);
+            this.log(`Failed to start backend engine: ${e?.message || e}`);
             return undefined;
         } finally {
             this._isStarting = false;
@@ -106,7 +106,7 @@ export class KestrelLauncher {
 
     public static stop() {
         if (this._process && !this._process.killed) {
-            this.log('Stopping background Kestrel server...');
+            this.log('Stopping background engine...');
             try {
                 this._process.kill('SIGTERM');
             } catch {}
@@ -194,9 +194,9 @@ export class KestrelLauncher {
 
     private static log(msg: string) {
         if (!this._outputChannel) {
-            this._outputChannel = vscode.window.createOutputChannel('VenEl Kestrel Server');
+            this._outputChannel = vscode.window.createOutputChannel('VenEl Engine');
         }
         this._outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] ${msg}`);
-        console.log(`[VenEl Kestrel] ${msg}`);
+        console.log(`[VenEl Engine] ${msg}`);
     }
 }

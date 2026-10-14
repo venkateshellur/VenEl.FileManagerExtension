@@ -253,7 +253,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                 LinkedIn
             </a>
             <span>•</span>
-            <a href="https://github.com/venkateshellur/VenEl.FileManagerPlugin" style="color: var(--vscode-textLink-foreground); text-decoration: none;">GitHub</a>
+            <a href="https://github.com/venkateshellur/VenEl.FileManagerExtension" style="color: var(--vscode-textLink-foreground); text-decoration: none;">GitHub</a>
         </div>
     </div>
 
