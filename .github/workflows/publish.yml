@@ -34,10 +34,12 @@ jobs:
 
       - name: Publish to Visual Studio Marketplace
         if: env.VS_MARKETPLACE_TOKEN != ''
+        continue-on-error: true
         run: npx @vscode/vsce publish -p ${{ secrets.VS_MARKETPLACE_TOKEN }}
 
       - name: Publish to Open VSX Registry
         if: env.OPEN_VSX_TOKEN != ''
+        continue-on-error: true
         run: npx ovsx publish -p ${{ secrets.OPEN_VSX_TOKEN }}
 
       - name: Upload VSIX Asset to GitHub Release
