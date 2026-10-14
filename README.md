@@ -22,6 +22,7 @@ Standard IDE file trees are built for project codebases, but they are clunky and
 
 **VenEl File Manager** embeds a full-featured, OS-grade file manager directly inside your editor:
 
+* ⚡ **Zero-Touch Background Setup**: Spins up behind the scenes immediately upon extension install. Auto-detects and launches the .NET Kestrel server in the background (or uses embedded Node engine) so clicking the icon is instantaneous with 0ms delay.
 * ⊞ **Multi-View Engine**: Browse in **Details**, **List**, **Grid / Medium Icons**, **Large Icons**, or **Small Icons (Compact)**.
 * 🤖 **Machine-Level Agent Search**: Blazingly fast system-wide search powered by macOS Spotlight (`mdfind`) and Windows search index with 1-click jump to containing folders.
 * ↔️ **Draggable Resizable Splitters**: Adjust your Quick Access sidebar and Live Preview pane widths smoothly with mouse drag, double-click reset, and persistent memory.

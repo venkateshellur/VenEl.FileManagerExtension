@@ -67,8 +67,6 @@ export class FileManagerPanel {
     }
 
     public async refresh() {
-        // Render immediate warm-up view while engine address resolves
-        this._panel.webview.html = this.getFrameHtml('about:blank');
         const serverUrl = await ServerManager.getServerUrl();
         this._panel.webview.html = this.getFrameHtml(serverUrl);
     }

@@ -2,33 +2,39 @@ import * as http from 'http';
 import * as https from 'https';
 import * as vscode from 'vscode';
 import { LocalServer } from './localServer';
+import { KestrelLauncher } from './kestrelLauncher';
 
 export class ServerManager {
+    private static _activeServerUrl: string | undefined;
+
     public static async getServerUrl(): Promise<string> {
+        if (this._activeServerUrl) {
+            return this._activeServerUrl;
+        }
+
         const config = vscode.workspace.getConfiguration('venel.filemanager');
         const configuredUrl = config.get<string>('serverUrl', '').replace(/\/+$/, '');
 
-        // If the user explicitly provided a custom remote IP/URL, test it
+        // 1. If user explicitly provided a custom remote IP/URL, test it
         if (configuredUrl && configuredUrl !== 'http://localhost:5050') {
             const health = await this.pingUrl(configuredUrl);
             if (health.online) {
+                this._activeServerUrl = configuredUrl;
                 return configuredUrl;
             }
         }
 
-        // If our built-in local engine is already active, return immediately with 0ms latency!
-        if (LocalServer.serverUrl) {
-            return LocalServer.serverUrl;
+        // 2. Check if .NET Kestrel on localhost:5050 is already alive, or try to auto-start it
+        const kestrelUrl = await KestrelLauncher.ensureRunning();
+        if (kestrelUrl) {
+            this._activeServerUrl = kestrelUrl;
+            return kestrelUrl;
         }
 
-        // Otherwise, check if localhost:5050 is active and responding to /api/files/roots with 200 OK
-        const local5050Health = await this.pingUrl('http://localhost:5050');
-        if (local5050Health.online) {
-            return 'http://localhost:5050';
-        }
-
-        // If not running or returned 404, start and use our built-in engine!
-        return await LocalServer.ensureRunning();
+        // 3. Fallback to embedded Node engine (spins up in ~50ms with zero dependencies)
+        const nodeUrl = await LocalServer.ensureRunning();
+        this._activeServerUrl = nodeUrl;
+        return nodeUrl;
     }
 
     public static async checkHealth(): Promise<{ online: boolean; message: string; url: string }> {
@@ -41,12 +47,12 @@ export class ServerManager {
         };
     }
 
-    private static pingUrl(urlStr: string): Promise<{ online: boolean; message: string }> {
+    public static pingUrl(urlStr: string): Promise<{ online: boolean; message: string }> {
         return new Promise((resolve) => {
             try {
                 const url = new URL(urlStr + '/api/files/roots');
                 const client = url.protocol === 'https:' ? https : http;
-                const req = client.get(url, { timeout: 2500 }, (res) => {
+                const req = client.get(url, { timeout: 1000 }, (res) => {
                     res.resume();
                     if (res.statusCode && res.statusCode >= 200 && res.statusCode < 400) {
                         resolve({ online: true, message: `Connected to VenEl engine at ${urlStr}` });

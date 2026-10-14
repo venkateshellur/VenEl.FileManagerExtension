@@ -30,12 +30,12 @@ jobs:
         run: npm run compile
 
       - name: Package VSIX
-        run: npx @vscode/vsce package -o venel-filemanager.vsix
+        run: npx @vscode/vsce package --allow-star-activation -o venel-filemanager.vsix
 
       - name: Publish to Visual Studio Marketplace
         if: env.VS_MARKETPLACE_TOKEN != ''
         continue-on-error: true
-        run: npx @vscode/vsce publish -p ${{ secrets.VS_MARKETPLACE_TOKEN }}
+        run: npx @vscode/vsce publish --allow-star-activation -p ${{ secrets.VS_MARKETPLACE_TOKEN }}
 
       - name: Publish to Open VSX Registry
         if: env.OPEN_VSX_TOKEN != ''

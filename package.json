@@ -2,7 +2,7 @@
   "name": "venel-filemanager",
   "displayName": "VenEl File Manager",
   "description": "Modern interactive File Explorer for VS Code & Cursor with Grid View, Instant Previews & Native Drive Navigation.",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "publisher": "venkateshellur",
   "author": {
     "name": "Venkatesh Ellur",
@@ -36,7 +36,7 @@
   },
   "main": "./out/extension.js",
   "activationEvents": [
-    "onStartupFinished"
+    "*"
   ],
   "contributes": {
     "commands": [
@@ -92,6 +92,16 @@
           "type": "boolean",
           "default": true,
           "description": "Show a quick-access item in the status bar."
+        },
+        "venel.filemanager.autoStartKestrel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically detect and spin up the .NET Kestrel server in the background if dotnet is available."
+        },
+        "venel.filemanager.kestrelServerPath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional custom path to the VenEl.MCP.Server binary or project."
         }
       }
     }

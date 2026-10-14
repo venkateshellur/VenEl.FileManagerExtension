@@ -23,7 +23,8 @@ export class LocalServer {
         
         await this.startServer(port);
         this._serverUrl = `http://localhost:${port}`;
-        console.log(`[VenEl] Built-in local engine active at ${this._serverUrl}`);
+        try { this.getSystemRoots(); } catch {}
+        console.log(`[VenEl] Built-in local engine active and pre-warmed at ${this._serverUrl}`);
         return this._serverUrl;
     }
 

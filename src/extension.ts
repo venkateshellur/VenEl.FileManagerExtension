@@ -2,19 +2,23 @@ import * as vscode from 'vscode';
 import { FileManagerPanel } from './fileManagerPanel';
 import { SidebarProvider } from './sidebarProvider';
 import { ServerManager } from './serverManager';
-import { LocalServer } from './localServer';
+import { KestrelLauncher } from './kestrelLauncher';
 
 let statusBarItem: vscode.StatusBarItem;
 
 export async function activate(context: vscode.ExtensionContext) {
-    console.log('VenEl File Manager extension activating...');
+    console.log('[VenEl] Extension activated. Starting silent background setup...');
 
-    // Automatically ensure built-in local engine is active on install!
-    try {
-        await LocalServer.ensureRunning();
-    } catch (e) {
-        console.error('Failed to pre-start local engine:', e);
-    }
+    // 0. Eagerly start background engine & pre-warm drives with 0 user delay!
+    (async () => {
+        try {
+            const serverUrl = await ServerManager.getServerUrl();
+            console.log(`[VenEl] Engine warmed and ready in background: ${serverUrl}`);
+            await ServerManager.pingUrl(serverUrl);
+        } catch (e) {
+            console.error('[VenEl] Background setup error:', e);
+        }
+    })();
 
     // 1. Register Sidebar Webview View Provider in Activity Bar
     const sidebarProvider = new SidebarProvider(context.extensionUri);
@@ -49,16 +53,17 @@ export async function activate(context: vscode.ExtensionContext) {
         statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
         statusBarItem.command = 'venel.filemanager.open';
         statusBarItem.text = '$(folder) VenEl Files';
-        statusBarItem.tooltip = 'Click to open VenEl File Manager (First launch initializes engine; subsequent launches are instant)';
+        statusBarItem.tooltip = 'Click to open VenEl File Manager (Active in background)';
         statusBarItem.show();
         context.subscriptions.push(statusBarItem);
     }
 
-    console.log('VenEl File Manager extension active and ready.');
+    console.log('[VenEl] Extension active and background setup running.');
 }
 
 export function deactivate() {
     if (statusBarItem) {
         statusBarItem.dispose();
     }
+    KestrelLauncher.stop();
 }
