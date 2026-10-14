@@ -12,6 +12,9 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      VS_MARKETPLACE_TOKEN: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+      OPEN_VSX_TOKEN: ${{ secrets.OPEN_VSX_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -32,14 +35,10 @@ jobs:
       - name: Publish to Visual Studio Marketplace
         if: env.VS_MARKETPLACE_TOKEN != ''
         run: npx @vscode/vsce publish -p ${{ secrets.VS_MARKETPLACE_TOKEN }}
-        env:
-          VS_MARKETPLACE_TOKEN: ${{ secrets.VS_MARKETPLACE_TOKEN }}
 
       - name: Publish to Open VSX Registry
         if: env.OPEN_VSX_TOKEN != ''
         run: npx ovsx publish -p ${{ secrets.OPEN_VSX_TOKEN }}
-        env:
-          OPEN_VSX_TOKEN: ${{ secrets.OPEN_VSX_TOKEN }}
 
       - name: Upload VSIX Asset to GitHub Release
         uses: softprops/action-gh-release@v2

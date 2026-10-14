@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as vscode from 'vscode';
+import { exec } from 'child_process';
 
 export class LocalServer {
     private static _server: http.Server | undefined;
@@ -83,6 +84,35 @@ export class LocalServer {
                         const roots = LocalServer.getSystemRoots();
                         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
                         res.end(JSON.stringify(roots));
+                        return;
+                    }
+
+                                        // 2b. Agent Machine-Level Search (Spotlight on macOS / PowerShell on Windows)
+                    if (pathname === '/api/files/agentSearch') {
+                        const query = reqUrl.searchParams.get('query') || '';
+                        const scope = reqUrl.searchParams.get('scope') || 'machine';
+                        const currentPath = reqUrl.searchParams.get('currentPath') || os.homedir();
+                        const maxResults = Math.min(parseInt(reqUrl.searchParams.get('maxResults') || '80', 10), 150);
+
+                        if (!query.trim()) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Query is required' }));
+                            return;
+                        }
+
+                        const t0 = Date.now();
+                        const results = await LocalServer.performAgentSearch(query.trim(), scope, currentPath, maxResults);
+                        const executionTimeMs = Date.now() - t0;
+
+                        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                        res.end(JSON.stringify({
+                            query: query.trim(),
+                            scope,
+                            executionTimeMs,
+                            engine: results.engine,
+                            count: results.items.length,
+                            items: results.items
+                        }));
                         return;
                     }
 
@@ -172,6 +202,28 @@ export class LocalServer {
                         const targetPath = reqUrl.searchParams.get('path');
                         if (targetPath && fs.existsSync(targetPath)) {
                             vscode.commands.executeCommand('vscode.open', vscode.Uri.file(targetPath));
+                        }
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ ok: true }));
+                        return;
+                    }
+
+                    // 6b. Open Folder/File in VS Code Integrated Terminal
+                    if (pathname === '/api/files/openInTerminal') {
+                        const targetPath = reqUrl.searchParams.get('path');
+                        if (targetPath && fs.existsSync(targetPath)) {
+                            let dir = targetPath;
+                            try {
+                                const stat = await fs.promises.stat(targetPath);
+                                if (!stat.isDirectory()) {
+                                    dir = path.dirname(targetPath);
+                                }
+                            } catch {}
+                            const terminal = vscode.window.createTerminal({
+                                name: `VenEl: ${path.basename(dir) || 'Terminal'}`,
+                                cwd: dir
+                            });
+                            terminal.show();
                         }
                         res.writeHead(200, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({ ok: true }));
@@ -375,6 +427,110 @@ export class LocalServer {
         }
 
         return roots;
+    }
+
+    private static execPromise(cmd: string, opts: any = {}): Promise<string> {
+        return new Promise((resolve) => {
+            exec(cmd, opts, (err: any, stdout: any) => {
+                resolve(String(stdout || ""));
+            });
+        });
+    }
+
+    private static async performAgentSearch(query: string, scope: string, currentPath: string, maxResults: number): Promise<{ engine: string, items: any[] }> {
+        const isMac = process.platform === "darwin";
+        const isWindows = process.platform === "win32";
+        const cleanQuery = query.replace(/["`$;|&><]/g, "").trim();
+
+        if (isMac) {
+            let scopeArg = "";
+            if (scope === "home") scopeArg = `-onlyin "${os.homedir()}"`;
+            else if (scope === "current" && currentPath && fs.existsSync(currentPath)) scopeArg = `-onlyin "${currentPath}"`;
+
+            let mdfindExpr = "";
+            if (cleanQuery.startsWith("*.")) {
+                const ext = cleanQuery.slice(2);
+                mdfindExpr = `"kMDItemFSName == '*.${ext}'c"`;
+            } else if (cleanQuery.startsWith(".")) {
+                const ext = cleanQuery.slice(1);
+                mdfindExpr = `"kMDItemFSName == '*.${ext}'c"`;
+            } else {
+                mdfindExpr = `"kMDItemFSName == '*${cleanQuery}*'c"`;
+            }
+
+            const cmd = `mdfind ${scopeArg} ${mdfindExpr} | head -n ${maxResults}`;
+            const output = await LocalServer.execPromise(cmd, { maxBuffer: 10 * 1024 * 1024 });
+            const lines = output.trim().split("\n").filter(Boolean);
+
+            const items: any[] = [];
+            for (const filePath of lines) {
+                try {
+                    if (!fs.existsSync(filePath)) continue;
+                    const stat = await fs.promises.stat(filePath);
+                    const isDir = stat.isDirectory();
+                    items.push({
+                        name: path.basename(filePath),
+                        path: filePath,
+                        directory: path.dirname(filePath),
+                        isDirectory: isDir,
+                        type: isDir ? "Directory" : "File",
+                        size: isDir ? 0 : stat.size,
+                        modified: stat.mtime.toISOString()
+                    });
+                } catch {}
+            }
+            return { engine: "Apple Spotlight Index (mdfind)", items };
+        } else if (isWindows) {
+            let rootSearchPath = "C:\\Users";
+            if (scope === "home") rootSearchPath = os.homedir();
+            if (scope === "current" && currentPath) rootSearchPath = currentPath;
+
+            const psCmd = `powershell -NoProfile -Command "Get-ChildItem -Path '${rootSearchPath}' -Filter '*${cleanQuery}*' -Recurse -ErrorAction SilentlyContinue | Select-Object -First ${maxResults} -Property FullName, Name, PSIsContainer, Length, LastWriteTime | ConvertTo-Json"`;
+            let items: any[] = [];
+            try {
+                const output = await LocalServer.execPromise(psCmd, { maxBuffer: 10 * 1024 * 1024 });
+                const parsed = JSON.parse(output || "[]");
+                const list = Array.isArray(parsed) ? parsed : [parsed];
+                for (const item of list) {
+                    if (!item || !item.FullName) continue;
+                    items.push({
+                        name: item.Name,
+                        path: item.FullName,
+                        directory: path.dirname(item.FullName),
+                        isDirectory: Boolean(item.PSIsContainer),
+                        type: item.PSIsContainer ? "Directory" : "File",
+                        size: item.Length || 0,
+                        modified: item.LastWriteTime ? new Date(item.LastWriteTime).toISOString() : new Date().toISOString()
+                    });
+                }
+            } catch {}
+            return { engine: "Windows Search Index", items };
+        } else {
+            let targetDir = os.homedir();
+            if (scope === "machine") targetDir = "/";
+            if (scope === "current" && currentPath) targetDir = currentPath;
+
+            const cmd = `find "${targetDir}" -iname "*${cleanQuery}*" -maxdepth 6 2>/dev/null | head -n ${maxResults}`;
+            const output = await LocalServer.execPromise(cmd, { maxBuffer: 10 * 1024 * 1024 });
+            const lines = output.trim().split("\n").filter(Boolean);
+            const items: any[] = [];
+            for (const filePath of lines) {
+                try {
+                    if (!fs.existsSync(filePath)) continue;
+                    const stat = await fs.promises.stat(filePath);
+                    items.push({
+                        name: path.basename(filePath),
+                        path: filePath,
+                        directory: path.dirname(filePath),
+                        isDirectory: stat.isDirectory(),
+                        type: stat.isDirectory() ? "Directory" : "File",
+                        size: stat.isDirectory() ? 0 : stat.size,
+                        modified: stat.mtime.toISOString()
+                    });
+                } catch {}
+            }
+            return { engine: "Linux find index", items };
+        }
     }
 
     private static getIndexHtml(): string {
