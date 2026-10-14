@@ -29,9 +29,15 @@ export async function activate(context: vscode.ExtensionContext) {
         )
     );
 
-    // 2. Command to open the File Manager in an Editor Tab
-    const openCommand = vscode.commands.registerCommand('venel.filemanager.open', () => {
-        FileManagerPanel.createOrShow(context.extensionUri);
+    // 2. Command to open the File Manager in an Editor Tab (Option A: Direct Full-Screen & Auto-Collapse)
+    const openCommand = vscode.commands.registerCommand('venel.filemanager.open', async () => {
+        await FileManagerPanel.createOrShow(context.extensionUri);
+        const config = vscode.workspace.getConfiguration('venel.filemanager');
+        if (config.get<boolean>('autoCollapseSidebar', true)) {
+            setTimeout(() => {
+                vscode.commands.executeCommand('workbench.action.closeSidebar');
+            }, 80);
+        }
     });
     context.subscriptions.push(openCommand);
 

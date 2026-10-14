@@ -28,7 +28,7 @@ Standard IDE file trees are built for project codebases, but they are clunky and
 * ↔️ **Draggable Resizable Splitters**: Adjust your Quick Access sidebar and Live Preview pane widths smoothly with mouse drag, double-click reset, and persistent memory.
 * 🧭 **Windows & Mac Dropdown Address Bar**: Navigate like Windows Explorer or Mac Finder—instantly jump to system drives (`C:\`, `/`), user roots (Home, Desktop, Documents), parent breadcrumbs, or direct subfolders with 1 click.
 * 👁️ **Live Split Preview Pane**: Single-click any file to inspect code, markdown, logs, or image assets (`.png`, `.jpg`, `.svg`, `.webp`) in real-time without leaving your folder.
-* 🚀 **Editor Tab or Activity Bar**: Launch from the custom Activity Bar icon on the left, click the Status Bar item, or run `VenEl: Open File Manager Tab`.
+* 🚀 **1-Click Direct Full-Screen Launch**: Clicking the Activity Bar icon directly opens the full File Manager editor tab and auto-collapses the narrow primary sidebar for a seamless 100% full-width view with zero intermediate clicks.
 
 ---
 

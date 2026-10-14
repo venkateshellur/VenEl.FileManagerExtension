@@ -1,9 +1,11 @@
 import * as vscode from 'vscode';
 import { ServerManager } from './serverManager';
+import { FileManagerPanel } from './fileManagerPanel';
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'venel.filemanager.sidebar';
     private _view?: vscode.WebviewView;
+    private _lastDirectOpen = 0;
 
     constructor(private readonly _extensionUri: vscode.Uri) {}
 
@@ -21,6 +23,18 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
         this.updateView();
 
+        // 1. Direct-To-Editor on click of Activity Bar icon (Option A)
+        webviewView.onDidChangeVisibility(() => {
+            if (webviewView.visible) {
+                this.triggerDirectOpen();
+            }
+        });
+
+        // Trigger on initial resolution if view is visible
+        if (webviewView.visible) {
+            this.triggerDirectOpen();
+        }
+
         webviewView.webview.onDidReceiveMessage(async (data) => {
             switch (data.type) {
                 case 'openTab':
@@ -34,6 +48,32 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     break;
             }
         });
+    }
+
+    private triggerDirectOpen() {
+        const now = Date.now();
+        // Debounce to prevent multiple triggers within 600ms
+        if (now - this._lastDirectOpen < 600) {
+            return;
+        }
+        this._lastDirectOpen = now;
+
+        const config = vscode.workspace.getConfiguration('venel.filemanager');
+        const directOpen = config.get<boolean>('directOpenEditor', true);
+        if (!directOpen) {
+            return;
+        }
+
+        // Open or reveal the File Manager editor tab directly!
+        FileManagerPanel.createOrShow(this._extensionUri);
+
+        // Option A: Auto-collapse the left VS Code sidebar to give 100% full width
+        const autoCollapse = config.get<boolean>('autoCollapseSidebar', true);
+        if (autoCollapse) {
+            setTimeout(() => {
+                vscode.commands.executeCommand('workbench.action.closeSidebar');
+            }, 80);
+        }
     }
 
     public async updateView() {
@@ -144,6 +184,15 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         .features-list li {
             margin-bottom: 4px;
         }
+        .tip-box {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            background: rgba(108, 92, 231, 0.08);
+            border: 1px solid rgba(108, 92, 231, 0.2);
+            border-radius: 6px;
+            padding: 8px 10px;
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body>
@@ -156,21 +205,25 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     </div>
 
     <button class="btn-primary" onclick="openTab()">
-        <span>🚀 Open in Editor Tab</span>
+        <span>🚀 Open Full-Screen Tab</span>
     </button>
-    <div style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 6px; text-align: center; line-height: 1.4; opacity: 0.85;">
-        💡 <em>First launch warms up the Kestrel engine (~3–5s); subsequent opens are instant.</em>
+    
+    <div class="tip-box">
+        ⚡ <strong>Option A Active:</strong> Clicking the Activity Bar icon directly opens the full editor tab and collapses this sidebar for maximum screen real estate.
     </div>
 
     <div class="status-card">
         <div class="status-row">
             <span>Engine Status:</span>
             <span>
-                <span class="dot online"></span>
-                <strong>Ready & Online</strong>
+                <span class="dot ${health.online ? 'online' : 'offline'}"></span>
+                <strong>${health.online ? 'Ready & Online' : 'Offline'}</strong>
             </span>
         </div>
-
+        <div class="status-row" style="color: var(--vscode-descriptionForeground); font-size: 11px;">
+            <span>Endpoint:</span>
+            <span>${health.url}</span>
+        </div>
     </div>
 
     <button class="btn-secondary" onclick="checkHealth()">
@@ -178,21 +231,30 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     </button>
 
     <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--vscode-descriptionForeground);">
-        Features
+        ✨ Features
     </div>
-    <ul class="features-list">
-        <li>⊞ Default Grid card view</li>
-        <li>🧭 System drives & breadcrumbs dropdown</li>
-        <li>👁️ Live split preview pane</li>
-        <li>🔍 Instant local folder search</li>
-        <li>⚡ Zero configuration — works immediately</li>
+    <ul class="features-list" style="padding-left: 18px; margin: 0;">
+        <li>⚡ Instant Full-Screen Editor Launch</li>
+        <li>🤖 Machine-Level Agent Search (Spotlight)</li>
+        <li>⊞ Multi-View (Details, List, Grid, Icons)</li>
+        <li>↔️ Draggable Resizable Splitters</li>
+        <li>👁️ Live Code & Image Previews</li>
     </ul>
 
-    <div style="margin-top: auto; padding-top: 14px; border-top: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.08)); font-size: 11px; color: var(--vscode-descriptionForeground); text-align: center; line-height: 1.6;">
-        Developer: <strong style="color: var(--vscode-foreground);">Venkatesh Ellur</strong><br/>
-        <a href="https://www.linkedin.com/in/venkateshellur/" style="color: var(--vscode-textLink-foreground, #3794ff); text-decoration: none; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; margin-top: 4px;">
-            <span>🔗 Connect on LinkedIn</span>
-        </a>
+    <button class="btn-secondary" onclick="openSettings()">
+        ⚙️ Settings & Options
+    </button>
+
+    <div style="margin-top: auto; padding-top: 12px; border-top: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.08)); font-size: 11px; color: var(--vscode-descriptionForeground); display: flex; flex-direction: column; gap: 8px; text-align: center;">
+        <div>Developed with ❤️ by <strong style="color: var(--vscode-foreground);">Venkatesh Ellur</strong></div>
+        <div style="display: flex; justify-content: center; gap: 12px;">
+            <a href="https://www.linkedin.com/in/venkateshellur/" style="color: #0077b5; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>
+                LinkedIn
+            </a>
+            <span>•</span>
+            <a href="https://github.com/venkateshellur/VenEl.FileManagerPlugin" style="color: var(--vscode-textLink-foreground); text-decoration: none;">GitHub</a>
+        </div>
     </div>
 
     <script>
@@ -202,6 +264,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         }
         function checkHealth() {
             vscode.postMessage({ type: 'checkHealth' });
+        }
+        function openSettings() {
+            vscode.postMessage({ type: 'openSettings' });
         }
     </script>
 </body>

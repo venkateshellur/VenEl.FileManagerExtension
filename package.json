@@ -2,7 +2,7 @@
   "name": "venel-filemanager",
   "displayName": "VenEl File Manager",
   "description": "Modern interactive File Explorer for VS Code & Cursor with Grid View, Instant Previews & Native Drive Navigation.",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "publisher": "venkateshellur",
   "author": {
     "name": "Venkatesh Ellur",
@@ -102,6 +102,16 @@
           "type": "string",
           "default": "",
           "description": "Optional custom path to the VenEl.MCP.Server binary or project."
+        },
+        "venel.filemanager.directOpenEditor": {
+          "type": "boolean",
+          "default": true,
+          "description": "Directly open the File Manager in a full-screen editor tab when clicking the Activity Bar icon."
+        },
+        "venel.filemanager.autoCollapseSidebar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically collapse the left primary sidebar when opening the File Manager tab to maximize screen space."
         }
       }
     }
