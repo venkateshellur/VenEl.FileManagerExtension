@@ -38,10 +38,13 @@ Standard IDE file trees are built for project codebases, but they are clunky and
 | :--- | :--- |
 | **Unified View Options** | Switch instantly between Details, List, Grid, Large Icons, and Small Icons. |
 | **Machine Agent Search** | System-level indexed search via Spotlight/PowerShell with instant folder jump. |
+| **🏷️ Smart Batch Renamer** | Find & replace, prefix/suffix, numbering, and case conversions with live preview. |
+| **🗜️ Zip & Archive Tools** | 1-click compress to `.zip` and extraction for `.zip`, `.tar.gz`, `.tgz`, and `.tar`. |
+| **🗑️ Safe Move to Trash** | All deletes safely move items to OS Trash / Recycle Bin with recovery support. |
 | **Draggable Splitters** | Interactive splitters for custom sidebar and preview panel widths with persistence. |
 | **Drive & Root Jump** | 1-click access to all physical drives, external volumes, and special OS folders. |
 | **Folder Hierarchy** | Deep breadcrumb trail in the address bar dropdown for instant parent jumping. |
-| **Rich Previews** | Embedded image visualizer and syntax-highlighted code viewer. |
+| **Rich Previews** | Live PDF canvas viewer, Excel workbooks, Word docs, CSV tables, images, and code. |
 | **Shared Engine** | Powered by the high-performance local `VenEl.MCP.FileManager` backend. |
 
 ---

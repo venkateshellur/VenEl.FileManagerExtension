@@ -11,15 +11,15 @@ export class FileManagerPanel {
     private _disposables: vscode.Disposable[] = [];
 
     public static async createOrShow(extensionUri: vscode.Uri) {
+        // 1. Single Instance: If panel already exists, bring user to the existing instance!
+        if (FileManagerPanel.currentPanel) {
+            FileManagerPanel.currentPanel._panel.reveal(FileManagerPanel.currentPanel._panel.viewColumn);
+            return;
+        }
+
         const column = vscode.window.activeTextEditor
             ? vscode.window.activeTextEditor.viewColumn
             : undefined;
-
-        if (FileManagerPanel.currentPanel) {
-            FileManagerPanel.currentPanel._panel.reveal(column);
-            await FileManagerPanel.currentPanel.refresh();
-            return;
-        }
 
         const panel = vscode.window.createWebviewPanel(
             'venelFileManager',
@@ -32,6 +32,14 @@ export class FileManagerPanel {
             }
         );
 
+        FileManagerPanel.currentPanel = new FileManagerPanel(panel, extensionUri);
+    }
+
+    public static revive(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
+        if (FileManagerPanel.currentPanel) {
+            panel.dispose();
+            return;
+        }
         FileManagerPanel.currentPanel = new FileManagerPanel(panel, extensionUri);
     }
 

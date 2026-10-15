@@ -21,21 +21,27 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             localResourceRoots: [this._extensionUri]
         };
 
-        // 1. Immediately render complete UI with warming/progress indicator (0ms blank delay!)
-        this._view.webview.html = this.getHtml({
-            status: 'warming',
-            message: 'Getting things ready in background...',
-            url: 'http://localhost:5050'
-        });
+        const config = vscode.workspace.getConfiguration('venel.filemanager');
+        const directOpen = config.get<boolean>('directOpenEditor', true);
+        const autoCollapse = config.get<boolean>('autoCollapseSidebar', true);
 
-        // 2. Perform background health check to update the status seamlessly
-        this.checkAndUpdateStatus();
+        if (!directOpen || !autoCollapse) {
+            // 1. Render companion UI if the sidebar is meant to stay open
+            this._view.webview.html = this.getHtml({
+                status: 'warming',
+                message: 'Getting things ready in background...',
+                url: 'http://localhost:5050'
+            });
+            this.checkAndUpdateStatus();
+        } else {
+            // 1b. Clean matching background to prevent any UI elements from flashing on screen
+            this._view.webview.html = `<!DOCTYPE html><html><body style="background:var(--vscode-sideBar-background,#18181b);margin:0;overflow:hidden;"></body></html>`;
+        }
 
-        // 3. Direct-To-Editor on click of Activity Bar icon (Option A)
+        // 2. Direct-To-Editor on click of Activity Bar icon
         webviewView.onDidChangeVisibility(() => {
             if (webviewView.visible) {
                 this.triggerDirectOpen();
-                this.checkAndUpdateStatus();
             }
         });
 
@@ -61,8 +67,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
     private triggerDirectOpen() {
         const now = Date.now();
-        // Debounce to prevent multiple triggers within 600ms
-        if (now - this._lastDirectOpen < 600) {
+        // Debounce to prevent multiple triggers within 400ms
+        if (now - this._lastDirectOpen < 400) {
             return;
         }
         this._lastDirectOpen = now;
@@ -73,15 +79,13 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             return;
         }
 
-        // Open or reveal the File Manager editor tab directly!
+        // 1. Reveal or open single-instance File Manager tab directly!
         FileManagerPanel.createOrShow(this._extensionUri);
 
-        // Option A: Auto-collapse the left VS Code sidebar to give 100% full width
+        // 2. Close sidebar immediately without 80ms delay to eliminate flicker
         const autoCollapse = config.get<boolean>('autoCollapseSidebar', true);
         if (autoCollapse) {
-            setTimeout(() => {
-                vscode.commands.executeCommand('workbench.action.closeSidebar');
-            }, 80);
+            vscode.commands.executeCommand('workbench.action.closeSidebar');
         }
     }
 

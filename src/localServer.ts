@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as vscode from 'vscode';
-import { exec } from 'child_process';
+import { exec, execFile } from 'child_process';
 
 export class LocalServer {
     private static _server: http.Server | undefined;
@@ -397,23 +397,47 @@ export class LocalServer {
                         return;
                     }
 
-                    // 10. Delete File or Folder
+                    // 10. Delete File or Folder -> Move to OS Trash / Recycle Bin
                     if (pathname === '/api/files/delete' && req.method === 'POST') {
                         const body = await LocalServer.parseJsonBody(req);
-                        const { targetPath } = body;
-                        if (!targetPath || !fs.existsSync(targetPath)) {
-                            res.writeHead(404, { 'Content-Type': 'application/json' });
-                            res.end(JSON.stringify({ error: 'Path not found' }));
+                        const paths: string[] = [];
+                        if (body.targetPath || body.path) {
+                            paths.push(body.targetPath || body.path);
+                        }
+                        if (Array.isArray(body.paths)) {
+                            for (const p of body.paths) {
+                                if (p && typeof p === 'string' && !paths.includes(p)) {
+                                    paths.push(p);
+                                }
+                            }
+                        }
+
+                        if (paths.length === 0) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'targetPath or paths array is required' }));
                             return;
                         }
-                        const stat = await fs.promises.stat(targetPath);
-                        if (stat.isDirectory()) {
-                            await fs.promises.rm(targetPath, { recursive: true, force: true });
-                        } else {
-                            await fs.promises.unlink(targetPath);
+
+                        let trashedCount = 0;
+                        const errors: string[] = [];
+                        for (const p of paths) {
+                            try {
+                                if (fs.existsSync(p)) {
+                                    await LocalServer.moveToTrash(p);
+                                    trashedCount++;
+                                }
+                            } catch (err: any) {
+                                errors.push(err.message);
+                            }
                         }
-                        res.writeHead(200, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ success: true }));
+
+                        if (trashedCount > 0 || errors.length === 0) {
+                            res.writeHead(200, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ success: true, count: trashedCount }));
+                        } else {
+                            res.writeHead(500, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: errors.join(', ') }));
+                        }
                         return;
                     }
 
@@ -456,6 +480,165 @@ export class LocalServer {
                         await fs.promises.rename(source, destPath);
                         res.writeHead(200, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({ success: true, path: destPath }));
+                        return;
+                    }
+
+                    // 12b. Batch Rename Files or Folders
+                    if (pathname === '/api/files/batch-rename' && req.method === 'POST') {
+                        const body = await LocalServer.parseJsonBody(req);
+                        const { currentPath, renames } = body;
+                        if (!currentPath || !Array.isArray(renames) || renames.length === 0) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'currentPath and renames array are required' }));
+                            return;
+                        }
+
+                        const results: { oldName: string; newName: string; success: boolean; error?: string }[] = [];
+                        for (const item of renames) {
+                            if (!item.oldName || !item.newName || item.oldName === item.newName) {
+                                results.push({ oldName: item.oldName, newName: item.newName, success: true });
+                                continue;
+                            }
+                            const oldFullPath = path.join(currentPath, item.oldName);
+                            const newFullPath = path.join(currentPath, item.newName);
+
+                            if (!fs.existsSync(oldFullPath)) {
+                                results.push({ oldName: item.oldName, newName: item.newName, success: false, error: 'Source not found' });
+                                continue;
+                            }
+
+                            try {
+                                if (item.oldName.toLowerCase() === item.newName.toLowerCase()) {
+                                    const tempPath = path.join(currentPath, `__venel_tmp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${item.oldName}`);
+                                    await fs.promises.rename(oldFullPath, tempPath);
+                                    await fs.promises.rename(tempPath, newFullPath);
+                                } else {
+                                    await fs.promises.rename(oldFullPath, newFullPath);
+                                }
+                                results.push({ oldName: item.oldName, newName: item.newName, success: true });
+                            } catch (err: any) {
+                                results.push({ oldName: item.oldName, newName: item.newName, success: false, error: err.message });
+                            }
+                        }
+
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ success: true, count: results.filter(r => r.success).length, renamedCount: results.filter(r => r.success).length, results }));
+                        return;
+                    }
+
+                    // 12c. Compress Files / Folders to .zip
+                    if (pathname === '/api/files/compress' && req.method === 'POST') {
+                        const body = await LocalServer.parseJsonBody(req);
+                        const currentPath = (body.currentPath || body.folder || '').trim();
+                        const items = body.items;
+                        const archiveName = body.archiveName;
+                        if (!currentPath || !Array.isArray(items) || items.length === 0) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'currentPath and items array are required' }));
+                            return;
+                        }
+
+                        let targetArchiveName = (archiveName || '').trim();
+                        if (!targetArchiveName) {
+                            targetArchiveName = items.length === 1 ? `${items[0]}.zip` : 'Archive.zip';
+                        }
+                        if (!targetArchiveName.toLowerCase().endsWith('.zip')) {
+                            targetArchiveName += '.zip';
+                        }
+
+                        let counter = 1;
+                        let finalArchiveName = targetArchiveName;
+                        let archiveFullPath = path.join(currentPath, finalArchiveName);
+                        while (fs.existsSync(archiveFullPath)) {
+                            const baseWithoutExt = targetArchiveName.slice(0, -4);
+                            finalArchiveName = `${baseWithoutExt}_${counter}.zip`;
+                            archiveFullPath = path.join(currentPath, finalArchiveName);
+                            counter++;
+                        }
+
+                        try {
+                            const isWin = os.platform() === 'win32';
+                            if (isWin) {
+                                const powershellPaths = items.map(i => `"${path.join(currentPath, i)}"`).join(', ');
+                                const cmd = `powershell.exe -NoProfile -Command "Compress-Archive -Path ${powershellPaths} -DestinationPath \\"${archiveFullPath}\\" -Force"`;
+                                await new Promise((resolve, reject) => {
+                                    exec(cmd, { cwd: currentPath }, (err, stdout, stderr) => {
+                                        if (err) reject(new Error(stderr || err.message)); else resolve(stdout);
+                                    });
+                                });
+                            } else {
+                                await new Promise<void>((resolve, reject) => {
+                                    execFile('zip', ['-r', finalArchiveName, ...items], { cwd: currentPath }, (err, stdout, stderr) => {
+                                        if (err) reject(new Error(stderr || err.message)); else resolve();
+                                    });
+                                });
+                            }
+
+                            res.writeHead(200, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ success: true, archiveName: finalArchiveName, path: archiveFullPath }));
+                        } catch (err: any) {
+                            res.writeHead(500, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: `Compression failed: ${err.message}` }));
+                        }
+                        return;
+                    }
+
+                    // 12d. Extract Archive (.zip, .tar, .tgz, .tar.gz)
+                    if (pathname === '/api/files/extract' && req.method === 'POST') {
+                        const body = await LocalServer.parseJsonBody(req);
+                        let archivePath = (body.archivePath || '').trim();
+                        if (!archivePath && (body.folder || body.currentPath) && body.archiveName) {
+                            archivePath = path.join(body.folder || body.currentPath, body.archiveName);
+                        }
+                        if (!archivePath || !fs.existsSync(archivePath)) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Valid archivePath is required' }));
+                            return;
+                        }
+
+                        let targetDir = body.destinationDir || body.destinationFolder;
+                        if (!targetDir) {
+                            targetDir = path.dirname(archivePath);
+                        } else if (!path.isAbsolute(targetDir)) {
+                            targetDir = path.join(path.dirname(archivePath), targetDir);
+                        }
+                        await fs.promises.mkdir(targetDir, { recursive: true });
+
+                        const lowerPath = archivePath.toLowerCase();
+                        const isWin = os.platform() === 'win32';
+
+                        try {
+                            if (lowerPath.endsWith('.zip')) {
+                                if (isWin) {
+                                    const cmd = `powershell.exe -NoProfile -Command "Expand-Archive -Path \\"${archivePath}\\" -DestinationPath \\"${targetDir}\\" -Force"`;
+                                    await new Promise((resolve, reject) => {
+                                        exec(cmd, { cwd: targetDir }, (err, stdout, stderr) => {
+                                            if (err) reject(new Error(stderr || err.message)); else resolve(stdout);
+                                        });
+                                    });
+                                } else {
+                                    await new Promise<void>((resolve, reject) => {
+                                        execFile('unzip', ['-q', '-o', archivePath, '-d', targetDir], { cwd: targetDir }, (err, stdout, stderr) => {
+                                            if (err) reject(new Error(stderr || err.message)); else resolve();
+                                        });
+                                    });
+                                }
+                            } else if (lowerPath.endsWith('.tar') || lowerPath.endsWith('.tar.gz') || lowerPath.endsWith('.tgz')) {
+                                await new Promise<void>((resolve, reject) => {
+                                    execFile('tar', ['-xf', archivePath, '-C', targetDir], { cwd: targetDir }, (err, stdout, stderr) => {
+                                        if (err) reject(new Error(stderr || err.message)); else resolve();
+                                    });
+                                });
+                            } else {
+                                throw new Error('Unsupported archive format. Supported formats: .zip, .tar, .tar.gz, .tgz');
+                            }
+
+                            res.writeHead(200, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ success: true, destinationDir: targetDir }));
+                        } catch (err: any) {
+                            res.writeHead(500, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: `Extraction failed: ${err.message}` }));
+                        }
                         return;
                     }
 
@@ -549,6 +732,44 @@ export class LocalServer {
                 resolve(String(stdout || ""));
             });
         });
+    }
+
+    private static async moveToTrash(targetPath: string): Promise<void> {
+        // 1. Try VS Code workspace.fs.delete with useTrash: true (first choice)
+        try {
+            await vscode.workspace.fs.delete(vscode.Uri.file(targetPath), { recursive: true, useTrash: true });
+            return;
+        } catch (vscodeErr) {
+            console.warn(`[VenEl] vscode.workspace.fs.delete useTrash fallback for ${targetPath}:`, vscodeErr);
+        }
+
+        // 2. Native OS Trash Fallback
+        const platform = os.platform();
+        if (platform === 'darwin') {
+            // macOS: Tell Finder to move file to Trash (preserves Put Back functionality)
+            const escaped = targetPath.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+            await new Promise<void>((resolve, reject) => {
+                execFile('osascript', ['-e', `tell application "Finder" to delete POSIX file "${escaped}"`], (err, stdout, stderr) => {
+                    if (err) reject(new Error(stderr || err.message)); else resolve();
+                });
+            });
+        } else if (platform === 'win32') {
+            // Windows: Use PowerShell with Microsoft.VisualBasic to send to RecycleBin
+            const escaped = targetPath.replace(/'/g, "''");
+            const script = `Add-Type -AssemblyName Microsoft.VisualBasic; if (Test-Path -LiteralPath '${escaped}' -PathType Container) { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory('${escaped}', 'OnlyErrorDialogs', 'SendToRecycleBin') } else { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('${escaped}', 'OnlyErrorDialogs', 'SendToRecycleBin') }`;
+            await new Promise<void>((resolve, reject) => {
+                exec(`powershell.exe -NoProfile -NonInteractive -Command "${script}"`, (err, stdout, stderr) => {
+                    if (err) reject(new Error(stderr || err.message)); else resolve();
+                });
+            });
+        } else {
+            // Linux: Try gio trash
+            await new Promise<void>((resolve, reject) => {
+                execFile('gio', ['trash', targetPath], (err, stdout, stderr) => {
+                    if (err) reject(new Error(stderr || err.message)); else resolve();
+                });
+            });
+        }
     }
 
     private static async performAgentSearch(query: string, scope: string, currentPath: string, maxResults: number): Promise<{ engine: string, items: any[] }> {

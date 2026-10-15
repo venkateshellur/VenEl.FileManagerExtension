@@ -29,17 +29,18 @@ export async function activate(context: vscode.ExtensionContext) {
         )
     );
 
-    // 2. Command to open the File Manager in an Editor Tab (Option A: Direct Full-Screen & Auto-Collapse)
+    // 2. Command to open the File Manager in an Editor Tab
     const openCommand = vscode.commands.registerCommand('venel.filemanager.open', async () => {
         await FileManagerPanel.createOrShow(context.extensionUri);
-        const config = vscode.workspace.getConfiguration('venel.filemanager');
-        if (config.get<boolean>('autoCollapseSidebar', true)) {
-            setTimeout(() => {
-                vscode.commands.executeCommand('workbench.action.closeSidebar');
-            }, 80);
-        }
     });
     context.subscriptions.push(openCommand);
+
+    // 2b. Register Webview Panel Serializer to preserve single-instance across editor window reloads
+    vscode.window.registerWebviewPanelSerializer('venelFileManager', {
+        async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, _state: any) {
+            FileManagerPanel.revive(webviewPanel, context.extensionUri);
+        }
+    });
 
     // 3. Command to manually check health
     const checkServerCommand = vscode.commands.registerCommand('venel.filemanager.checkServer', async () => {

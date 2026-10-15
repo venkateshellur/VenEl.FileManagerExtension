@@ -139,24 +139,36 @@
         .btn-new-tab {
             display: flex;
             align-items: center;
-            justify-content: center;
-            width: 28px;
+            gap: 5px;
             height: 28px;
+            padding: 0 7px;
             margin-bottom: 2px;
-            background: transparent;
-            border: 1px solid transparent;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 6px;
-            color: var(--text-muted);
-            font-size: 16px;
+            color: var(--text-main);
+            font-size: 11px;
+            font-weight: 500;
             cursor: pointer;
             transition: all 0.15s ease;
             flex-shrink: 0;
+            white-space: nowrap;
         }
         .btn-new-tab:hover {
+            background: rgba(108, 92, 231, 0.22);
+            border-color: var(--accent);
+            color: #ffffff;
+            box-shadow: 0 0 10px rgba(108, 92, 231, 0.25);
+            transform: translateY(-1px);
+        }
+        .tab-shortcut-badge {
             background: rgba(255, 255, 255, 0.08);
-            border-color: rgba(255, 255, 255, 0.1);
-            color: var(--text-main);
-            transform: scale(1.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 4px;
+            padding: 1px 4px;
+            font-size: 9px;
+            color: var(--text-muted);
+            margin-left: 2px;
         }
 
         /* Header / Address Bar with Top Stacking Context */
@@ -1958,6 +1970,159 @@
         #files.compact-view .item-modified,
         #files.compact-view .item-type { display: none; }
 
+        /* 🏷️ Smart Batch Renamer & Archive Styles */
+        .batch-rename-box {
+            max-width: 680px;
+            width: 95%;
+            max-height: 88vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .batch-count-pill {
+            background: rgba(108, 92, 231, 0.2);
+            border: 1px solid rgba(108, 92, 231, 0.4);
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 10px;
+            font-weight: 600;
+            color: #a29bfe;
+        }
+        .batch-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+        .batch-tab-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 5px 10px;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .batch-tab-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+        }
+        .batch-tab-btn.active {
+            background: rgba(108, 92, 231, 0.25);
+            border-color: var(--accent);
+            color: #ffffff;
+            font-weight: 600;
+        }
+        .batch-controls-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .batch-form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .batch-form-row label {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .batch-form-row.inline {
+            flex-direction: row;
+            align-items: center;
+        }
+        .batch-form-row.inline label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            color: var(--text-main);
+        }
+        .batch-form-row-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .batch-preview-container {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex: 1;
+            min-height: 140px;
+            max-height: 240px;
+        }
+        .batch-preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid var(--border-color);
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .batch-status-text {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-weight: normal;
+        }
+        .batch-preview-table-wrap {
+            overflow-y: auto;
+            flex: 1;
+        }
+        .batch-preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+        .batch-preview-table th {
+            text-align: left;
+            padding: 5px 8px;
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.02);
+            position: sticky;
+            top: 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .batch-preview-table td {
+            padding: 5px 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .batch-status-badge {
+            display: inline-block;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 600;
+        }
+        .batch-status-badge.changed {
+            background: rgba(46, 204, 113, 0.15);
+            color: #2ecc71;
+            border: 1px solid rgba(46, 204, 113, 0.3);
+        }
+        .batch-status-badge.unchanged {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+        }
+        .batch-status-badge.conflict {
+            background: rgba(235, 77, 75, 0.2);
+            color: #ff7675;
+            border: 1px solid rgba(235, 77, 75, 0.4);
+        }
+
     </style>
 </head>
 <body>
@@ -1967,8 +2132,9 @@
     <!-- Multi-Tab Strip (Browser / Windows 11 Explorer Style) -->
     <div id="tabs-bar" class="tabs-bar">
         <div id="tabs-container" class="tabs-container"></div>
-        <button id="btn-new-tab" class="btn-new-tab" onclick="addNewTab()" title="New Tab (Ctrl+T / Cmd+T)">
-            <span>+</span>
+        <button id="btn-new-tab" class="btn-new-tab" onclick="addNewTab()" title="Open New Tab (Ctrl+T / Cmd+T)">
+            <span style="font-size: 15px; font-weight: bold; line-height: 1;">+</span>
+            <span class="tab-shortcut-badge" id="badge-tab-shortcut">⌘T</span>
         </button>
     </div>
 
@@ -1979,6 +2145,10 @@
             <button id="btn-forward" onclick="goForward()" disabled title="Forward (Alt+Right)">➡</button>
             <button id="btn-up" onclick="goUp()" title="Up One Level (Alt+Up)">⬆</button>
             <button id="btn-home" onclick="goHome()" title="Home Folder">🏠</button>
+            <button id="btn-nav-new-tab" onclick="addNewTab()" title="Open New Tab (Ctrl+T / Cmd+T)" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 11px; font-weight: 500; background: rgba(108, 92, 231, 0.12); border: 1px solid rgba(108, 92, 231, 0.3); border-radius: 6px; color: #a29bfe; cursor: pointer; transition: all 0.15s ease;">
+                <span>🗂️</span>
+                <span>+ Tab</span>
+            </button>
         </div>
         <div class="path-bar-container">
             <div class="path-bar" id="path-bar-box" onclick="handlePathBarClick(event)">
@@ -2077,8 +2247,18 @@
             <button class="tool-btn" id="btn-rename" onclick="renameSelectedItem()" disabled title="Rename (F2)">
                 <i>✏️</i> Rename
             </button>
-            <button class="tool-btn" id="btn-delete" onclick="deleteSelectedItem()" disabled title="Delete (Del)" style="color: var(--danger);">
-                <i>🗑️</i> Delete
+            <button class="tool-btn" id="btn-delete" onclick="deleteSelectedItem()" disabled title="Move to Trash (Del / Backspace / Cmd+Backspace)" style="color: var(--danger);">
+                <i>🗑️</i> Move to Trash
+            </button>
+            <div class="toolbar-divider"></div>
+            <button class="tool-btn" id="btn-batch-rename" onclick="showBatchRenameModal()" disabled title="Smart Batch Rename (Ctrl+Shift+R / Cmd+Shift+R)">
+                <i>🏷️</i> Batch Rename
+            </button>
+            <button class="tool-btn" id="btn-zip-archive" onclick="handleCompressSelected()" disabled title="Compress to .zip archive">
+                <i>🗜️</i> Zip
+            </button>
+            <button class="tool-btn" id="btn-unzip-archive" onclick="handleExtractSelected(false)" style="display: none;" title="Extract Archive">
+                <i>📦</i> Unzip
             </button>
             <div class="toolbar-divider"></div>
             <button class="tool-btn" id="btn-terminal" onclick="openTerminalAtCurrent()" title="Open in Terminal">
@@ -2204,6 +2384,9 @@
 
     <!-- Context Menu -->
     <div id="context-menu" class="context-menu">
+        <div class="context-item" id="ctx-new-tab" onclick="addNewTab()" style="display: none;">
+            <i>🗂️</i> <span>New Tab</span> <span class="shortcut" id="ctx-new-tab-shortcut">Ctrl+T</span>
+        </div>
         <div class="context-item" id="ctx-open" onclick="openSelectedItemInEditor()">
             <i>🚀</i> <span>Open in Editor</span> <span class="shortcut">Enter</span>
         </div>
@@ -2236,6 +2419,18 @@
         <div class="context-item" id="ctx-rename" onclick="renameSelectedItem()">
             <i>✏️</i> <span>Rename</span> <span class="shortcut">F2</span>
         </div>
+        <div class="context-item" id="ctx-batch-rename" onclick="showBatchRenameModal()" style="display: none;">
+            <i>🏷️</i> <span>Smart Batch Rename...</span> <span class="shortcut" id="ctx-batch-shortcut">⌘⇧R</span>
+        </div>
+        <div class="context-item" id="ctx-compress" onclick="handleCompressSelected()" style="display: none;">
+            <i>🗜️</i> <span id="ctx-compress-label">Compress to .zip</span>
+        </div>
+        <div class="context-item" id="ctx-extract-here" onclick="handleExtractSelected(false)" style="display: none;">
+            <i>📦</i> <span>Extract Here</span>
+        </div>
+        <div class="context-item" id="ctx-extract-to" onclick="handleExtractSelected(true)" style="display: none;">
+            <i>📂</i> <span id="ctx-extract-to-label">Extract to Subfolder</span>
+        </div>
         <div class="context-item" id="ctx-copy" onclick="copySelectedItem()">
             <i>📋</i> <span>Copy</span> <span class="shortcut">Ctrl+C</span>
         </div>
@@ -2257,7 +2452,7 @@
             <i>ℹ️</i> <span>Properties</span> <span class="shortcut">Alt+Enter</span>
         </div>
         <div class="context-item danger" id="ctx-delete" onclick="deleteSelectedItem()">
-            <i>🗑️</i> <span>Delete</span> <span class="shortcut">Del</span>
+            <i>🗑️</i> <span id="ctx-delete-label">Move to Trash</span> <span class="shortcut" id="ctx-delete-shortcut">Del</span>
         </div>
     </div>
 
@@ -2325,13 +2520,13 @@
     </div>
 
     <!-- Delete Confirmation Modal -->
-    <div class="modal-overlay" id="modal-delete">
-        <div class="modal-box">
-            <div class="modal-title" style="color: var(--danger);"><i>🗑️</i> Delete Confirmation</div>
+    <div class="modal-overlay" id="modal-delete" onclick="hideModals()">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <div class="modal-title" style="color: var(--danger);"><i>🗑️</i> Move to Trash</div>
             <div id="delete-prompt-text" style="font-size: 13px; color: var(--text-main); line-height: 1.5;"></div>
             <div class="modal-actions">
-                <button class="modal-btn cancel" onclick="hideModals()">Cancel</button>
-                <button class="modal-btn danger" onclick="submitDelete()">Delete Permanently</button>
+                <button type="button" class="modal-btn cancel" onclick="hideModals()">Cancel</button>
+                <button type="button" class="modal-btn danger" id="btn-confirm-delete" onclick="submitDelete()">Move to Trash</button>
             </div>
         </div>
     </div>
@@ -2401,6 +2596,23 @@
                     </div>
                     <button class="modal-btn cancel" onclick="pingEngineStatus()" style="width: 100%; justify-content: center; padding: 7px; font-size: 11px; margin-top: 4px;">
                         🔄 Refresh Engine Health
+                    </button>
+                </div>
+
+                <!-- Multi-Tab Browsing Status & Quick Action -->
+                <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px;">
+                        <span style="color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Multi-Tab Browsing</span>
+                        <span style="display: flex; align-items: center; gap: 6px;">
+                            <span style="width: 8px; height: 8px; border-radius: 50%; background: #2ecc71; box-shadow: 0 0 6px #2ecc71; display: inline-block;"></span>
+                            <strong style="font-size: 12px; color: #2ecc71;">Enabled by Default</strong>
+                        </span>
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-muted); line-height: 1.4;">
+                        Multi-tab browsing is active by default. You can open tabs anytime using the <strong>+ New Tab</strong> button, the toolbar <strong>+ Tab</strong> button, middle-clicking any folder, or pressing <strong>Ctrl+T / ⌘T</strong>.
+                    </div>
+                    <button class="modal-btn confirm" onclick="addNewTab(); hideModals();" style="width: 100%; justify-content: center; padding: 7px; font-size: 11px;">
+                        ➕ Open New Tab Now
                     </button>
                 </div>
 
@@ -2496,6 +2708,8 @@
                             <tr><td><kbd>Ctrl/Cmd</kbd> + <kbd>C</kbd></td><td>Copy selected file/folder</td></tr>
                             <tr><td><kbd>Ctrl/Cmd</kbd> + <kbd>X</kbd></td><td>Cut selected file/folder</td></tr>
                             <tr><td><kbd>Ctrl/Cmd</kbd> + <kbd>V</kbd></td><td>Paste file/folder from clipboard</td></tr>
+                            <tr><td><kbd>Ctrl/Cmd</kbd> + <kbd>A</kbd></td><td><strong>Select All</strong> files and folders in view</td></tr>
+                            <tr><td><kbd>Ctrl/Cmd</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd></td><td>Open <strong>Smart Batch Renamer</strong> for selected files</td></tr>
                             <tr><td><kbd>Ctrl/Cmd</kbd> + <kbd>B</kbd></td><td>Toggle Primary VS Code Sidebar</td></tr>
                             <tr><td><kbd>Esc</kbd></td><td>Close active modal, context menu, or Quick Look</td></tr>
                             <tr><td><kbd>?</kbd> or <kbd>F1</kbd></td><td>Open this Feature Guide & Shortcuts Sheet</td></tr>
@@ -2592,6 +2806,14 @@
                         <div class="help-card-desc">Click <strong>Terminal</strong> in the toolbar or context menu to spawn a VS Code terminal pre-navigated to that folder. Click <strong>Reveal in Finder / Explorer</strong> to open your operating system's native file window.</div>
                     </div>
                     <div class="help-card">
+                        <div class="help-card-title">🏷️ Smart Batch Renamer</div>
+                        <div class="help-card-desc">Select multiple files with <kbd>Ctrl/Cmd</kbd> + click or <kbd>Shift</kbd> + click (or press <kbd>Ctrl/Cmd</kbd> + <kbd>A</kbd> for Select All). Press <kbd>Ctrl/Cmd</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd> or click <strong>Batch Rename</strong>. Features 5 tabs: <strong>Find & Replace</strong> (with Regex), <strong>Add Prefix/Suffix</strong>, <strong>Sequential Numbering</strong> (e.g. 001, 002...), <strong>Case Transformation</strong> (lowercase, UPPERCASE, Title Case, camelCase, kebab-case, snake_case), and <strong>Extension Normalization</strong> with live real-time collision preview.</div>
+                    </div>
+                    <div class="help-card">
+                        <div class="help-card-title">🗜️ Zip Compression & One-Click Extraction</div>
+                        <div class="help-card-desc">Compress any selected file(s) or folder(s) directly into a <code>.zip</code> archive using the toolbar button or right-click menu. For archive files (<code>.zip</code>, <code>.tar.gz</code>, <code>.tgz</code>), right-click to <strong>Extract Here</strong> or <strong>Extract to Subfolder/</strong> instantly.</div>
+                    </div>
+                    <div class="help-card">
                         <div class="help-card-title">⚙️ Engine Diagnostics & Direct-to-Editor Mode</div>
                         <div class="help-card-desc">Click <strong>⚙️</strong> in the header to view engine diagnostics, endpoint status, and quick VS Code configuration controls.</div>
                     </div>
@@ -2606,13 +2828,180 @@
         </div>
     </div>
 
+    <!-- 🏷️ Smart Batch Renamer Modal -->
+    <div class="modal-overlay" id="modal-batch-rename" onclick="hideModals()">
+        <div class="modal-box batch-rename-box" onclick="event.stopPropagation()">
+            <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i>🏷️</i> <span>Smart Batch Renamer</span>
+                </div>
+                <span id="batch-item-count" class="batch-count-pill">0 items</span>
+            </div>
+
+            <!-- Tab switcher for rename modes -->
+            <div class="batch-tabs">
+                <button type="button" class="batch-tab-btn active" data-tab="replace" onclick="switchBatchTab('replace')">🔍 Find & Replace</button>
+                <button type="button" class="batch-tab-btn" data-tab="text" onclick="switchBatchTab('text')">➕ Add Prefix / Suffix</button>
+                <button type="button" class="batch-tab-btn" data-tab="number" onclick="switchBatchTab('number')">🔢 Numbering</button>
+                <button type="button" class="batch-tab-btn" data-tab="case" onclick="switchBatchTab('case')">🔠 Change Case</button>
+                <button type="button" class="batch-tab-btn" data-tab="ext" onclick="switchBatchTab('ext')">🏷️ Extension</button>
+            </div>
+
+            <!-- Tab 1: Find & Replace -->
+            <div id="batch-panel-replace" class="batch-controls-panel">
+                <div class="batch-form-row">
+                    <label for="batch-find-text">Find:</label>
+                    <input type="text" id="batch-find-text" class="modal-input" placeholder="Text to find..." oninput="updateBatchPreview()" />
+                </div>
+                <div class="batch-form-row">
+                    <label for="batch-replace-text">Replace With:</label>
+                    <input type="text" id="batch-replace-text" class="modal-input" placeholder="Replacement text..." oninput="updateBatchPreview()" />
+                </div>
+                <div class="batch-form-row inline" style="gap: 16px; margin-top: 4px;">
+                    <label><input type="checkbox" id="batch-find-case" onchange="updateBatchPreview()"> Match case</label>
+                    <label><input type="checkbox" id="batch-find-regex" onchange="updateBatchPreview()"> Regular Expression</label>
+                </div>
+            </div>
+
+            <!-- Tab 2: Add Prefix / Suffix -->
+            <div id="batch-panel-text" class="batch-controls-panel" style="display: none;">
+                <div class="batch-form-row-grid">
+                    <div class="batch-form-row">
+                        <label for="batch-prefix-text">Prefix (Prepend):</label>
+                        <input type="text" id="batch-prefix-text" class="modal-input" placeholder="e.g. IMG_ or 2026_" oninput="updateBatchPreview()" />
+                    </div>
+                    <div class="batch-form-row">
+                        <label for="batch-suffix-text">Suffix (Append before extension):</label>
+                        <input type="text" id="batch-suffix-text" class="modal-input" placeholder="e.g. _final or _v2" oninput="updateBatchPreview()" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Numbering -->
+            <div id="batch-panel-number" class="batch-controls-panel" style="display: none;">
+                <div class="batch-form-row-grid">
+                    <div class="batch-form-row">
+                        <label for="batch-num-start">Start At:</label>
+                        <input type="number" id="batch-num-start" class="modal-input" value="1" min="0" oninput="updateBatchPreview()" />
+                    </div>
+                    <div class="batch-form-row">
+                        <label for="batch-num-step">Increment Step:</label>
+                        <input type="number" id="batch-num-step" class="modal-input" value="1" min="1" oninput="updateBatchPreview()" />
+                    </div>
+                    <div class="batch-form-row">
+                        <label for="batch-num-padding">Padding Format:</label>
+                        <select id="batch-num-padding" class="modal-input" onchange="updateBatchPreview()">
+                            <option value="1">1, 2, 3...</option>
+                            <option value="2">01, 02, 03...</option>
+                            <option value="3" selected>001, 002, 003...</option>
+                            <option value="4">0001, 0002...</option>
+                        </select>
+                    </div>
+                    <div class="batch-form-row">
+                        <label for="batch-num-pos">Position:</label>
+                        <select id="batch-num-pos" class="modal-input" onchange="updateBatchPreview()">
+                            <option value="suffix">Append (name_001.ext)</option>
+                            <option value="prefix">Prepend (001_name.ext)</option>
+                            <option value="replace">Replace Name (001.ext)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="batch-form-row" style="margin-top: 4px;">
+                    <label for="batch-num-sep">Separator:</label>
+                    <input type="text" id="batch-num-sep" class="modal-input" value="_" placeholder="_" style="max-width: 120px;" oninput="updateBatchPreview()" />
+                </div>
+            </div>
+
+            <!-- Tab 4: Change Case -->
+            <div id="batch-panel-case" class="batch-controls-panel" style="display: none;">
+                <div class="batch-form-row">
+                    <label for="batch-case-mode">Target Case:</label>
+                    <select id="batch-case-mode" class="modal-input" onchange="updateBatchPreview()">
+                        <option value="lower">lowercase (hello_world.txt)</option>
+                        <option value="upper">UPPERCASE (HELLO_WORLD.TXT)</option>
+                        <option value="title">Title Case (Hello World.txt)</option>
+                        <option value="camel">camelCase (helloWorld.txt)</option>
+                        <option value="kebab">kebab-case (hello-world.txt)</option>
+                        <option value="snake">snake_case (hello_world.txt)</option>
+                    </select>
+                </div>
+                <div class="batch-form-row inline" style="margin-top: 4px;">
+                    <label><input type="checkbox" id="batch-case-ext" onchange="updateBatchPreview()"> Apply to file extension as well</label>
+                </div>
+            </div>
+
+            <!-- Tab 5: Extension Normalization -->
+            <div id="batch-panel-ext" class="batch-controls-panel" style="display: none;">
+                <div class="batch-form-row">
+                    <label for="batch-ext-input">New Extension (or leave blank to remove):</label>
+                    <input type="text" id="batch-ext-input" class="modal-input" placeholder="e.g. .bak, .jpeg, or leave blank to strip" oninput="updateBatchPreview()" />
+                </div>
+                <div class="batch-form-row inline" style="gap: 16px; margin-top: 4px;">
+                    <button type="button" class="tool-btn" onclick="document.getElementById('batch-ext-input').value = '.bak'; updateBatchPreview();">Add .bak</button>
+                    <button type="button" class="tool-btn" onclick="batchExtLowercase();">Force ext lowercase (.JPG &rarr; .jpg)</button>
+                </div>
+            </div>
+
+            <!-- Real-time Conflict Alert Box -->
+            <div id="batch-conflict-alert" style="display: none; background: rgba(235, 77, 75, 0.15); border: 1px solid rgba(235, 77, 75, 0.4); border-radius: 6px; padding: 6px 10px; font-size: 11px; color: #ff7675; margin-bottom: 8px;">
+                ⚠️ <strong>Name Conflicts Detected:</strong> Two or more files would share the same name. Please adjust rules before applying.
+            </div>
+
+            <!-- Live Preview Table -->
+            <div class="batch-preview-container">
+                <div class="batch-preview-header">
+                    <span>Live Preview</span>
+                    <span id="batch-preview-status" class="batch-status-text">0 changes pending</span>
+                </div>
+                <div class="batch-preview-table-wrap">
+                    <table class="batch-preview-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 44%;">Original Name</th>
+                                <th style="width: 44%;">New Name</th>
+                                <th style="width: 12%; text-align: center;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="batch-preview-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="modal-actions" style="margin-top: 12px;">
+                <button type="button" class="modal-btn cancel" onclick="hideModals()">Cancel</button>
+                <button type="button" class="modal-btn confirm" id="btn-apply-batch-rename" onclick="submitBatchRename()">Apply Rename</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🗜️ Compress Modal -->
+    <div class="modal-overlay" id="modal-compress" onclick="hideModals()">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <div class="modal-title"><i>🗜️</i> Compress to .zip Archive</div>
+            <div id="compress-prompt-desc" style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
+                Enter a name for the new archive:
+            </div>
+            <input type="text" id="input-compress-name" class="modal-input" placeholder="archive.zip" onkeypress="handleModalKey(event, submitCompress)" />
+            <div class="modal-actions">
+                <button type="button" class="modal-btn cancel" onclick="hideModals()">Cancel</button>
+                <button type="button" class="modal-btn confirm" onclick="submitCompress()">Compress</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentPath = '.';
         let currentItems = [];
         let selectedItem = null;
+        let selectedItems = [];
+        let lastSelectedName = null;
+        let activeBatchTab = 'replace';
+        let batchGeneratedNames = [];
         let selectedPropPath = '';
         let clipboard = null;
         let isWindows = false;
+        const isMac = typeof navigator !== 'undefined' && (/Mac/i.test(navigator.platform || '') || /Mac/i.test(navigator.userAgent || ''));
+        const tabShortcutLabel = isMac ? '⌘T' : 'Ctrl+T';
         let systemRoots = [];
 
         // Navigation History Stack
@@ -3619,8 +4008,8 @@
                 const className = isDir ? 'folder' : 'file';
                 const sizeText = !isDir ? formatBytes(item.size) : '--';
                 const modDate = item.modified ? formatDate(item.modified) : '';
-                const isSelected = selectedItem && selectedItem.name === item.name;
-                const isCut = clipboard && clipboard.action === 'cut' && clipboard.name === item.name;
+                const isSelected = selectedItems.some(function(si) { return si.name === item.name; }) || (selectedItem && selectedItem.name === item.name);
+                const isCut = clipboard && clipboard.action === 'cut' && ((clipboard.items && clipboard.items.some(function(ci) { return ci.name === item.name; })) || clipboard.name === item.name);
 
                 const sep = isWindows ? '\\' : '/';
                 const fullItemPath = (item.isSearchResult && item.path) ? item.path : (currentPath.endsWith(sep) ? currentPath + item.name : currentPath + sep + item.name);
@@ -3644,6 +4033,7 @@
                 }
 
                 html += '<div class="item ' + className + (isSelected ? ' selected' : '') + (isCut ? ' cut-item' : '') + '" ' +
+                        'data-name="' + escapeHtml(item.name) + '" ' +
                         'onclick="handleItemClick(event, \'' + escapePath(item.name) + '\', ' + isDir + ')" ' +
                         'onauxclick="handleItemAuxClick(event, \'' + escapePath(item.name) + '\', ' + isDir + ')" ' +
                         'ondblclick="handleDoubleClick(\'' + escapePath(item.name) + '\', ' + isDir + ')" ' +
@@ -3682,6 +4072,8 @@
                 
                 currentItems = data.items;
                 selectedItem = null;
+                selectedItems = [];
+                lastSelectedName = null;
                 
                 document.getElementById('search').value = '';
                 applySortAndRender();
@@ -3698,42 +4090,182 @@
             }
         }
 
+        function isArchiveFileName(name) {
+            if (!name) return false;
+            const lower = name.toLowerCase();
+            return lower.endsWith('.zip') || lower.endsWith('.tar') || lower.endsWith('.tar.gz') || lower.endsWith('.tgz') || lower.endsWith('.gz');
+        }
+
         function refreshCurrentFolder() {
             loadFiles(currentPath);
             showToast('Refreshed', '🔄');
         }
 
+        function syncItemSelectionDOM() {
+            const selectedNames = new Set(selectedItems.map(function(i) { return i.name; }));
+            document.querySelectorAll('#files .item').forEach(function(el) {
+                const name = el.getAttribute('data-name');
+                if (selectedNames.has(name)) {
+                    el.classList.add('selected');
+                } else {
+                    el.classList.remove('selected');
+                }
+            });
+        }
+
         function handleContainerClick(e) {
             if (e.target.id === 'file-list-container' || e.target.id === 'files') {
                 selectedItem = null;
+                selectedItems = [];
+                lastSelectedName = null;
                 updateSelectionState();
-                document.querySelectorAll('.item.selected').forEach(function(el) { el.classList.remove('selected'); });
+                syncItemSelectionDOM();
+            }
+        }
+
+        function selectAllItems() {
+            if (!currentItems || currentItems.length === 0) return;
+            selectedItems = currentItems.slice();
+            selectedItem = selectedItems[0] || null;
+            lastSelectedName = selectedItem ? selectedItem.name : null;
+            syncItemSelectionDOM();
+            updateSelectionState();
+            if (selectedItems.length === 1) {
+                handlePreview(selectedItem.name, selectedItem.type === 'Directory');
+            } else if (selectedItems.length > 1) {
+                renderMultiSelectionPreview();
             }
         }
 
         function handleItemClick(e, name, isDir) {
             e.stopPropagation();
-            selectedItem = currentItems.find(function(i) { return i.name === name; }) || { name: name, type: isDir ? 'Directory' : 'File' };
-            
-            document.querySelectorAll('.item.selected').forEach(function(el) { el.classList.remove('selected'); });
-            const targetEl = e.currentTarget;
-            if (targetEl) targetEl.classList.add('selected');
-            
+            const item = currentItems.find(function(i) { return i.name === name; }) || { name: name, type: isDir ? 'Directory' : 'File' };
+
+            if (e.shiftKey && lastSelectedName) {
+                // Range selection (Windows/macOS style)
+                const fromIdx = currentItems.findIndex(function(i) { return i.name === lastSelectedName; });
+                const toIdx = currentItems.findIndex(function(i) { return i.name === name; });
+                if (fromIdx !== -1 && toIdx !== -1) {
+                    const start = Math.min(fromIdx, toIdx);
+                    const end = Math.max(fromIdx, toIdx);
+                    selectedItems = currentItems.slice(start, end + 1);
+                    selectedItem = item;
+                } else {
+                    selectedItems = [item];
+                    selectedItem = item;
+                    lastSelectedName = name;
+                }
+            } else if (e.ctrlKey || e.metaKey) {
+                // Multi-select toggle (Cmd/Ctrl click)
+                const existingIdx = selectedItems.findIndex(function(i) { return i.name === name; });
+                if (existingIdx !== -1) {
+                    selectedItems.splice(existingIdx, 1);
+                    selectedItem = selectedItems.length > 0 ? selectedItems[selectedItems.length - 1] : null;
+                } else {
+                    selectedItems.push(item);
+                    selectedItem = item;
+                    lastSelectedName = name;
+                }
+            } else {
+                // Single item selection
+                selectedItems = [item];
+                selectedItem = item;
+                lastSelectedName = name;
+            }
+
+            syncItemSelectionDOM();
             updateSelectionState();
-            handlePreview(name, isDir);
+
+            if (selectedItems.length === 1) {
+                handlePreview(selectedItem.name, selectedItem.type === 'Directory');
+            } else if (selectedItems.length > 1) {
+                renderMultiSelectionPreview();
+            }
+        }
+
+        function renderMultiSelectionPreview() {
+            const count = selectedItems.length;
+            let totalBytes = 0;
+            let fileCount = 0;
+            let dirCount = 0;
+            for (let i = 0; i < selectedItems.length; i++) {
+                if (selectedItems[i].type === 'Directory') {
+                    dirCount++;
+                } else {
+                    fileCount++;
+                    totalBytes += (selectedItems[i].size || 0);
+                }
+            }
+
+            const headerElem = document.querySelector('#preview-pane h2');
+            if (headerElem) headerElem.innerText = count + ' Items Selected';
+
+            const previewEl = document.getElementById('preview-content');
+            if (previewEl) {
+                let rowsHtml = '';
+                for (let i = 0; i < selectedItems.length; i++) {
+                    const item = selectedItems[i];
+                    rowsHtml += '<tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">' +
+                                '<td style="padding: 4px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;">' + (item.type === 'Directory' ? '📁 ' : '📄 ') + escapeHtml(item.name) + '</td>' +
+                                '<td style="padding: 4px 8px; text-align: right; color: var(--text-muted); white-space: nowrap;">' + (item.type === 'Directory' ? '--' : formatBytes(item.size || 0)) + '</td>' +
+                                '</tr>';
+                }
+
+                previewEl.innerHTML = 
+                    '<div style="display: flex; flex-direction: column; gap: 12px; padding: 12px 6px; font-size: 12px;">' +
+                    '<div style="display: flex; align-items: center; gap: 8px;">' +
+                    '<span style="font-size: 26px;">🗂️</span>' +
+                    '<div>' +
+                    '<div style="font-weight: 600; font-size: 14px; color: var(--text-main);">' + count + ' items selected</div>' +
+                    '<div style="font-size: 11px; color: var(--text-muted);">' + (fileCount > 0 ? fileCount + ' files' : '') + (fileCount > 0 && dirCount > 0 ? ', ' : '') + (dirCount > 0 ? dirCount + ' folders' : '') + ' &bull; ' + formatBytes(totalBytes) + '</div>' +
+                    '</div>' +
+                    '</div>' +
+                    '<div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">' +
+                    '<div style="font-weight: 600; font-size: 11px; color: #a29bfe; text-transform: uppercase;">Batch Actions</div>' +
+                    '<div style="display: flex; gap: 8px; flex-wrap: wrap;">' +
+                    '<button class="tool-btn primary" onclick="showBatchRenameModal()" style="padding: 6px 12px;">🏷️ Smart Batch Rename</button>' +
+                    '<button class="tool-btn" onclick="handleCompressSelected()" style="padding: 6px 12px;">🗜️ Compress to .zip</button>' +
+                    '</div>' +
+                    '</div>' +
+                    '<div style="max-height: 220px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; background: rgba(0,0,0,0.1);">' +
+                    '<table style="width: 100%; border-collapse: collapse; font-size: 11px;">' +
+                    rowsHtml +
+                    '</table>' +
+                    '</div>' +
+                    '</div>';
+            }
         }
 
         function updateSelectionState() {
-            const hasSelection = !!selectedItem;
+            const count = selectedItems.length;
+            const hasSelection = count > 0;
+            const isSingle = count === 1;
+
             document.getElementById('btn-cut').disabled = !hasSelection;
             document.getElementById('btn-copy').disabled = !hasSelection;
-            document.getElementById('btn-rename').disabled = !hasSelection;
+            document.getElementById('btn-rename').disabled = !isSingle;
             document.getElementById('btn-delete').disabled = !hasSelection;
-            document.getElementById('btn-properties').disabled = !hasSelection;
-            
+            document.getElementById('btn-properties').disabled = !isSingle;
+
+            const btnBatchRename = document.getElementById('btn-batch-rename');
+            if (btnBatchRename) btnBatchRename.disabled = !hasSelection;
+
+            const btnZip = document.getElementById('btn-zip-archive');
+            if (btnZip) btnZip.disabled = !hasSelection;
+
+            const isArchive = isSingle && selectedItem && isArchiveFileName(selectedItem.name);
+            const btnUnzip = document.getElementById('btn-unzip-archive');
+            if (btnUnzip) btnUnzip.style.display = isArchive ? 'inline-flex' : 'none';
+
             const selectedInfo = document.getElementById('status-selected-info');
-            if (selectedItem) {
+            if (count === 1 && selectedItem) {
                 selectedInfo.innerText = 'Selected: ' + selectedItem.name + (selectedItem.type === 'File' ? ' (' + formatBytes(selectedItem.size) + ')' : '');
+            } else if (count > 1) {
+                let totalBytes = 0;
+                for (let i = 0; i < selectedItems.length; i++) {
+                    totalBytes += (selectedItems[i].size || 0);
+                }
+                selectedInfo.innerText = count + ' items selected (' + formatBytes(totalBytes) + ')';
             } else {
                 selectedInfo.innerText = 'No selection';
             }
@@ -4717,47 +5249,58 @@
         // ══════════════════════════════════════════════════════════
         function copySelectedItem() {
             hideContextMenu();
-            if (!selectedItem) return;
+            const items = selectedItems.length > 0 ? selectedItems.slice() : (selectedItem ? [selectedItem] : []);
+            if (items.length === 0) return;
             const sep = isWindows ? '\\' : '/';
-            const fullPath = currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name;
-            clipboard = { action: 'copy', path: fullPath, name: selectedItem.name };
+            const mapped = items.map(function(item) {
+                const fullPath = item.path || (currentPath.endsWith(sep) ? currentPath + item.name : currentPath + sep + item.name);
+                return { path: fullPath, name: item.name };
+            });
+            clipboard = { action: 'copy', items: mapped, path: mapped[0].path, name: mapped[0].name };
             updateSelectionState();
             document.getElementById('btn-paste').disabled = false;
-            showToast('Copied "' + selectedItem.name + '" to clipboard', '📋');
+            showToast(items.length === 1 ? 'Copied "' + items[0].name + '" to clipboard' : 'Copied ' + items.length + ' items to clipboard', '📋');
         }
 
         function cutSelectedItem() {
             hideContextMenu();
-            if (!selectedItem) return;
+            const items = selectedItems.length > 0 ? selectedItems.slice() : (selectedItem ? [selectedItem] : []);
+            if (items.length === 0) return;
             const sep = isWindows ? '\\' : '/';
-            const fullPath = currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name;
-            clipboard = { action: 'cut', path: fullPath, name: selectedItem.name };
+            const mapped = items.map(function(item) {
+                const fullPath = item.path || (currentPath.endsWith(sep) ? currentPath + item.name : currentPath + sep + item.name);
+                return { path: fullPath, name: item.name };
+            });
+            clipboard = { action: 'cut', items: mapped, path: mapped[0].path, name: mapped[0].name };
             updateSelectionState();
             document.getElementById('btn-paste').disabled = false;
             renderItems(currentItems);
-            showToast('Cut "' + selectedItem.name + '" (ready to paste)', '✂️');
+            showToast(items.length === 1 ? 'Cut "' + items[0].name + '" (ready to paste)' : 'Cut ' + items.length + ' items (ready to paste)', '✂️');
         }
 
         async function pasteClipboardItem() {
             hideContextMenu();
             if (!clipboard) return;
+            const items = clipboard.items || [{ path: clipboard.path, name: clipboard.name }];
             const endpoint = clipboard.action === 'cut' ? '/api/files/move' : '/api/files/copy';
-            try {
-                const res = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ source: clipboard.path, destinationDir: currentPath })
-                });
-                if (res.ok) {
-                    showToast((clipboard.action === 'cut' ? 'Moved' : 'Copied') + ' item successfully', '✅');
-                    if (clipboard.action === 'cut') clipboard = null;
-                    document.getElementById('btn-paste').disabled = !clipboard;
-                    loadFiles(currentPath);
-                } else {
-                    showToast('Failed to paste item', '❌');
-                }
-            } catch {
-                showToast('Paste operation error', '❌');
+            let successCount = 0;
+            for (let i = 0; i < items.length; i++) {
+                try {
+                    const res = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ source: items[i].path, destinationDir: currentPath })
+                    });
+                    if (res.ok) successCount++;
+                } catch {}
+            }
+            if (successCount > 0) {
+                showToast((clipboard.action === 'cut' ? 'Moved ' : 'Copied ') + successCount + (successCount === 1 ? ' item' : ' items') + ' successfully', '✅');
+                if (clipboard.action === 'cut') clipboard = null;
+                document.getElementById('btn-paste').disabled = !clipboard;
+                loadFiles(currentPath);
+            } else {
+                showToast('Failed to paste item(s)', '❌');
             }
         }
 
@@ -4797,9 +5340,23 @@
 
         function deleteSelectedItem() {
             hideContextMenu();
-            if (!selectedItem) return;
-            document.getElementById('delete-prompt-text').innerHTML = 'Are you sure you want to permanently delete <strong>' + escapeHtml(selectedItem.name) + '</strong>? This action cannot be undone.';
-            document.getElementById('modal-delete').style.display = 'flex';
+            const count = selectedItems.length;
+            if (count === 0 && !selectedItem) return;
+            const trashTerm = isWindows ? 'Recycle Bin' : 'Trash';
+            if (count > 1) {
+                document.getElementById('delete-prompt-text').innerHTML = 'Move these <strong>' + count + ' items</strong> to the ' + trashTerm + '?';
+            } else {
+                const target = selectedItem || selectedItems[0];
+                document.getElementById('delete-prompt-text').innerHTML = 'Move <strong>' + escapeHtml(target.name) + '</strong> to the ' + trashTerm + '?';
+            }
+            const modal = document.getElementById('modal-delete');
+            if (modal) {
+                modal.style.display = 'flex';
+                setTimeout(function() {
+                    const btn = document.getElementById('btn-confirm-delete');
+                    if (btn) btn.focus();
+                }, 50);
+            }
         }
 
         function hideModals() {
@@ -4955,24 +5512,61 @@
 
         async function submitDelete() {
             hideModals();
-            if (!selectedItem) return;
+            const itemsToDelete = selectedItems.length > 0 ? selectedItems.slice() : (selectedItem ? [selectedItem] : []);
+            if (itemsToDelete.length === 0) return;
             const sep = isWindows ? '\\' : '/';
-            const targetPath = currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name;
+            const trashTerm = isWindows ? 'Recycle Bin' : 'Trash';
+            const paths = itemsToDelete.map(function(item) {
+                return item.path || (currentPath.endsWith(sep) ? currentPath + item.name : currentPath + sep + item.name);
+            });
+
+            showToast('Moving ' + paths.length + ' item' + (paths.length === 1 ? '' : 's') + ' to ' + trashTerm + '...', '⏳');
             try {
                 const res = await fetch('/api/files/delete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ targetPath: targetPath })
+                    body: JSON.stringify({
+                        paths: paths,
+                        targetPath: paths[0]
+                    })
                 });
-                if (res.ok) {
-                    showToast('Deleted "' + selectedItem.name + '"', '🗑️');
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    const count = data.count !== undefined ? data.count : paths.length;
+                    showToast('Moved ' + count + (count === 1 ? ' item' : ' items') + ' to ' + trashTerm, '🗑️');
                     selectedItem = null;
+                    selectedItems = [];
+                    lastSelectedName = null;
                     loadFiles(currentPath);
+                    return;
                 } else {
-                    showToast('Delete failed', '❌');
+                    showToast('Failed to move to ' + trashTerm + ': ' + (data.error || 'Server error'), '❌');
+                    return;
                 }
-            } catch {
-                showToast('Error deleting item', '❌');
+            } catch (err) {
+                console.warn('Batch trash failed, trying item by item...', err);
+            }
+
+            // Fallback: delete item by item
+            let successCount = 0;
+            for (let i = 0; i < paths.length; i++) {
+                try {
+                    const res = await fetch('/api/files/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ targetPath: paths[i] })
+                    });
+                    if (res.ok) successCount++;
+                } catch {}
+            }
+            if (successCount > 0) {
+                showToast('Moved ' + successCount + (successCount === 1 ? ' item' : ' items') + ' to ' + trashTerm, '🗑️');
+                selectedItem = null;
+                selectedItems = [];
+                lastSelectedName = null;
+                loadFiles(currentPath);
+            } else {
+                showToast('Failed to move to ' + trashTerm, '❌');
             }
         }
 
@@ -4982,33 +5576,85 @@
         function handleItemContextMenu(e, name, isDir) {
             e.preventDefault();
             e.stopPropagation();
-            handleItemClick(e, name, isDir);
-            
+
+            const isAlreadySelected = selectedItems.some(function(i) { return i.name === name; });
+            if (!isAlreadySelected) {
+                const item = currentItems.find(function(i) { return i.name === name; }) || { name: name, type: isDir ? 'Directory' : 'File' };
+                selectedItems = [item];
+                selectedItem = item;
+                lastSelectedName = name;
+                syncItemSelectionDOM();
+                updateSelectionState();
+            }
+
+            const count = selectedItems.length;
+            const isSingle = count === 1;
+
             const menu = document.getElementById('context-menu');
-            document.getElementById('ctx-open').style.display = 'flex';
+            const newTabItem = document.getElementById('ctx-new-tab');
+            if (newTabItem) newTabItem.style.display = 'none';
+            document.getElementById('ctx-open').style.display = isSingle ? 'flex' : 'none';
             const openTabItem = document.getElementById('ctx-open-new-tab');
-            if (openTabItem) openTabItem.style.display = isDir ? 'flex' : 'none';
-            document.getElementById('ctx-quicklook').style.display = 'flex';
-            document.getElementById('ctx-rename').style.display = 'flex';
+            if (openTabItem) openTabItem.style.display = (isSingle && isDir) ? 'flex' : 'none';
+            document.getElementById('ctx-quicklook').style.display = isSingle ? 'flex' : 'none';
+            document.getElementById('ctx-rename').style.display = isSingle ? 'flex' : 'none';
             document.getElementById('ctx-copy').style.display = 'flex';
             document.getElementById('ctx-cut').style.display = 'flex';
             document.getElementById('ctx-delete').style.display = 'flex';
-            document.getElementById('ctx-properties').style.display = 'flex';
+            document.getElementById('ctx-properties').style.display = isSingle ? 'flex' : 'none';
             document.getElementById('ctx-terminal-item').style.display = 'flex';
-            document.getElementById('ctx-reveal-item').style.display = 'flex';
+            document.getElementById('ctx-reveal-item').style.display = isSingle ? 'flex' : 'none';
             document.getElementById('ctx-reveal-label').textContent = isWindows ? 'Reveal in File Explorer' : 'Reveal in Finder';
             document.getElementById('ctx-copy-path').style.display = 'flex';
-            document.getElementById('ctx-copy-rel-path').style.display = 'flex';
+            document.getElementById('ctx-copy-rel-path').style.display = isSingle ? 'flex' : 'none';
+
+            // Smart Batch Rename
+            const ctxBatch = document.getElementById('ctx-batch-rename');
+            if (ctxBatch) {
+                ctxBatch.style.display = count > 0 ? 'flex' : 'none';
+                const shortcut = document.getElementById('ctx-batch-shortcut');
+                if (shortcut) shortcut.textContent = isMac ? '⌘⇧R' : 'Ctrl+Shift+R';
+            }
+
+            // Compress to .zip
+            const ctxCompress = document.getElementById('ctx-compress');
+            if (ctxCompress) {
+                ctxCompress.style.display = count > 0 ? 'flex' : 'none';
+                const label = document.getElementById('ctx-compress-label');
+                if (label) {
+                    if (count === 1) {
+                        label.textContent = 'Compress "' + (selectedItem ? selectedItem.name : name) + '.zip"';
+                    } else {
+                        label.textContent = 'Compress ' + count + ' items to .zip';
+                    }
+                }
+            }
+
+            // Archive Extract (if single archive file selected)
+            const targetItem = selectedItem || (selectedItems.length === 1 ? selectedItems[0] : null);
+            const isArchive = isSingle && targetItem && isArchiveFileName(targetItem.name);
+            const ctxExtractHere = document.getElementById('ctx-extract-here');
+            if (ctxExtractHere) ctxExtractHere.style.display = isArchive ? 'flex' : 'none';
+
+            const ctxExtractTo = document.getElementById('ctx-extract-to');
+            if (ctxExtractTo) {
+                ctxExtractTo.style.display = isArchive ? 'flex' : 'none';
+                const label = document.getElementById('ctx-extract-to-label');
+                if (label && targetItem) {
+                    const baseFolder = targetItem.name.replace(/\.(zip|tar\.gz|tgz|tar|gz)$/i, '');
+                    label.textContent = 'Extract to ' + baseFolder + '/';
+                }
+            }
 
             // Show Diff if modified or staged
             const gitCode = currentGitStatuses ? currentGitStatuses[name] : null;
             const canDiff = gitCode && (gitCode === 'M' || gitCode === 'A');
-            document.getElementById('ctx-diff').style.display = canDiff && !isDir ? 'flex' : 'none';
+            document.getElementById('ctx-diff').style.display = (canDiff && !isDir && isSingle) ? 'flex' : 'none';
 
             // Pin/Unpin folder option
             const pinItem = document.getElementById('ctx-pin-folder');
             if (pinItem) {
-                pinItem.style.display = isDir ? 'flex' : 'none';
+                pinItem.style.display = (isDir && isSingle) ? 'flex' : 'none';
                 const sep = isWindows ? '\\' : '/';
                 const fullItemPath = currentPath.endsWith(sep) ? currentPath + name : currentPath + sep + name;
                 const isPinned = userBookmarks.some(function(b) { return b.path === fullItemPath; });
@@ -5022,14 +5668,28 @@
         function handleBackgroundContextMenu(e) {
             e.preventDefault();
             selectedItem = null;
+            selectedItems = [];
+            lastSelectedName = null;
             updateSelectionState();
-            document.querySelectorAll('.item.selected').forEach(function(el) { el.classList.remove('selected'); });
+            syncItemSelectionDOM();
 
             const menu = document.getElementById('context-menu');
+            const newTabItem = document.getElementById('ctx-new-tab');
+            if (newTabItem) newTabItem.style.display = 'flex';
+            const openTabItem = document.getElementById('ctx-open-new-tab');
+            if (openTabItem) openTabItem.style.display = 'none';
             document.getElementById('ctx-open').style.display = 'none';
             document.getElementById('ctx-diff').style.display = 'none';
             document.getElementById('ctx-quicklook').style.display = 'none';
             document.getElementById('ctx-rename').style.display = 'none';
+            const ctxBatch = document.getElementById('ctx-batch-rename');
+            if (ctxBatch) ctxBatch.style.display = 'none';
+            const ctxCompress = document.getElementById('ctx-compress');
+            if (ctxCompress) ctxCompress.style.display = 'none';
+            const ctxExtractHere = document.getElementById('ctx-extract-here');
+            if (ctxExtractHere) ctxExtractHere.style.display = 'none';
+            const ctxExtractTo = document.getElementById('ctx-extract-to');
+            if (ctxExtractTo) ctxExtractTo.style.display = 'none';
             document.getElementById('ctx-copy').style.display = 'none';
             document.getElementById('ctx-cut').style.display = 'none';
             document.getElementById('ctx-delete').style.display = 'none';
@@ -5183,6 +5843,22 @@
                 return;
             }
 
+            // If Delete modal is active, Enter immediately confirms deletion
+            const modalDelete = document.getElementById('modal-delete');
+            if (modalDelete && modalDelete.style.display === 'flex') {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submitDelete();
+                    return;
+                }
+            }
+
+            // If any modal is visible, block global background shortcuts from firing
+            const anyActiveModal = document.querySelector('.modal-overlay[style*="display: flex"]');
+            if (anyActiveModal && !isEditing) {
+                return;
+            }
+
             if (isEditing) return;
 
             // ? or F1: Open Feature Guide & Keyboard Shortcuts
@@ -5269,11 +5945,15 @@
                 return;
             }
 
-            // Delete: Delete
-            if (e.key === 'Delete') {
-                e.preventDefault();
-                deleteSelectedItem();
-                return;
+            // Delete: Delete / Backspace / Cmd+Backspace (Mac & Windows delete)
+            const isDeleteKey = e.key === 'Delete' || e.code === 'Delete' || e.key === 'Backspace' || ((e.metaKey || e.ctrlKey) && (e.key === 'Backspace' || e.key === 'Delete'));
+            if (isDeleteKey) {
+                const hasSelection = (selectedItems && selectedItems.length > 0) || selectedItem;
+                if (hasSelection) {
+                    e.preventDefault();
+                    deleteSelectedItem();
+                    return;
+                }
             }
 
             // Enter: Open in editor or enter folder
@@ -5314,7 +5994,409 @@
                 pasteClipboardItem();
                 return;
             }
+
+            // Ctrl+A / Cmd+A: Select All
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+                e.preventDefault();
+                selectAllItems();
+                return;
+            }
+
+            // Ctrl+Shift+R / Cmd+Shift+R: Batch Rename
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'r' || e.key === 'R')) {
+                e.preventDefault();
+                showBatchRenameModal();
+                return;
+            }
         });
+
+        // ══════════════════════════════════════════════════════════
+        // 🏷️ SMART BATCH RENAMER
+        // ══════════════════════════════════════════════════════════
+        function switchBatchTab(tabName) {
+            activeBatchTab = tabName;
+            document.querySelectorAll('.batch-tab-btn').forEach(function(btn) {
+                if (btn.getAttribute('data-tab') === tabName) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+            const panels = ['replace', 'text', 'number', 'case', 'ext'];
+            for (let i = 0; i < panels.length; i++) {
+                const p = document.getElementById('batch-panel-' + panels[i]);
+                if (p) p.style.display = panels[i] === tabName ? 'flex' : 'none';
+            }
+            updateBatchPreview();
+        }
+
+        function showBatchRenameModal() {
+            hideContextMenu();
+            if (selectedItems.length === 0) {
+                if (selectedItem) selectedItems = [selectedItem];
+                else {
+                    showToast('Please select files or folders to batch rename', '⚠️');
+                    return;
+                }
+            }
+            const countPill = document.getElementById('batch-item-count');
+            if (countPill) countPill.textContent = selectedItems.length + ' item' + (selectedItems.length === 1 ? '' : 's');
+
+            switchBatchTab(activeBatchTab || 'replace');
+            const modal = document.getElementById('modal-batch-rename');
+            if (modal) modal.style.display = 'flex';
+            updateBatchPreview();
+        }
+
+        function transformCase(str, mode) {
+            if (!str) return '';
+            switch (mode) {
+                case 'lower':
+                    return str.toLowerCase();
+                case 'upper':
+                    return str.toUpperCase();
+                case 'title':
+                    return str.replace(/\b[a-z]/gi, function(c) { return c.toUpperCase(); });
+                case 'camel': {
+                    const words = str.split(/[\s_\-]+/).filter(Boolean);
+                    if (words.length === 0) return str;
+                    return words[0].toLowerCase() + words.slice(1).map(function(w) {
+                        return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+                    }).join('');
+                }
+                case 'kebab': {
+                    const words = str.split(/[\s_\-]+/).filter(Boolean);
+                    return words.map(function(w) { return w.toLowerCase(); }).join('-');
+                }
+                case 'snake': {
+                    const words = str.split(/[\s_\-]+/).filter(Boolean);
+                    return words.map(function(w) { return w.toLowerCase(); }).join('_');
+                }
+                default:
+                    return str;
+            }
+        }
+
+        function batchExtLowercase() {
+            const input = document.getElementById('batch-ext-input');
+            if (input) input.value = '';
+            switchBatchTab('case');
+            const caseSelect = document.getElementById('batch-case-mode');
+            if (caseSelect) caseSelect.value = 'lower';
+            const caseExt = document.getElementById('batch-case-ext');
+            if (caseExt) caseExt.checked = true;
+            updateBatchPreview();
+        }
+
+        function calculateBatchNewName(oldName, isDir, index, total) {
+            let base = oldName;
+            let ext = '';
+            if (!isDir) {
+                const dotIdx = oldName.lastIndexOf('.');
+                if (dotIdx > 0) {
+                    base = oldName.substring(0, dotIdx);
+                    ext = oldName.substring(dotIdx);
+                }
+            }
+
+            switch (activeBatchTab) {
+                case 'replace': {
+                    const findText = document.getElementById('batch-find-text').value;
+                    const replaceText = document.getElementById('batch-replace-text').value || '';
+                    const matchCase = document.getElementById('batch-find-case').checked;
+                    const isRegex = document.getElementById('batch-find-regex').checked;
+                    if (!findText) return oldName;
+                    try {
+                        let newBase;
+                        if (isRegex) {
+                            const re = new RegExp(findText, matchCase ? 'g' : 'gi');
+                            newBase = base.replace(re, replaceText);
+                        } else {
+                            if (matchCase) {
+                                newBase = base.split(findText).join(replaceText);
+                            } else {
+                                const escaped = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                const re = new RegExp(escaped, 'gi');
+                                newBase = base.replace(re, replaceText);
+                            }
+                        }
+                        return newBase + ext;
+                    } catch {
+                        return oldName;
+                    }
+                }
+                case 'text': {
+                    const prefix = document.getElementById('batch-prefix-text').value || '';
+                    const suffix = document.getElementById('batch-suffix-text').value || '';
+                    return prefix + base + suffix + ext;
+                }
+                case 'number': {
+                    const start = parseInt(document.getElementById('batch-num-start').value, 10) || 1;
+                    const step = parseInt(document.getElementById('batch-num-step').value, 10) || 1;
+                    const padding = parseInt(document.getElementById('batch-num-padding').value, 10) || 1;
+                    const pos = document.getElementById('batch-num-pos').value;
+                    const sep = document.getElementById('batch-num-sep').value || '';
+
+                    const numVal = start + (index * step);
+                    let numStr = String(numVal);
+                    while (numStr.length < padding) {
+                        numStr = '0' + numStr;
+                    }
+
+                    if (pos === 'prefix') {
+                        return numStr + sep + base + ext;
+                    } else if (pos === 'suffix') {
+                        return base + sep + numStr + ext;
+                    } else {
+                        return numStr + ext;
+                    }
+                }
+                case 'case': {
+                    const mode = document.getElementById('batch-case-mode').value;
+                    const applyExt = document.getElementById('batch-case-ext').checked;
+                    const newBase = transformCase(base, mode);
+                    const newExt = (applyExt && ext) ? (ext.startsWith('.') ? '.' + transformCase(ext.substring(1), mode) : transformCase(ext, mode)) : ext;
+                    return newBase + newExt;
+                }
+                case 'ext': {
+                    if (isDir) return oldName;
+                    let newExt = document.getElementById('batch-ext-input').value.trim();
+                    if (newExt && !newExt.startsWith('.')) newExt = '.' + newExt;
+                    return base + newExt;
+                }
+                default:
+                    return oldName;
+            }
+        }
+
+        function updateBatchPreview() {
+            const tableBody = document.getElementById('batch-preview-table-body');
+            if (!tableBody) return;
+
+            batchGeneratedNames = [];
+            const newNamesSet = new Map();
+            let changedCount = 0;
+            let hasConflict = false;
+
+            const existingOtherNames = new Set(
+                currentItems
+                    .filter(function(ci) { return !selectedItems.some(function(si) { return si.name === ci.name; }); })
+                    .map(function(ci) { return ci.name.toLowerCase(); })
+            );
+
+            for (let i = 0; i < selectedItems.length; i++) {
+                const item = selectedItems[i];
+                const newName = calculateBatchNewName(item.name, item.type === 'Directory', i, selectedItems.length);
+                const isChanged = (newName !== item.name);
+                if (isChanged) changedCount++;
+
+                let conflict = null;
+                const lowerNew = newName.toLowerCase();
+                if (!newName || newName.includes('/') || newName.includes('\\')) {
+                    conflict = 'Invalid Name';
+                } else if (existingOtherNames.has(lowerNew)) {
+                    conflict = 'File Exists';
+                } else if (newNamesSet.has(lowerNew)) {
+                    conflict = 'Duplicate';
+                }
+
+                newNamesSet.set(lowerNew, true);
+                if (conflict) hasConflict = true;
+
+                batchGeneratedNames.push({
+                    oldName: item.name,
+                    newName: newName,
+                    isDir: item.type === 'Directory',
+                    isChanged: isChanged,
+                    conflict: conflict
+                });
+            }
+
+            let rowsHtml = '';
+            for (let i = 0; i < batchGeneratedNames.length; i++) {
+                const entry = batchGeneratedNames[i];
+                let badgeClass = 'unchanged';
+                let badgeText = 'Unchanged';
+                if (entry.conflict) {
+                    badgeClass = 'conflict';
+                    badgeText = '⚠️ ' + entry.conflict;
+                } else if (entry.isChanged) {
+                    badgeClass = 'changed';
+                    badgeText = '✓ Changed';
+                }
+
+                rowsHtml += '<tr>' +
+                            '<td title="' + escapeHtml(entry.oldName) + '">' + (entry.isDir ? '📁 ' : '📄 ') + escapeHtml(entry.oldName) + '</td>' +
+                            '<td title="' + escapeHtml(entry.newName) + '" style="' + (entry.isChanged ? 'color: #2ecc71; font-weight: 500;' : 'color: var(--text-muted);') + '">' + escapeHtml(entry.newName) + '</td>' +
+                            '<td style="text-align: center;"><span class="batch-status-badge ' + badgeClass + '">' + badgeText + '</span></td>' +
+                            '</tr>';
+            }
+            tableBody.innerHTML = rowsHtml;
+
+            const statusElem = document.getElementById('batch-preview-status');
+            if (statusElem) {
+                statusElem.textContent = changedCount + ' of ' + selectedItems.length + ' will be renamed';
+            }
+
+            const alertElem = document.getElementById('batch-conflict-alert');
+            if (alertElem) {
+                alertElem.style.display = hasConflict ? 'block' : 'none';
+            }
+
+            const applyBtn = document.getElementById('btn-apply-batch-rename');
+            if (applyBtn) {
+                applyBtn.disabled = hasConflict || changedCount === 0;
+                applyBtn.textContent = 'Apply Rename (' + changedCount + ')';
+            }
+        }
+
+        async function submitBatchRename() {
+            const renamesToApply = batchGeneratedNames.filter(function(b) {
+                return b.isChanged && !b.conflict && b.newName && b.newName !== b.oldName;
+            });
+            if (renamesToApply.length === 0) {
+                hideModals();
+                showToast('No file names were changed', 'ℹ️');
+                return;
+            }
+
+            hideModals();
+            showToast('Renaming ' + renamesToApply.length + ' item(s)...', '⏳');
+            try {
+                const res = await fetch('/api/files/batch-rename', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        currentPath: currentPath,
+                        renames: renamesToApply.map(function(r) { return { oldName: r.oldName, newName: r.newName }; })
+                    })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    const renamedCount = data.renamedCount !== undefined ? data.renamedCount : (data.count !== undefined ? data.count : 0);
+                    showToast('Renamed ' + renamedCount + ' item(s) successfully', '🏷️');
+                    selectedItem = null;
+                    selectedItems = [];
+                    lastSelectedName = null;
+                    loadFiles(currentPath);
+                } else {
+                    showToast('Batch rename failed: ' + (data.error || 'Unknown error'), '❌');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Error executing batch rename', '❌');
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // 🗜️ ZIP / UNZIP ARCHIVE MANAGEMENT
+        // ══════════════════════════════════════════════════════════
+        function handleCompressSelected() {
+            hideContextMenu();
+            const items = selectedItems.length > 0 ? selectedItems.slice() : (selectedItem ? [selectedItem] : []);
+            if (items.length === 0) {
+                showToast('Please select files or folders to compress', '⚠️');
+                return;
+            }
+
+            let defaultName = 'archive.zip';
+            if (items.length === 1) {
+                defaultName = items[0].name.replace(/[\\/]+$/, '') + '.zip';
+            } else {
+                const folderName = getTabTitleForPath(currentPath);
+                defaultName = (folderName && folderName !== 'Folder' && folderName !== 'Root' ? folderName + '_archive.zip' : 'archive.zip');
+            }
+
+            const input = document.getElementById('input-compress-name');
+            if (input) input.value = defaultName;
+            const desc = document.getElementById('compress-prompt-desc');
+            if (desc) desc.textContent = 'Compress ' + items.length + ' item' + (items.length === 1 ? '' : 's') + ' into:';
+
+            const modal = document.getElementById('modal-compress');
+            if (modal) modal.style.display = 'flex';
+            setTimeout(function() {
+                if (input) {
+                    input.focus();
+                    const dotIdx = input.value.lastIndexOf('.');
+                    if (dotIdx > 0) input.setSelectionRange(0, dotIdx);
+                    else input.select();
+                }
+            }, 50);
+        }
+
+        async function submitCompress() {
+            const input = document.getElementById('input-compress-name');
+            let archiveName = input ? input.value.trim() : '';
+            if (!archiveName) archiveName = 'archive.zip';
+            if (!archiveName.toLowerCase().endsWith('.zip')) archiveName += '.zip';
+
+            hideModals();
+            const items = selectedItems.length > 0 ? selectedItems.slice() : (selectedItem ? [selectedItem] : []);
+            if (items.length === 0) return;
+
+            showToast('Compressing into "' + archiveName + '"...', '⏳');
+            try {
+                const res = await fetch('/api/files/compress', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        currentPath: currentPath,
+                        folder: currentPath,
+                        items: items.map(function(i) { return i.name; }),
+                        archiveName: archiveName
+                    })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast('Created archive "' + (data.archiveName || archiveName) + '"', '🗜️');
+                    loadFiles(currentPath);
+                } else {
+                    showToast('Compression failed: ' + (data.error || 'Server error'), '❌');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Error creating archive', '❌');
+            }
+        }
+
+        async function handleExtractSelected(intoSubfolder) {
+            hideContextMenu();
+            const targetItem = selectedItem || (selectedItems.length === 1 ? selectedItems[0] : null);
+            if (!targetItem || !isArchiveFileName(targetItem.name)) {
+                showToast('Please select a valid archive (.zip, .tar.gz, etc.) to extract', '⚠️');
+                return;
+            }
+
+            const sep = isWindows ? '\\' : '/';
+            const archiveFullPath = targetItem.path || (currentPath.endsWith(sep) ? currentPath + targetItem.name : currentPath + sep + targetItem.name);
+            let destinationFolder = undefined;
+            if (intoSubfolder) {
+                const baseName = targetItem.name.replace(/\.(zip|tar\.gz|tgz|tar|gz)$/i, '');
+                destinationFolder = currentPath.endsWith(sep) ? currentPath + baseName : currentPath + sep + baseName;
+            }
+
+            showToast('Extracting "' + targetItem.name + '"...', '⏳');
+            try {
+                const res = await fetch('/api/files/extract', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        archivePath: archiveFullPath,
+                        destinationDir: destinationFolder,
+                        folder: currentPath,
+                        archiveName: targetItem.name,
+                        destinationFolder: destinationFolder
+                    })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast('Archive extracted successfully' + (intoSubfolder ? ' to ' + targetItem.name.replace(/\.(zip|tar\.gz|tgz|tar|gz)$/i, '') + '/' : ''), '📦');
+                    loadFiles(currentPath);
+                } else {
+                    showToast('Extraction failed: ' + (data.error || 'Server error'), '❌');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Error extracting archive', '❌');
+            }
+        }
 
         // ══════════════════════════════════════════════════════════
         // 🛠️ UTILITIES
@@ -5401,6 +6483,12 @@
         const initialTab = tabs.find(function(t) { return t.id === activeTabId; }) || tabs[0];
         navigateTo(initialTab.path);
         setView(currentViewMode);
+
+        // Update OS-specific tab shortcut badges
+        const badgeShortcut = document.getElementById('badge-tab-shortcut');
+        if (badgeShortcut) badgeShortcut.textContent = tabShortcutLabel;
+        const ctxShortcut = document.getElementById('ctx-new-tab-shortcut');
+        if (ctxShortcut) ctxShortcut.textContent = tabShortcutLabel;
     
         // Initialize Resizable Splitters
         if (document.readyState === 'complete' || document.readyState === 'interactive') {
