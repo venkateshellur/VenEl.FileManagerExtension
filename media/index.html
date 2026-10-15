@@ -2981,10 +2981,10 @@
             <div id="compress-prompt-desc" style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
                 Enter a name for the new archive:
             </div>
-            <input type="text" id="input-compress-name" class="modal-input" placeholder="archive.zip" onkeypress="handleModalKey(event, submitCompress)" />
+            <input type="text" id="input-compress-name" class="modal-input" placeholder="archive.zip" onkeydown="handleModalKey(event, submitCompress)" />
             <div class="modal-actions">
                 <button type="button" class="modal-btn cancel" onclick="hideModals()">Cancel</button>
-                <button type="button" class="modal-btn confirm" onclick="submitCompress()">Compress</button>
+                <button type="button" class="modal-btn confirm" id="btn-confirm-compress" onclick="submitCompress()">Compress</button>
             </div>
         </div>
     </div>
@@ -5853,6 +5853,16 @@
                 }
             }
 
+            // If Compress modal is active, Enter immediately confirms compression
+            const modalCompress = document.getElementById('modal-compress');
+            if (modalCompress && modalCompress.style.display === 'flex') {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submitCompress();
+                    return;
+                }
+            }
+
             // If any modal is visible, block global background shortcuts from firing
             const anyActiveModal = document.querySelector('.modal-overlay[style*="display: flex"]');
             if (anyActiveModal && !isEditing) {
@@ -6328,8 +6338,15 @@
             if (!archiveName.toLowerCase().endsWith('.zip')) archiveName += '.zip';
 
             hideModals();
-            const items = selectedItems.length > 0 ? selectedItems.slice() : (selectedItem ? [selectedItem] : []);
-            if (items.length === 0) return;
+            const rawItems = selectedItems.length > 0 ? selectedItems.slice() : (selectedItem ? [selectedItem] : []);
+            const items = rawItems.map(function(i) {
+                return typeof i === 'string' ? i : (i ? i.name : '');
+            }).filter(Boolean);
+
+            if (items.length === 0) {
+                showToast('No valid items selected to compress', '⚠️');
+                return;
+            }
 
             showToast('Compressing into "' + archiveName + '"...', '⏳');
             try {
@@ -6339,20 +6356,22 @@
                     body: JSON.stringify({
                         currentPath: currentPath,
                         folder: currentPath,
-                        items: items.map(function(i) { return i.name; }),
+                        items: items,
                         archiveName: archiveName
                     })
                 });
-                const data = await res.json();
-                if (res.ok && data.success) {
+                let data = null;
+                try { data = await res.json(); } catch {}
+                if (res.ok && data && data.success) {
                     showToast('Created archive "' + (data.archiveName || archiveName) + '"', '🗜️');
                     loadFiles(currentPath);
                 } else {
-                    showToast('Compression failed: ' + (data.error || 'Server error'), '❌');
+                    const errDetail = (data && (data.error || data.detail || data.title)) || (res.statusText ? 'HTTP ' + res.status + ' (' + res.statusText + ')' : 'Server error');
+                    showToast(errDetail.startsWith('Compression failed') ? errDetail : 'Compression failed: ' + errDetail, '❌');
                 }
             } catch (err) {
                 console.error(err);
-                showToast('Error creating archive', '❌');
+                showToast('Error creating archive: ' + (err.message || 'Network error'), '❌');
             }
         }
 
@@ -6385,16 +6404,18 @@
                         destinationFolder: destinationFolder
                     })
                 });
-                const data = await res.json();
-                if (res.ok && data.success) {
+                let data = null;
+                try { data = await res.json(); } catch {}
+                if (res.ok && data && data.success) {
                     showToast('Archive extracted successfully' + (intoSubfolder ? ' to ' + targetItem.name.replace(/\.(zip|tar\.gz|tgz|tar|gz)$/i, '') + '/' : ''), '📦');
                     loadFiles(currentPath);
                 } else {
-                    showToast('Extraction failed: ' + (data.error || 'Server error'), '❌');
+                    const errDetail = (data && (data.error || data.detail || data.title)) || (res.statusText ? 'HTTP ' + res.status + ' (' + res.statusText + ')' : 'Server error');
+                    showToast(errDetail.startsWith('Extraction failed') ? errDetail : 'Extraction failed: ' + errDetail, '❌');
                 }
             } catch (err) {
                 console.error(err);
-                showToast('Error extracting archive', '❌');
+                showToast('Error extracting archive: ' + (err.message || 'Network error'), '❌');
             }
         }
 

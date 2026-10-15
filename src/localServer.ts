@@ -558,27 +558,78 @@ export class LocalServer {
 
                         try {
                             const isWin = os.platform() === 'win32';
-                            if (isWin) {
-                                const powershellPaths = items.map(i => `"${path.join(currentPath, i)}"`).join(', ');
-                                const cmd = `powershell.exe -NoProfile -Command "Compress-Archive -Path ${powershellPaths} -DestinationPath \\"${archiveFullPath}\\" -Force"`;
-                                await new Promise((resolve, reject) => {
-                                    exec(cmd, { cwd: currentPath }, (err, stdout, stderr) => {
-                                        if (err) reject(new Error(stderr || err.message)); else resolve(stdout);
-                                    });
-                                });
-                            } else {
+                            let compressed = false;
+                            let lastError: any = null;
+
+                            // Strategy 1: bsdtar (built into Windows 10/11, macOS, and Linux)
+                            try {
                                 await new Promise<void>((resolve, reject) => {
-                                    execFile('zip', ['-r', finalArchiveName, ...items], { cwd: currentPath }, (err, stdout, stderr) => {
-                                        if (err) reject(new Error(stderr || err.message)); else resolve();
+                                    execFile('tar', ['-a', '-cf', archiveFullPath, ...items], { cwd: currentPath }, (err, stdout, stderr) => {
+                                        if (!err && fs.existsSync(archiveFullPath) && fs.statSync(archiveFullPath).size > 0) {
+                                            resolve();
+                                        } else {
+                                            reject(err || new Error(stderr || 'tar failed'));
+                                        }
                                     });
                                 });
+                                compressed = true;
+                            } catch (e) {
+                                lastError = e;
+                            }
+
+                            // Strategy 2: macOS / Linux standard 'zip' tool
+                            if (!compressed && !isWin) {
+                                try {
+                                    await new Promise<void>((resolve, reject) => {
+                                        execFile('zip', ['-r', '-q', archiveFullPath, ...items], { cwd: currentPath }, (err, stdout, stderr) => {
+                                            if (fs.existsSync(archiveFullPath) && fs.statSync(archiveFullPath).size > 0) {
+                                                resolve();
+                                            } else {
+                                                reject(err || new Error(stderr || 'zip failed'));
+                                            }
+                                        });
+                                    });
+                                    compressed = true;
+                                } catch (e) {
+                                    lastError = e;
+                                }
+                            }
+
+                            // Strategy 3: Windows PowerShell with -LiteralPath via execFile (no cmd.exe quote mangling)
+                            if (!compressed && isWin) {
+                                try {
+                                    const fullPaths = items.map(i => path.resolve(currentPath, i));
+                                    await new Promise<void>((resolve, reject) => {
+                                        execFile('powershell.exe', [
+                                            '-NoProfile',
+                                            '-NonInteractive',
+                                            '-Command',
+                                            '& { param($dest, [string[]]$paths); Compress-Archive -LiteralPath $paths -DestinationPath $dest -Force }',
+                                            archiveFullPath,
+                                            ...fullPaths
+                                        ], { cwd: currentPath }, (err, stdout, stderr) => {
+                                            if (!err && fs.existsSync(archiveFullPath) && fs.statSync(archiveFullPath).size > 0) {
+                                                resolve();
+                                            } else {
+                                                reject(err || new Error(stderr || 'powershell failed'));
+                                            }
+                                        });
+                                    });
+                                    compressed = true;
+                                } catch (e) {
+                                    lastError = e;
+                                }
+                            }
+
+                            if (!compressed) {
+                                throw lastError || new Error('Archive creation failed with all available strategies');
                             }
 
                             res.writeHead(200, { 'Content-Type': 'application/json' });
                             res.end(JSON.stringify({ success: true, archiveName: finalArchiveName, path: archiveFullPath }));
                         } catch (err: any) {
                             res.writeHead(500, { 'Content-Type': 'application/json' });
-                            res.end(JSON.stringify({ error: `Compression failed: ${err.message}` }));
+                            res.end(JSON.stringify({ success: false, error: `Compression failed: ${err.message}` }));
                         }
                         return;
                     }
@@ -608,36 +659,68 @@ export class LocalServer {
                         const isWin = os.platform() === 'win32';
 
                         try {
-                            if (lowerPath.endsWith('.zip')) {
-                                if (isWin) {
-                                    const cmd = `powershell.exe -NoProfile -Command "Expand-Archive -Path \\"${archivePath}\\" -DestinationPath \\"${targetDir}\\" -Force"`;
-                                    await new Promise((resolve, reject) => {
-                                        exec(cmd, { cwd: targetDir }, (err, stdout, stderr) => {
-                                            if (err) reject(new Error(stderr || err.message)); else resolve(stdout);
-                                        });
-                                    });
-                                } else {
-                                    await new Promise<void>((resolve, reject) => {
-                                        execFile('unzip', ['-q', '-o', archivePath, '-d', targetDir], { cwd: targetDir }, (err, stdout, stderr) => {
-                                            if (err) reject(new Error(stderr || err.message)); else resolve();
-                                        });
-                                    });
-                                }
-                            } else if (lowerPath.endsWith('.tar') || lowerPath.endsWith('.tar.gz') || lowerPath.endsWith('.tgz')) {
+                            let extracted = false;
+                            let lastError: any = null;
+
+                            // Strategy 1: bsdtar (supports .zip, .tar, .tar.gz, .tgz across Win 10/11, macOS, Linux)
+                            try {
                                 await new Promise<void>((resolve, reject) => {
                                     execFile('tar', ['-xf', archivePath, '-C', targetDir], { cwd: targetDir }, (err, stdout, stderr) => {
-                                        if (err) reject(new Error(stderr || err.message)); else resolve();
+                                        if (!err) resolve();
+                                        else reject(err || new Error(stderr || 'tar extract failed'));
                                     });
                                 });
-                            } else {
-                                throw new Error('Unsupported archive format. Supported formats: .zip, .tar, .tar.gz, .tgz');
+                                extracted = true;
+                            } catch (e) {
+                                lastError = e;
+                            }
+
+                            // Strategy 2: macOS / Linux standard 'unzip' for .zip
+                            if (!extracted && !isWin && lowerPath.endsWith('.zip')) {
+                                try {
+                                    await new Promise<void>((resolve, reject) => {
+                                        execFile('unzip', ['-q', '-o', archivePath, '-d', targetDir], { cwd: targetDir }, (err, stdout, stderr) => {
+                                            if (!err) resolve();
+                                            else reject(err || new Error(stderr || 'unzip failed'));
+                                        });
+                                    });
+                                    extracted = true;
+                                } catch (e) {
+                                    lastError = e;
+                                }
+                            }
+
+                            // Strategy 3: Windows PowerShell Expand-Archive via execFile
+                            if (!extracted && isWin && lowerPath.endsWith('.zip')) {
+                                try {
+                                    await new Promise<void>((resolve, reject) => {
+                                        execFile('powershell.exe', [
+                                            '-NoProfile',
+                                            '-NonInteractive',
+                                            '-Command',
+                                            '& { param($src, $dest); Expand-Archive -LiteralPath $src -DestinationPath $dest -Force }',
+                                            archivePath,
+                                            targetDir
+                                        ], { cwd: targetDir }, (err, stdout, stderr) => {
+                                            if (!err) resolve();
+                                            else reject(err || new Error(stderr || 'powershell extract failed'));
+                                        });
+                                    });
+                                    extracted = true;
+                                } catch (e) {
+                                    lastError = e;
+                                }
+                            }
+
+                            if (!extracted) {
+                                throw lastError || new Error('Extraction failed with all available strategies');
                             }
 
                             res.writeHead(200, { 'Content-Type': 'application/json' });
                             res.end(JSON.stringify({ success: true, destinationDir: targetDir }));
                         } catch (err: any) {
                             res.writeHead(500, { 'Content-Type': 'application/json' });
-                            res.end(JSON.stringify({ error: `Extraction failed: ${err.message}` }));
+                            res.end(JSON.stringify({ success: false, error: `Extraction failed: ${err.message}` }));
                         }
                         return;
                     }
