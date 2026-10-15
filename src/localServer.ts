@@ -170,13 +170,23 @@ export class LocalServer {
                             res.end('File not found');
                             return;
                         }
+                        const handle = await fs.promises.open(targetPath, 'r');
+                        const sampleBuf = Buffer.alloc(1024);
+                        const { bytesRead } = await handle.read(sampleBuf, 0, 1024, 0);
+                        await handle.close();
+                        const isBinary = sampleBuf.subarray(0, bytesRead).includes(0);
+                        if (isBinary) {
+                            res.writeHead(415, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ isBinary: true, message: 'Binary file' }));
+                            return;
+                        }
                         const content = await fs.promises.readFile(targetPath, 'utf8');
                         res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
                         res.end(content);
                         return;
                     }
 
-                    // 5. Raw File (Images / Media)
+                    // 5. Raw File (Images / Media / Documents)
                     if (pathname === '/api/files/raw') {
                         const targetPath = reqUrl.searchParams.get('path');
                         if (!targetPath || !fs.existsSync(targetPath)) {
@@ -191,9 +201,37 @@ export class LocalServer {
                             '.jpeg': 'image/jpeg',
                             '.gif': 'image/gif',
                             '.svg': 'image/svg+xml',
-                            '.webp': 'image/webp'
+                            '.webp': 'image/webp',
+                            '.ico': 'image/x-icon',
+                            '.bmp': 'image/bmp',
+                            '.pdf': 'application/pdf',
+                            '.mp3': 'audio/mpeg',
+                            '.wav': 'audio/wav',
+                            '.ogg': 'audio/ogg',
+                            '.m4a': 'audio/mp4',
+                            '.aac': 'audio/aac',
+                            '.flac': 'audio/flac',
+                            '.mp4': 'video/mp4',
+                            '.webm': 'video/webm',
+                            '.mov': 'video/quicktime',
+                            '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            '.xls': 'application/vnd.ms-excel',
+                            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                            '.csv': 'text/csv; charset=utf-8',
+                            '.tsv': 'text/tab-separated-values; charset=utf-8',
+                            '.txt': 'text/plain; charset=utf-8',
+                            '.json': 'application/json',
+                            '.md': 'text/markdown; charset=utf-8'
                         };
-                        res.writeHead(200, { 'Content-Type': mimeMap[ext] || 'application/octet-stream' });
+                        const contentType = mimeMap[ext] || 'application/octet-stream';
+                        const headers: Record<string, string> = {
+                            'Content-Type': contentType,
+                            'Access-Control-Allow-Origin': '*'
+                        };
+                        if (ext === '.pdf') {
+                            headers['Content-Disposition'] = 'inline; filename="' + path.basename(targetPath) + '"';
+                        }
+                        res.writeHead(200, headers);
                         fs.createReadStream(targetPath).pipe(res);
                         return;
                     }
