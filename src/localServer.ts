@@ -247,6 +247,65 @@ export class LocalServer {
                         return;
                     }
 
+                    // 6e. Reveal File/Folder in OS (Finder / File Explorer)
+                    if (pathname === '/api/files/revealInOS') {
+                        const targetPath = reqUrl.searchParams.get('path');
+                        if (targetPath && fs.existsSync(targetPath)) {
+                            vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(targetPath));
+                        }
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ ok: true }));
+                        return;
+                    }
+
+                    // 6f. Git Status Query
+                    if (pathname === '/api/files/gitStatus') {
+                        const targetPath = reqUrl.searchParams.get('path') || process.cwd();
+                        const gitInfo = await LocalServer.getGitStatus(targetPath);
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify(gitInfo));
+                        return;
+                    }
+
+                    // 6g. Git Diff With HEAD in VS Code
+                    if (pathname === '/api/files/diffWithHead') {
+                        const targetPath = reqUrl.searchParams.get('path');
+                        if (targetPath && fs.existsSync(targetPath)) {
+                            const fileUri = vscode.Uri.file(targetPath);
+                            let opened = false;
+                            try {
+                                await vscode.commands.executeCommand('git.openChange', fileUri);
+                                opened = true;
+                            } catch {}
+                            if (!opened) {
+                                try {
+                                    const dir = path.dirname(targetPath);
+                                    const relPath = await new Promise<string>((resolve, reject) => {
+                                        exec(`git ls-files --full-name "${path.basename(targetPath)}"`, { cwd: dir }, (err, stdout) => {
+                                            if (err || !stdout.trim()) reject(new Error('File not tracked in git'));
+                                            else resolve(stdout.trim());
+                                        });
+                                    });
+                                    const headContent = await new Promise<string>((resolve, reject) => {
+                                        exec(`git show HEAD:"${relPath}"`, { cwd: dir }, (err, stdout) => {
+                                            if (err) reject(err); else resolve(stdout);
+                                        });
+                                    });
+                                    const tempDir = os.tmpdir();
+                                    const tempHeadPath = path.join(tempDir, `HEAD_${path.basename(targetPath)}`);
+                                    await fs.promises.writeFile(tempHeadPath, headContent, 'utf8');
+                                    const headUri = vscode.Uri.file(tempHeadPath);
+                                    await vscode.commands.executeCommand('vscode.diff', headUri, fileUri, `${path.basename(targetPath)} (HEAD ↔ Working Tree)`);
+                                } catch (err: any) {
+                                    vscode.window.showErrorMessage(`Could not open diff: ${err.message}`);
+                                }
+                            }
+                        }
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ ok: true }));
+                        return;
+                    }
+
                     // ══════════════════════════════════════════════════════════
                     // 🚀 CRUD FILE SYSTEM ENDPOINTS
                     // ══════════════════════════════════════════════════════════
@@ -547,6 +606,100 @@ export class LocalServer {
                 } catch {}
             }
             return { engine: "Linux find index", items };
+        }
+    }
+
+    private static async getGitStatus(dirPath: string): Promise<{ isRepo: boolean; branch?: string; ahead?: number; behind?: number; statuses?: Record<string, string> }> {
+        try {
+            if (!dirPath || !fs.existsSync(dirPath)) return { isRepo: false };
+            let dir = dirPath;
+            try {
+                const stat = await fs.promises.stat(dirPath);
+                if (!stat.isDirectory()) dir = path.dirname(dirPath);
+            } catch { return { isRepo: false }; }
+
+            // 1. Check if inside git repo
+            const isRepo = await new Promise<boolean>((resolve) => {
+                exec('git rev-parse --is-inside-work-tree', { cwd: dir }, (err, stdout) => {
+                    resolve(!err && stdout.trim() === 'true');
+                });
+            });
+
+            if (!isRepo) return { isRepo: false };
+
+            // 2. Get branch name
+            const branch = await new Promise<string>((resolve) => {
+                exec('git rev-parse --abbrev-ref HEAD', { cwd: dir }, (err, stdout) => {
+                    resolve(err ? 'HEAD' : stdout.trim());
+                });
+            });
+
+            // 3. Ahead / Behind counts
+            let ahead = 0, behind = 0;
+            await new Promise<void>((resolve) => {
+                exec('git rev-list --left-right --count HEAD...@{u}', { cwd: dir }, (err, stdout) => {
+                    if (!err && stdout) {
+                        const parts = stdout.trim().split(/\s+/);
+                        if (parts.length >= 2) {
+                            ahead = parseInt(parts[0], 10) || 0;
+                            behind = parseInt(parts[1], 10) || 0;
+                        }
+                    }
+                    resolve();
+                });
+            });
+
+            // 4. Repo toplevel root
+            const repoRoot = await new Promise<string>((resolve) => {
+                exec('git rev-parse --show-toplevel', { cwd: dir }, (err, stdout) => {
+                    resolve(err ? '' : stdout.trim());
+                });
+            });
+
+            const statuses: Record<string, string> = {};
+            if (repoRoot) {
+                await new Promise<void>((resolve) => {
+                    exec('git status --porcelain=v1 -uall', { cwd: dir, maxBuffer: 1024 * 1024 * 2 }, (err, stdout) => {
+                        if (!err && stdout) {
+                            const lines = stdout.split('\n');
+                            for (const line of lines) {
+                                if (line.length < 4) continue;
+                                const xy = line.substring(0, 2);
+                                let code = 'M';
+                                if (xy.includes('?')) code = 'U';
+                                else if (xy.includes('A')) code = 'A';
+                                else if (xy.includes('D')) code = 'D';
+                                else if (xy.includes('R')) code = 'R';
+                                else if (xy.includes('M')) code = 'M';
+
+                                let relToRepo = line.substring(3).trim();
+                                if (relToRepo.includes(' -> ')) {
+                                    relToRepo = relToRepo.split(' -> ')[1];
+                                }
+                                if (relToRepo.startsWith('"') && relToRepo.endsWith('"')) {
+                                    relToRepo = relToRepo.slice(1, -1);
+                                }
+                                const absFilePath = path.resolve(repoRoot, relToRepo);
+                                const relToDir = path.relative(dir, absFilePath);
+
+                                if (!relToDir.startsWith('..') && !path.isAbsolute(relToDir)) {
+                                    const topSegment = relToDir.split(path.sep)[0];
+                                    if (topSegment) {
+                                        if (!statuses[topSegment] || code === 'M') {
+                                            statuses[topSegment] = code;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        resolve();
+                    });
+                });
+            }
+
+            return { isRepo: true, branch, ahead, behind, statuses };
+        } catch {
+            return { isRepo: false };
         }
     }
 

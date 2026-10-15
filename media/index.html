@@ -805,6 +805,142 @@
             box-sizing: border-box;
         }
 
+        /* Git Status Indicator & Badges */
+        .status-git-branch {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 1px 7px;
+            border-radius: 4px;
+            background: rgba(108, 92, 231, 0.15);
+            border: 1px solid rgba(108, 92, 231, 0.3);
+            color: #a29bfe;
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+        }
+        .status-git-branch:hover {
+            background: rgba(108, 92, 231, 0.25);
+            border-color: #6c5ce7;
+            color: #fff;
+        }
+        .git-badge {
+            font-size: 9px;
+            font-weight: 700;
+            line-height: 1;
+            padding: 2px 4px;
+            border-radius: 3px;
+            margin-left: 6px;
+            vertical-align: middle;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            letter-spacing: 0.5px;
+        }
+        .git-badge.git-m { background: rgba(243, 156, 18, 0.2); color: #f39c12; border: 1px solid rgba(243, 156, 18, 0.4); }
+        .git-badge.git-u { background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.4); }
+        .git-badge.git-a { background: rgba(52, 152, 219, 0.2); color: #3498db; border: 1px solid rgba(52, 152, 219, 0.4); }
+        .git-badge.git-d { background: rgba(231, 76, 60, 0.2); color: #e74c3c; border: 1px solid rgba(231, 76, 60, 0.4); }
+        .git-badge.git-r { background: rgba(155, 89, 182, 0.2); color: #9b59b6; border: 1px solid rgba(155, 89, 182, 0.4); }
+
+        /* Bookmarks Quick-Access Bar */
+        .bookmarks-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 16px;
+            background: rgba(15, 15, 20, 0.95);
+            border-bottom: 1px solid var(--border-color);
+            font-size: 11px;
+            box-sizing: border-box;
+            min-height: 32px;
+        }
+        .bookmarks-label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-muted);
+            font-weight: 600;
+            white-space: nowrap;
+            user-select: none;
+        }
+        .bookmarks-chips {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .bookmarks-chips::-webkit-scrollbar { display: none; }
+        .bookmark-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 9px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            cursor: pointer;
+            white-space: nowrap;
+            font-size: 11px;
+            transition: all 0.15s ease;
+            user-select: none;
+        }
+        .bookmark-chip:hover {
+            background: rgba(108, 92, 231, 0.2);
+            border-color: #6c5ce7;
+            color: #fff;
+        }
+        .bookmark-chip.active {
+            background: rgba(108, 92, 231, 0.25);
+            border-color: #6c5ce7;
+            color: #a29bfe;
+            font-weight: 600;
+        }
+        .bookmark-chip .remove-pin {
+            opacity: 0.45;
+            font-size: 10px;
+            margin-left: 2px;
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+        .bookmark-chip .remove-pin:hover {
+            opacity: 1;
+            color: #e74c3c;
+            background: rgba(231, 76, 60, 0.2);
+        }
+        .btn-pin-current {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            border: 1px dashed var(--border-color);
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 10px;
+            white-space: nowrap;
+            transition: all 0.15s ease;
+            user-select: none;
+        }
+        .btn-pin-current:hover {
+            border-color: #f1c40f;
+            color: #f1c40f;
+            background: rgba(241, 196, 15, 0.1);
+        }
+        .btn-pin-current.pinned {
+            border-style: solid;
+            border-color: #f1c40f;
+            color: #f1c40f;
+            background: rgba(241, 196, 15, 0.15);
+            font-weight: 600;
+        }
+
         @keyframes pulse {
             0% { transform: scale(1); opacity: 0.8; }
             50% { transform: scale(1.04); opacity: 1; }
@@ -1404,6 +1540,17 @@
         </div>
     </header>
 
+    <!-- Bookmarks / Favorites Quick-Access Bar -->
+    <div id="bookmarks-bar" class="bookmarks-bar">
+        <div class="bookmarks-label">
+            <span>⭐ Pinned:</span>
+        </div>
+        <div id="bookmarks-chips" class="bookmarks-chips"></div>
+        <button class="btn-pin-current" id="btn-pin-current" onclick="togglePinCurrentFolder()" title="Pin/Unpin current folder to Favorites">
+            <span id="pin-star-icon">☆</span> <span id="pin-star-label">Pin Folder</span>
+        </button>
+    </div>
+
     <!-- CRUD & Explorer Action Toolbar -->
     <div class="toolbar">
         <div class="toolbar-group">
@@ -1536,8 +1683,15 @@
 
     <!-- Bottom Status Bar -->
     <div class="status-bar">
-        <span id="status-items-count">0 items</span>
-        <span id="status-selected-info">No selection</span>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span id="status-items-count">0 items</span>
+            <span id="status-selected-info">No selection</span>
+            <div id="status-git-branch" class="status-git-branch" onclick="refreshGitStatus()" style="display: none;" title="Current Git Branch & Sync Status (Click to refresh)">
+                <span style="font-size: 13px;"></span>
+                <span id="git-branch-name" style="font-weight: 600;">main</span>
+                <span id="git-sync-status" style="font-size: 10px; opacity: 0.85;"></span>
+            </div>
+        </div>
         <span style="margin-left: auto; opacity: 0.85; font-size: 11px;">
             VenEl File Manager &bull; <a href="https://www.linkedin.com/in/venkateshellur/" target="_blank" style="color: inherit; text-decoration: underline; text-underline-offset: 2px;">Venkatesh Ellur</a>
         </span>
@@ -1548,13 +1702,29 @@
         <div class="context-item" id="ctx-open" onclick="openSelectedItemInEditor()">
             <i>🚀</i> <span>Open in Editor</span> <span class="shortcut">Enter</span>
         </div>
+        <div class="context-item" id="ctx-diff" onclick="diffSelectedItemWithHead()" style="display: none;">
+            <i>⚖️</i> <span>Compare with HEAD (Diff)</span>
+        </div>
         <div class="context-item" id="ctx-quicklook" onclick="toggleQuickLook()">
             <i>👁️</i> <span>Quick Look</span> <span class="shortcut">Space</span>
         </div>
         <div class="context-item" id="ctx-terminal-item" onclick="openTerminalAtSelection()">
             <i>💻</i> <span>Open in Terminal</span>
         </div>
+        <div class="context-item" id="ctx-reveal-item" onclick="revealSelectedItemInOS()">
+            <i>📂</i> <span id="ctx-reveal-label">Reveal in Finder</span>
+        </div>
         <div class="context-divider" id="ctx-div-1"></div>
+        <div class="context-item" id="ctx-copy-path" onclick="copyPathToClipboard(false)">
+            <i>📋</i> <span>Copy Path</span>
+        </div>
+        <div class="context-item" id="ctx-copy-rel-path" onclick="copyPathToClipboard(true)">
+            <i>📎</i> <span>Copy Relative Path</span>
+        </div>
+        <div class="context-item" id="ctx-pin-folder" onclick="togglePinSelectedItem()">
+            <i id="ctx-pin-icon">⭐</i> <span id="ctx-pin-label">Pin to Favorites</span>
+        </div>
+        <div class="context-divider" id="ctx-div-2"></div>
         <div class="context-item" id="ctx-rename" onclick="renameSelectedItem()">
             <i>✏️</i> <span>Rename</span> <span class="shortcut">F2</span>
         </div>
@@ -2376,9 +2546,19 @@
         }
 
         function handleSearch() {
-            const q = document.getElementById('search').value.toLowerCase();
-            const filtered = currentItems.filter(function(i) { return i.name.toLowerCase().includes(q); });
+            const q = document.getElementById('search').value.toLowerCase().trim();
+            if (!q) {
+                renderItems(currentItems);
+                return;
+            }
+            const filtered = currentItems.filter(function(i) {
+                return i.name.toLowerCase().includes(q) || (i.path && i.path.toLowerCase().includes(q));
+            });
             renderItems(filtered);
+            const countElem = document.getElementById('status-items-count');
+            if (countElem) {
+                countElem.innerText = filtered.length + ' of ' + currentItems.length + ' items (Esc to clear)';
+            }
         }
 
         function renderItems(items) {
@@ -2406,13 +2586,24 @@
                     locationHtml = '<span class="item-search-location" onclick="event.stopPropagation(); jumpToSearchResult(\'' + escapePath(item.directory) + '\', \'' + escapePath(item.name) + '\')" title="Jump to ' + escapeHtml(item.directory) + '">📂 ' + escapeHtml(item.directory) + '</span>';
                 }
 
+                let gitBadgeHtml = '';
+                if (currentGitStatuses && currentGitStatuses[item.name]) {
+                    const code = currentGitStatuses[item.name];
+                    const badgeClass = 'git-' + code.toLowerCase();
+                    const title = code === 'M' ? 'Modified in Git' : (code === 'U' || code === '?' ? 'Untracked in Git' : (code === 'A' ? 'Added / Staged in Git' : (code === 'D' ? 'Deleted in Git' : 'Changed in Git')));
+                    gitBadgeHtml = '<span class="git-badge ' + badgeClass + '" title="' + title + '">' + (code === '?' ? 'U' : code) + '</span>';
+                }
+
                 html += '<div class="item ' + className + (isSelected ? ' selected' : '') + (isCut ? ' cut-item' : '') + '" ' +
                         'onclick="handleItemClick(event, \'' + escapePath(item.name) + '\', ' + isDir + ')" ' +
                         'ondblclick="handleDoubleClick(\'' + escapePath(item.name) + '\', ' + isDir + ')" ' +
                         'oncontextmenu="handleItemContextMenu(event, \'' + escapePath(item.name) + '\', ' + isDir + ')">' +
                         '<div class="item-icon-wrapper">' + iconHtml + (visual.badge ? '<span class="item-badge">' + visual.badge + '</span>' : '') + '</div>' +
                         '<div style="display: flex; flex-direction: column; overflow: hidden; min-width: 0; flex: 1;">' +
+                        '<div style="display: flex; align-items: center; overflow: hidden; min-width: 0;">' +
                         '<span class="item-name">' + escapeHtml(item.name) + '</span>' +
+                        gitBadgeHtml +
+                        '</div>' +
                         locationHtml +
                         '</div>' +
                         '<span class="item-modified">' + modDate + '</span>' +
@@ -2446,6 +2637,10 @@
                 
                 document.getElementById('preview-content').innerHTML = 'Select a file to preview.<br><br>💡 Tap <strong>Spacebar</strong> for Quick Look or double-click to open in VS Code!';
                 document.querySelector('#preview-pane h2').innerText = 'Preview';
+
+                // Asynchronously fetch Git status & update Bookmarks bar
+                fetchGitStatus(currentPath);
+                renderBookmarks();
             } catch (err) {
                 console.error(err);
                 showToast('Failed to load directory', '❌');
@@ -2675,6 +2870,208 @@
             const p = selectedItem ? (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name) : currentPath;
             fetch('/api/files/openInTerminal?path=' + encodeURIComponent(p));
             showToast('Opening terminal...', '💻');
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // 💻 TERMINAL, FINDER & CLIPBOARD ACTIONS
+        // ══════════════════════════════════════════════════════════
+        function revealSelectedItemInOS() {
+            hideContextMenu();
+            const sep = isWindows ? '\\' : '/';
+            const p = selectedItem ? (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name) : currentPath;
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ command: 'revealInOS', path: p }, '*');
+            }
+            fetch('/api/files/revealInOS?path=' + encodeURIComponent(p)).catch(() => {});
+            showToast(isWindows ? 'Revealed in File Explorer' : 'Revealed in Finder', '📂');
+        }
+
+        function diffSelectedItemWithHead() {
+            hideContextMenu();
+            if (!selectedItem) return;
+            const sep = isWindows ? '\\' : '/';
+            const p = currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name;
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ command: 'diffWithHead', path: p }, '*');
+            }
+            fetch('/api/files/diffWithHead?path=' + encodeURIComponent(p)).catch(() => {});
+            showToast('Opening diff with HEAD in editor...', '⚖️');
+        }
+
+        function copyPathToClipboard(isRelative) {
+            hideContextMenu();
+            const sep = isWindows ? '\\' : '/';
+            let p = selectedItem ? (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name) : currentPath;
+            if (isRelative) {
+                p = selectedItem ? selectedItem.name : '.';
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(p);
+            }
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ command: 'copyToClipboard', text: p }, '*');
+            }
+            showToast(isRelative ? 'Copied relative path' : 'Copied absolute path', '📋');
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // 🌿 GIT STATUS & VCS BADGING
+        // ══════════════════════════════════════════════════════════
+        let currentGitStatuses = {};
+        let currentGitRepo = false;
+
+        async function fetchGitStatus(dirPath) {
+            try {
+                const res = await fetch('/api/files/gitStatus?path=' + encodeURIComponent(dirPath));
+                if (!res.ok) return;
+                const data = await res.json();
+                const branchContainer = document.getElementById('status-git-branch');
+                const branchNameElem = document.getElementById('git-branch-name');
+                const syncStatusElem = document.getElementById('git-sync-status');
+
+                if (data.isRepo) {
+                    currentGitRepo = true;
+                    currentGitStatuses = data.statuses || {};
+                    if (branchContainer) branchContainer.style.display = 'inline-flex';
+                    if (branchNameElem) branchNameElem.textContent = data.branch || 'HEAD';
+                    if (syncStatusElem) {
+                        let syncText = '';
+                        if (data.ahead > 0) syncText += ' ↑' + data.ahead;
+                        if (data.behind > 0) syncText += ' ↓' + data.behind;
+                        syncStatusElem.textContent = syncText;
+                    }
+                } else {
+                    currentGitRepo = false;
+                    currentGitStatuses = {};
+                    if (branchContainer) branchContainer.style.display = 'none';
+                }
+                // Re-render items with updated git badges
+                renderItems(currentItems);
+            } catch {
+                currentGitRepo = false;
+                currentGitStatuses = {};
+                const branchContainer = document.getElementById('status-git-branch');
+                if (branchContainer) branchContainer.style.display = 'none';
+            }
+        }
+
+        function refreshGitStatus() {
+            fetchGitStatus(currentPath);
+            showToast('Refreshing Git status...', '🌿');
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // ⭐ BOOKMARKS / FAVORITES SYSTEM
+        // ══════════════════════════════════════════════════════════
+        let userBookmarks = [];
+
+        function initBookmarks() {
+            try {
+                const stored = localStorage.getItem('venel_bookmarks_v1');
+                if (stored) {
+                    userBookmarks = JSON.parse(stored);
+                } else {
+                    // Default starting bookmark
+                    userBookmarks = [
+                        { name: 'Home', path: defaultHomePath || '.', icon: '🏠', isDefault: true }
+                    ];
+                    saveBookmarks();
+                }
+            } catch {
+                userBookmarks = [];
+            }
+            renderBookmarks();
+        }
+
+        function saveBookmarks() {
+            try {
+                localStorage.setItem('venel_bookmarks_v1', JSON.stringify(userBookmarks));
+            } catch {}
+        }
+
+        function renderBookmarks() {
+            const container = document.getElementById('bookmarks-chips');
+            const pinBtn = document.getElementById('btn-pin-current');
+            const starIcon = document.getElementById('pin-star-icon');
+            const starLabel = document.getElementById('pin-star-label');
+            if (!container) return;
+
+            const isCurrentPinned = userBookmarks.some(function(b) { return b.path === currentPath; });
+            if (pinBtn) {
+                if (isCurrentPinned) {
+                    pinBtn.classList.add('pinned');
+                    if (starIcon) starIcon.textContent = '★';
+                    if (starLabel) starLabel.textContent = 'Pinned';
+                } else {
+                    pinBtn.classList.remove('pinned');
+                    if (starIcon) starIcon.textContent = '☆';
+                    if (starLabel) starLabel.textContent = 'Pin Folder';
+                }
+            }
+
+            let html = '';
+            userBookmarks.forEach(function(b) {
+                const isActive = b.path === currentPath;
+                html += '<div class="bookmark-chip ' + (isActive ? 'active' : '') + '" onclick="navigateTo(\'' + escapePath(b.path) + '\')" title="' + escapeHtml(b.path) + '">' +
+                    '<span>' + (b.icon || '📁') + '</span>' +
+                    '<span class="chip-name">' + escapeHtml(b.name) + '</span>' +
+                    (!b.isDefault ? '<span class="remove-pin" onclick="event.stopPropagation(); removeBookmark(\'' + escapePath(b.path) + '\')" title="Unpin">✕</span>' : '') +
+                    '</div>';
+            });
+            container.innerHTML = html;
+        }
+
+        function togglePinCurrentFolder() {
+            const existingIndex = userBookmarks.findIndex(function(b) { return b.path === currentPath; });
+            const sep = isWindows ? '\\' : '/';
+            const folderName = currentPath.split(sep).filter(Boolean).pop() || currentPath;
+            if (existingIndex >= 0) {
+                userBookmarks.splice(existingIndex, 1);
+                showToast('Unpinned "' + folderName + '"', '☆');
+            } else {
+                userBookmarks.push({
+                    name: folderName,
+                    path: currentPath,
+                    icon: '📁',
+                    isDefault: false
+                });
+                showToast('Pinned "' + folderName + '" to Favorites', '⭐');
+            }
+            saveBookmarks();
+            renderBookmarks();
+        }
+
+        function removeBookmark(targetPath) {
+            userBookmarks = userBookmarks.filter(function(b) { return b.path !== targetPath; });
+            saveBookmarks();
+            renderBookmarks();
+            showToast('Removed bookmark', '🗑️');
+        }
+
+        function togglePinSelectedItem() {
+            hideContextMenu();
+            const sep = isWindows ? '\\' : '/';
+            let target = currentPath;
+            let name = currentPath.split(sep).filter(Boolean).pop() || currentPath;
+            if (selectedItem && selectedItem.type === 'Directory') {
+                target = currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name;
+                name = selectedItem.name;
+            }
+            const idx = userBookmarks.findIndex(function(b) { return b.path === target; });
+            if (idx >= 0) {
+                userBookmarks.splice(idx, 1);
+                showToast('Unpinned "' + name + '"', '☆');
+            } else {
+                userBookmarks.push({
+                    name: name,
+                    path: target,
+                    icon: '📁',
+                    isDefault: false
+                });
+                showToast('Pinned "' + name + '" to Favorites', '⭐');
+            }
+            saveBookmarks();
+            renderBookmarks();
         }
 
         // ══════════════════════════════════════════════════════════
@@ -2939,6 +3336,26 @@
             document.getElementById('ctx-delete').style.display = 'flex';
             document.getElementById('ctx-properties').style.display = 'flex';
             document.getElementById('ctx-terminal-item').style.display = 'flex';
+            document.getElementById('ctx-reveal-item').style.display = 'flex';
+            document.getElementById('ctx-reveal-label').textContent = isWindows ? 'Reveal in File Explorer' : 'Reveal in Finder';
+            document.getElementById('ctx-copy-path').style.display = 'flex';
+            document.getElementById('ctx-copy-rel-path').style.display = 'flex';
+
+            // Show Diff if modified or staged
+            const gitCode = currentGitStatuses ? currentGitStatuses[name] : null;
+            const canDiff = gitCode && (gitCode === 'M' || gitCode === 'A');
+            document.getElementById('ctx-diff').style.display = canDiff && !isDir ? 'flex' : 'none';
+
+            // Pin/Unpin folder option
+            const pinItem = document.getElementById('ctx-pin-folder');
+            if (pinItem) {
+                pinItem.style.display = isDir ? 'flex' : 'none';
+                const sep = isWindows ? '\\' : '/';
+                const fullItemPath = currentPath.endsWith(sep) ? currentPath + name : currentPath + sep + name;
+                const isPinned = userBookmarks.some(function(b) { return b.path === fullItemPath; });
+                document.getElementById('ctx-pin-label').textContent = isPinned ? 'Unpin from Favorites' : 'Pin to Favorites';
+                document.getElementById('ctx-pin-icon').textContent = isPinned ? '☆' : '⭐';
+            }
 
             showContextMenuAt(e.clientX, e.clientY);
         }
@@ -2951,6 +3368,7 @@
 
             const menu = document.getElementById('context-menu');
             document.getElementById('ctx-open').style.display = 'none';
+            document.getElementById('ctx-diff').style.display = 'none';
             document.getElementById('ctx-quicklook').style.display = 'none';
             document.getElementById('ctx-rename').style.display = 'none';
             document.getElementById('ctx-copy').style.display = 'none';
@@ -2958,6 +3376,18 @@
             document.getElementById('ctx-delete').style.display = 'none';
             document.getElementById('ctx-properties').style.display = 'none';
             document.getElementById('ctx-terminal-item').style.display = 'flex';
+            document.getElementById('ctx-reveal-item').style.display = 'flex';
+            document.getElementById('ctx-reveal-label').textContent = isWindows ? 'Reveal in File Explorer' : 'Reveal in Finder';
+            document.getElementById('ctx-copy-path').style.display = 'flex';
+            document.getElementById('ctx-copy-rel-path').style.display = 'none';
+
+            const pinItem = document.getElementById('ctx-pin-folder');
+            if (pinItem) {
+                pinItem.style.display = 'flex';
+                const isPinned = userBookmarks.some(function(b) { return b.path === currentPath; });
+                document.getElementById('ctx-pin-label').textContent = isPinned ? 'Unpin from Favorites' : 'Pin to Favorites';
+                document.getElementById('ctx-pin-icon').textContent = isPinned ? '☆' : '⭐';
+            }
 
             showContextMenuAt(e.clientX, e.clientY);
         }
@@ -3087,10 +3517,22 @@
                 hideContextMenu();
                 closeQuickLook();
                 exitPathEditMode();
+                clearSearch();
                 return;
             }
 
             if (isEditing) return;
+
+            // Instant '/' quick filter hotkey
+            if (e.key === '/') {
+                e.preventDefault();
+                const searchInput = document.getElementById('search');
+                if (searchInput) {
+                    searchInput.focus();
+                    searchInput.select();
+                }
+                return;
+            }
 
             // Spacebar: Quick Look (Finder style)
             if (e.code === 'Space') {
@@ -3224,6 +3666,7 @@
 
         // Initialize
         fetchRoots();
+        initBookmarks();
         navigateTo('.');
         setView(currentViewMode);
     

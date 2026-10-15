@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { ServerManager } from './serverManager';
 import { LocalServer } from './localServer';
 
@@ -63,6 +65,36 @@ export class FileManagerPanel {
                     vscode.commands.executeCommand('workbench.action.openSettings', 'venel.filemanager');
                 } else if (message.command === 'toggleSidebar') {
                     vscode.commands.executeCommand('workbench.action.toggleSidebarVisibility');
+                } else if (message.command === 'openTerminal') {
+                    if (message.path) {
+                        let dir = message.path;
+                        try {
+                            if (fs.existsSync(dir) && !fs.statSync(dir).isDirectory()) {
+                                dir = path.dirname(dir);
+                            }
+                        } catch {}
+                        const term = vscode.window.createTerminal({
+                            name: `VenEl: ${path.basename(dir) || 'Terminal'}`,
+                            cwd: dir
+                        });
+                        term.show();
+                    }
+                } else if (message.command === 'revealInOS') {
+                    if (message.path && fs.existsSync(message.path)) {
+                        vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(message.path));
+                    }
+                } else if (message.command === 'diffWithHead') {
+                    if (message.path && fs.existsSync(message.path)) {
+                        try {
+                            await vscode.commands.executeCommand('git.openChange', vscode.Uri.file(message.path));
+                        } catch {
+                            fetch(`http://localhost:5050/api/files/diffWithHead?path=${encodeURIComponent(message.path)}`).catch(() => {});
+                        }
+                    }
+                } else if (message.command === 'copyToClipboard') {
+                    if (message.text) {
+                        vscode.env.clipboard.writeText(message.text);
+                    }
                 }
             },
             null,
