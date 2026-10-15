@@ -21,12 +21,21 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             localResourceRoots: [this._extensionUri]
         };
 
-        this.updateView();
+        // 1. Immediately render complete UI with warming/progress indicator (0ms blank delay!)
+        this._view.webview.html = this.getHtml({
+            status: 'warming',
+            message: 'Getting things ready in background...',
+            url: 'http://localhost:5050'
+        });
 
-        // 1. Direct-To-Editor on click of Activity Bar icon (Option A)
+        // 2. Perform background health check to update the status seamlessly
+        this.checkAndUpdateStatus();
+
+        // 3. Direct-To-Editor on click of Activity Bar icon (Option A)
         webviewView.onDidChangeVisibility(() => {
             if (webviewView.visible) {
                 this.triggerDirectOpen();
+                this.checkAndUpdateStatus();
             }
         });
 
@@ -41,7 +50,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     vscode.commands.executeCommand('venel.filemanager.open');
                     break;
                 case 'checkHealth':
-                    this.updateView();
+                    await this.checkAndUpdateStatus();
                     break;
                 case 'openSettings':
                     vscode.commands.executeCommand('workbench.action.openSettings', 'venel.filemanager');
@@ -76,15 +85,32 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         }
     }
 
-    public async updateView() {
+    public async checkAndUpdateStatus() {
         if (!this._view) {
             return;
         }
 
         const health = await ServerManager.checkHealth();
-        const logoUri = this._view.webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'logo.png'));
+        if (this._view) {
+            this._view.webview.postMessage({
+                type: 'statusUpdate',
+                status: health.online ? 'online' : 'offline',
+                message: health.message,
+                url: health.url
+            });
+        }
+    }
 
-        this._view.webview.html = `<!DOCTYPE html>
+    public updateView() {
+        this.checkAndUpdateStatus();
+    }
+
+    private getHtml(state: { status: 'warming' | 'online' | 'offline'; message: string; url: string }): string {
+        const logoUri = this._view
+            ? this._view.webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'logo.png'))
+            : '';
+
+        return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -136,9 +162,44 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             border-radius: 50%;
             display: inline-block;
             margin-right: 6px;
+            vertical-align: middle;
         }
         .dot.online { background-color: #2ecc71; box-shadow: 0 0 6px #2ecc71; }
         .dot.offline { background-color: #e74c3c; box-shadow: 0 0 6px #e74c3c; }
+        .dot.warming {
+            background-color: #f39c12;
+            box-shadow: 0 0 8px #f39c12;
+            animation: pulse 1s infinite alternate;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.5; transform: scale(0.9); }
+            100% { opacity: 1; transform: scale(1.15); }
+        }
+        .progress-bar-container {
+            height: 4px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 6px;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            width: 45%;
+            background: linear-gradient(90deg, #6c5ce7, #00cec9);
+            border-radius: 2px;
+            animation: indeterminate 1.3s infinite ease-in-out;
+        }
+        @keyframes indeterminate {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(300%); }
+        }
+        .warming-text {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            margin-top: 6px;
+            line-height: 1.4;
+        }
         .btn-primary {
             background-color: var(--vscode-button-background);
             color: var(--vscode-button-foreground);
@@ -216,13 +277,19 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         <div class="status-row">
             <span>Engine Status:</span>
             <span>
-                <span class="dot ${health.online ? 'online' : 'offline'}"></span>
-                <strong>${health.online ? 'Ready & Online' : 'Offline'}</strong>
+                <span class="dot ${state.status}" id="status-dot"></span>
+                <strong id="status-title">${state.status === 'online' ? 'Ready & Online' : (state.status === 'warming' ? 'Getting things ready...' : 'Offline')}</strong>
             </span>
         </div>
         <div class="status-row" style="color: var(--vscode-descriptionForeground); font-size: 11px;">
             <span>Endpoint:</span>
-            <span>${health.url}</span>
+            <span id="status-endpoint">${state.url}</span>
+        </div>
+        <div id="warming-indicator" style="display: ${state.status === 'online' ? 'none' : 'block'};">
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill"></div>
+            </div>
+            <div class="warming-text" id="status-hint">⚡ Getting things ready in the background...</div>
         </div>
     </div>
 
@@ -263,11 +330,36 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             vscode.postMessage({ type: 'openTab' });
         }
         function checkHealth() {
+            const dot = document.getElementById('status-dot');
+            const title = document.getElementById('status-title');
+            const indicator = document.getElementById('warming-indicator');
+            const hint = document.getElementById('status-hint');
+            if (dot) dot.className = 'dot warming';
+            if (title) title.textContent = 'Checking status...';
+            if (indicator) indicator.style.display = 'block';
+            if (hint) hint.textContent = '⚡ Checking engine connection...';
             vscode.postMessage({ type: 'checkHealth' });
         }
         function openSettings() {
             vscode.postMessage({ type: 'openSettings' });
         }
+        window.addEventListener('message', (event) => {
+            const msg = event.data;
+            if (msg.type === 'statusUpdate') {
+                const dot = document.getElementById('status-dot');
+                const title = document.getElementById('status-title');
+                const endpoint = document.getElementById('status-endpoint');
+                const indicator = document.getElementById('warming-indicator');
+                const hint = document.getElementById('status-hint');
+                if (dot) dot.className = 'dot ' + (msg.status === 'online' ? 'online' : 'offline');
+                if (title) title.textContent = msg.status === 'online' ? 'Ready & Online' : 'Offline';
+                if (endpoint) endpoint.textContent = msg.url || 'http://localhost:5050';
+                if (indicator) indicator.style.display = msg.status === 'online' ? 'none' : 'block';
+                if (hint && msg.status !== 'online') {
+                    hint.textContent = '⚠️ ' + (msg.message || 'Engine offline');
+                }
+            }
+        });
     </script>
 </body>
 </html>`;

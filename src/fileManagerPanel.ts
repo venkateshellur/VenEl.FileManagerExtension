@@ -59,6 +59,10 @@ export class FileManagerPanel {
                             vscode.window.showErrorMessage(`Could not open file: ${e.message}`);
                         }
                     }
+                } else if (message.command === 'openSettings') {
+                    vscode.commands.executeCommand('workbench.action.openSettings', 'venel.filemanager');
+                } else if (message.command === 'toggleSidebar') {
+                    vscode.commands.executeCommand('workbench.action.toggleSidebarVisibility');
                 }
             },
             null,
@@ -159,6 +163,12 @@ export class FileManagerPanel {
     </div>
     ${serverUrl !== 'about:blank' ? `<iframe id="engine-frame" src="${serverUrl}" onload="onFrameLoad()"></iframe>` : ''}
     <script>
+        const vscode = acquireVsCodeApi();
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.command) {
+                vscode.postMessage(event.data);
+            }
+        });
         function onFrameLoad() {
             const overlay = document.getElementById('loading-overlay');
             const frame = document.getElementById('engine-frame');

@@ -1356,6 +1356,7 @@
                 <span id="current-view-icon">⊞</span> <span id="current-view-label">Grid</span> <span style="font-size: 8px; opacity: 0.7; margin-left: 2px;">▾</span>
             </button>
             <button id="btn-preview" onclick="togglePreview()" class="active" title="Toggle Preview Pane">👁</button>
+            <button id="btn-settings-gear" onclick="openSettingsModal()" class="tool-btn" title="VenEl Settings & Engine Status" style="font-size: 13px; padding: 5px 8px;">⚙️</button>
 
             <!-- Unified View Dropdown Menu -->
             <div id="view-dropdown-menu" class="view-dropdown-menu" onclick="event.stopPropagation()" style="display: none;">
@@ -1665,6 +1666,77 @@
             <div class="modal-actions">
                 <button class="modal-btn confirm" onclick="openSelectedItemInEditor()">🚀 Open in Editor</button>
                 <button class="modal-btn cancel" onclick="closeQuickLook()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings & Engine Status Modal -->
+    <div class="modal-overlay" id="modal-settings" onclick="hideModals()">
+        <div class="modal-box" onclick="event.stopPropagation()" style="max-width: 490px; width: 92%; max-height: 85vh; display: flex; flex-direction: column;">
+            <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 14px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 16px;">⚙️</span>
+                    <span>VenEl File Manager Settings & Status</span>
+                </div>
+                <button onclick="hideModals()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; padding: 4px 8px; border-radius: 4px;">✕</button>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 14px; overflow-y: auto; padding-right: 4px;">
+                <!-- Engine Health Card -->
+                <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px;">
+                        <span style="color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Engine Status</span>
+                        <span style="display: flex; align-items: center; gap: 6px;">
+                            <span id="modal-engine-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #2ecc71; box-shadow: 0 0 6px #2ecc71; display: inline-block;"></span>
+                            <strong id="modal-engine-status" style="font-size: 12px;">Ready & Online</strong>
+                        </span>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-muted);">
+                        <span>Endpoint:</span>
+                        <span id="modal-engine-url" style="font-family: monospace; color: var(--text-main);">http://localhost:5050</span>
+                    </div>
+                    <button class="modal-btn cancel" onclick="pingEngineStatus()" style="width: 100%; justify-content: center; padding: 7px; font-size: 11px; margin-top: 4px;">
+                        🔄 Refresh Engine Health
+                    </button>
+                </div>
+
+                <!-- IDE Controls -->
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <button class="modal-btn confirm" onclick="openVsCodeExtensionSettings()" style="width: 100%; justify-content: center; padding: 10px; font-size: 12px; font-weight: 600;">
+                        ⚙️ Configure Extension Settings in VS Code
+                    </button>
+                    <button class="modal-btn cancel" onclick="toggleVsCodeSidebar()" style="width: 100%; justify-content: center; padding: 8px; font-size: 12px;">
+                        ◨ Show / Hide Primary Left Sidebar
+                    </button>
+                </div>
+
+                <!-- Features Overview -->
+                <div style="background: rgba(108, 92, 231, 0.08); border: 1px solid rgba(108, 92, 231, 0.2); border-radius: 8px; padding: 12px;">
+                    <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #a29bfe; margin-bottom: 6px;">
+                        ✨ Active Capabilities
+                    </div>
+                    <ul style="font-size: 11px; color: var(--text-muted); padding-left: 18px; line-height: 1.6; margin: 0;">
+                        <li>⚡ Instant Editor Launch with Auto-Collapse</li>
+                        <li>🤖 Spotlight & PowerShell Machine Agent Search</li>
+                        <li>⊞ 5 View Layouts (Details, List, Grid, Large, Compact)</li>
+                        <li>↔️ Draggable Splitters with Persistent Memory</li>
+                        <li>👁️ Live Code & Image Previews</li>
+                    </ul>
+                </div>
+
+                <!-- Attribution & Links -->
+                <div style="border-top: 1px solid var(--border-color); padding-top: 10px; font-size: 11px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
+                    <div>Developed with ❤️ by <strong style="color: var(--text-main);">Venkatesh Ellur</strong></div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <a href="https://www.linkedin.com/in/venkateshellur/" target="_blank" style="color: #0077b5; text-decoration: none; font-weight: 500;">LinkedIn</a>
+                        <span>•</span>
+                        <a href="https://github.com/venkateshellur/VenEl.FileManagerExtension" target="_blank" style="color: var(--accent); text-decoration: none;">GitHub</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-actions" style="margin-top: 14px;">
+                <button class="modal-btn cancel" onclick="hideModals()" style="margin-left: auto;">Close</button>
             </div>
         </div>
     </div>
@@ -2697,6 +2769,62 @@
 
         function hideModals() {
             document.querySelectorAll('.modal-overlay').forEach(function(m) { m.style.display = 'none'; });
+        }
+
+        function openSettingsModal() {
+            hideContextMenu();
+            const modal = document.getElementById('modal-settings');
+            if (!modal) return;
+            const urlElem = document.getElementById('modal-engine-url');
+            if (urlElem) urlElem.textContent = window.location.origin || 'http://localhost:5050';
+            modal.style.display = 'flex';
+        }
+
+        async function pingEngineStatus() {
+            const statusElem = document.getElementById('modal-engine-status');
+            const dotElem = document.getElementById('modal-engine-dot');
+            if (statusElem) statusElem.textContent = 'Connecting...';
+            try {
+                const res = await fetch('/api/files/roots');
+                if (res.ok) {
+                    if (statusElem) statusElem.textContent = 'Ready & Online';
+                    if (dotElem) {
+                        dotElem.style.background = '#2ecc71';
+                        dotElem.style.boxShadow = '0 0 6px #2ecc71';
+                    }
+                    showToast('Engine is online and operational', '✅');
+                } else {
+                    if (statusElem) statusElem.textContent = 'HTTP ' + res.status;
+                    if (dotElem) {
+                        dotElem.style.background = '#e74c3c';
+                        dotElem.style.boxShadow = '0 0 6px #e74c3c';
+                    }
+                    showToast('Engine responded with error', '⚠️');
+                }
+            } catch {
+                if (statusElem) statusElem.textContent = 'Offline';
+                if (dotElem) {
+                    dotElem.style.background = '#e74c3c';
+                    dotElem.style.boxShadow = '0 0 6px #e74c3c';
+                }
+                showToast('Engine unreachable', '❌');
+            }
+        }
+
+        function openVsCodeExtensionSettings() {
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ command: 'openSettings' }, '*');
+            }
+            fetch('/api/files/openSettings').catch(() => {});
+            showToast('Opening settings in VS Code...', '⚙️');
+        }
+
+        function toggleVsCodeSidebar() {
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ command: 'toggleSidebar' }, '*');
+            }
+            fetch('/api/files/toggleSidebar').catch(() => {});
+            showToast('Toggled primary sidebar', '◨');
         }
 
         function handleModalKey(e, confirmFn) {

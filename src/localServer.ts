@@ -231,6 +231,22 @@ export class LocalServer {
                         return;
                     }
 
+                    // 6c. Open VS Code Settings
+                    if (pathname === '/api/files/openSettings') {
+                        vscode.commands.executeCommand('workbench.action.openSettings', 'venel.filemanager');
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ ok: true }));
+                        return;
+                    }
+
+                    // 6d. Toggle Primary Sidebar Visibility
+                    if (pathname === '/api/files/toggleSidebar') {
+                        vscode.commands.executeCommand('workbench.action.toggleSidebarVisibility');
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ ok: true }));
+                        return;
+                    }
+
                     // ══════════════════════════════════════════════════════════
                     // 🚀 CRUD FILE SYSTEM ENDPOINTS
                     // ══════════════════════════════════════════════════════════
