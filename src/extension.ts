@@ -8,6 +8,7 @@ let statusBarItem: vscode.StatusBarItem;
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log('[VenEl] Extension activated. Starting silent background setup...');
+    KestrelLauncher.init(context);
 
     // 0. Eagerly start background engine & pre-warm drives with 0 user delay!
     (async () => {

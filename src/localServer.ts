@@ -416,9 +416,8 @@ export class LocalServer {
                                            `// Status: Background .NET engine offline\n` +
                                            `// Diagnostic: ${diag}\n//\n` +
                                            `// Resolution tips:\n` +
-                                           `// 1. Ensure .NET 8 SDK is installed on this machine ('dotnet --version').\n` +
-                                           `// 2. Open or clone VenEl.AssistantMCP in your workspace, or configure\n` +
-                                           `//    'venel.filemanager.kestrelServerPath' in settings.\n` +
+                                           `// 1. Ensure .NET 8 Runtime or SDK is installed on this machine ('dotnet --version').\n` +
+                                           `// 2. All file browsing, editing, zip, batch rename, and PE analysis remain functional.\n` +
                                            `// 3. Check VS Code Output tab -> 'VenEl Engine' for live launch logs.`,
                             isSuccess: true
                         }));

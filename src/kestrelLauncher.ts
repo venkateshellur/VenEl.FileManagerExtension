@@ -8,8 +8,13 @@ import * as vscode from 'vscode';
 export class KestrelLauncher {
     private static _process: child_process.ChildProcess | undefined;
     private static _outputChannel: vscode.OutputChannel | undefined;
+    private static _extensionPath: string | undefined;
     private static _isStarting = false;
     public static lastDiagnostic: string = 'Engine not yet initialized';
+
+    public static init(context: vscode.ExtensionContext) {
+        this._extensionPath = context.extensionPath;
+    }
 
     public static get isRunning(): boolean {
         return this._process !== undefined && !this._process.killed;
@@ -50,7 +55,7 @@ export class KestrelLauncher {
 
             const serverDll = await this.findServerDll(config.get<string>('kestrelServerPath'), dotnetPath);
             if (!serverDll) {
-                this.lastDiagnostic = 'VenEl.MCP.Server binary was not found. Please clone and build VenEl.AssistantMCP, or configure "venel.filemanager.kestrelServerPath" in settings.';
+                this.lastDiagnostic = 'VenEl backend engine binary was not found. Please reinstall the extension or configure "venel.filemanager.kestrelServerPath" in settings.';
                 this.log(`[VenEl] ${this.lastDiagnostic}`);
                 return undefined;
             }
@@ -170,20 +175,29 @@ export class KestrelLauncher {
         const homedir = os.homedir();
 
         // 1. Direct candidates depending on OS
-        const candidates: string[] = isWin
+        const candidates: (string | undefined)[] = isWin
             ? [
                 'C:\\Program Files\\dotnet\\dotnet.exe',
                 'C:\\Program Files (x86)\\dotnet\\dotnet.exe',
                 path.join(homedir, 'AppData', 'Local', 'Microsoft', 'dotnet', 'dotnet.exe'),
                 path.join(homedir, '.dotnet', 'dotnet.exe'),
-                path.join(process.env.ProgramFiles || 'C:\\Program Files', 'dotnet', 'dotnet.exe'),
-                path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'dotnet', 'dotnet.exe')
+                process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Microsoft', 'dotnet', 'dotnet.exe') : undefined,
+                process.env.DOTNET_ROOT ? path.join(process.env.DOTNET_ROOT, 'dotnet.exe') : undefined,
+                process.env['DOTNET_ROOT(x86)'] ? path.join(process.env['DOTNET_ROOT(x86)'], 'dotnet.exe') : undefined,
+                process.env.ProgramFiles ? path.join(process.env.ProgramFiles, 'dotnet', 'dotnet.exe') : undefined,
+                process.env['ProgramFiles(x86)'] ? path.join(process.env['ProgramFiles(x86)'], 'dotnet', 'dotnet.exe') : undefined,
+                'C:\\ProgramData\\chocolatey\\bin\\dotnet.exe',
+                path.join(homedir, 'scoop', 'apps', 'dotnet-sdk', 'current', 'dotnet.exe'),
+                path.join(homedir, 'scoop', 'shims', 'dotnet.exe')
             ]
             : [
                 '/opt/homebrew/opt/dotnet@8/bin/dotnet',
                 '/opt/homebrew/bin/dotnet',
                 '/usr/local/share/dotnet/dotnet',
-                path.join(homedir, '.dotnet', 'dotnet')
+                '/usr/share/dotnet/dotnet',
+                '/usr/bin/dotnet',
+                path.join(homedir, '.dotnet', 'dotnet'),
+                process.env.DOTNET_ROOT ? path.join(process.env.DOTNET_ROOT, 'dotnet') : undefined
             ];
 
         for (const c of candidates) {
@@ -214,21 +228,46 @@ export class KestrelLauncher {
     }
 
     public static async findServerDll(configuredPath?: string, dotnetPath?: string): Promise<string | undefined> {
+        // 0. If user configured custom path that exists, prioritize it
         if (configuredPath && configuredPath.trim()) {
             const p = configuredPath.trim();
             if (fs.existsSync(p)) return p;
         }
 
+        // 1. Check bundled server in extension directory (0-config for installed users!)
+        const bundledCandidates: (string | undefined)[] = [
+            this._extensionPath ? path.join(this._extensionPath, 'server', 'VenEl.MCP.FileManager.Host.dll') : undefined,
+            this._extensionPath ? path.join(this._extensionPath, 'server', 'VenEl.MCP.Server.dll') : undefined,
+            path.join(__dirname, '..', 'server', 'VenEl.MCP.FileManager.Host.dll'),
+            path.join(__dirname, '..', 'server', 'VenEl.MCP.Server.dll'),
+            path.resolve(__dirname, '..', 'server', 'VenEl.MCP.FileManager.Host.dll'),
+            path.resolve(__dirname, '..', 'server', 'VenEl.MCP.Server.dll')
+        ];
+
+        for (const b of bundledCandidates) {
+            try {
+                if (b && fs.existsSync(b)) {
+                    this.log(`Using bundled backend engine: ${b}`);
+                    return b;
+                }
+            } catch {}
+        }
+
         const homedir = os.homedir();
         const candidates: string[] = [];
 
-        // 1. Check open workspace folders first
+        // 2. Check open workspace folders (for local development)
         if (vscode.workspace.workspaceFolders) {
             for (const folder of vscode.workspace.workspaceFolders) {
                 const root = folder.uri.fsPath;
                 candidates.push(
+                    path.join(root, 'server', 'VenEl.MCP.FileManager.Host.dll'),
+                    path.join(root, 'src', 'VenEl.MCP.FileManager.Host', 'bin', 'Debug', 'net8.0', 'VenEl.MCP.FileManager.Host.dll'),
+                    path.join(root, 'src', 'VenEl.MCP.FileManager.Host', 'bin', 'Release', 'net8.0', 'VenEl.MCP.FileManager.Host.dll'),
                     path.join(root, 'src', 'VenEl.MCP.Server', 'bin', 'Debug', 'net8.0', 'VenEl.MCP.Server.dll'),
                     path.join(root, 'src', 'VenEl.MCP.Server', 'bin', 'Release', 'net8.0', 'VenEl.MCP.Server.dll'),
+                    path.join(root, 'VenEl.MCPAssistant', 'src', 'VenEl.MCP.FileManager.Host', 'bin', 'Debug', 'net8.0', 'VenEl.MCP.FileManager.Host.dll'),
+                    path.join(root, 'VenEl.MCPAssistant', 'src', 'VenEl.MCP.FileManager.Host', 'bin', 'Release', 'net8.0', 'VenEl.MCP.FileManager.Host.dll'),
                     path.join(root, 'VenEl.MCPAssistant', 'src', 'VenEl.MCP.Server', 'bin', 'Debug', 'net8.0', 'VenEl.MCP.Server.dll'),
                     path.join(root, 'VenEl.MCPAssistant', 'src', 'VenEl.MCP.Server', 'bin', 'Release', 'net8.0', 'VenEl.MCP.Server.dll'),
                     path.join(root, 'VenEl.AssistantMCP', 'src', 'VenEl.MCP.Server', 'bin', 'Debug', 'net8.0', 'VenEl.MCP.Server.dll'),
