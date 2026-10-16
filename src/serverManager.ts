@@ -8,10 +8,11 @@ export class ServerManager {
     private static _activeServerUrl: string | undefined;
 
     public static async getServerUrl(): Promise<string> {
-        if (this._activeServerUrl === 'http://localhost:5050' && await KestrelLauncher.pingKestrel()) {
-            return this._activeServerUrl;
+        const isKestrelUrl = (url?: string) => url === 'http://127.0.0.1:5050' || url === 'http://localhost:5050';
+        if (isKestrelUrl(this._activeServerUrl) && await KestrelLauncher.pingKestrel()) {
+            return this._activeServerUrl!;
         }
-        if (this._activeServerUrl && this._activeServerUrl !== 'http://localhost:5050' && this._activeServerUrl !== 'http://localhost:5055') {
+        if (this._activeServerUrl && !isKestrelUrl(this._activeServerUrl) && this._activeServerUrl !== 'http://localhost:5055' && this._activeServerUrl !== 'http://127.0.0.1:5055') {
             const health = await this.pingUrl(this._activeServerUrl);
             if (health.online) return this._activeServerUrl;
         }
@@ -20,7 +21,7 @@ export class ServerManager {
         const configuredUrl = config.get<string>('serverUrl', '').replace(/\/+$/, '');
 
         // 1. If user explicitly provided a custom remote IP/URL, test it
-        if (configuredUrl && configuredUrl !== 'http://localhost:5050') {
+        if (configuredUrl && !isKestrelUrl(configuredUrl)) {
             const health = await this.pingUrl(configuredUrl);
             if (health.online) {
                 this._activeServerUrl = configuredUrl;

@@ -360,40 +360,66 @@ export class LocalServer {
                             await KestrelLauncher.ensureRunning();
                         } catch {}
 
-                        // 2. Forward to Kestrel on 5050
-                        try {
-                            const kestrelRes = await new Promise<any>((resolve, reject) => {
-                                const kReq = http.get(`http://localhost:5050/api/files/decompile?path=${encodeURIComponent(targetPath)}`, { timeout: 15000 }, (kRes) => {
-                                    let data = '';
-                                    kRes.on('data', chunk => { data += chunk; });
-                                    kRes.on('end', () => {
-                                        try { resolve(JSON.parse(data)); } catch { reject(); }
-                                    });
-                                });
-                                kReq.on('error', reject);
-                                kReq.on('timeout', () => { kReq.destroy(); reject(); });
-                            });
+                        // 2. Forward to Kestrel on 5050 (try 127.0.0.1 first, then localhost)
+                        const endpoints = [
+                            `http://127.0.0.1:5050/api/files/decompile?path=${encodeURIComponent(targetPath)}`,
+                            `http://localhost:5050/api/files/decompile?path=${encodeURIComponent(targetPath)}`
+                        ];
 
-                            if (kestrelRes && typeof kestrelRes.isSuccess === 'boolean') {
-                                res.writeHead(200, { 'Content-Type': 'application/json' });
-                                res.end(JSON.stringify(kestrelRes));
-                                return;
-                            }
-                        } catch (e: any) {
-                            console.error('[VenEl] Error forwarding decompile request to Kestrel:', e);
+                        for (const forwardUrl of endpoints) {
+                            try {
+                                const kestrelRes = await new Promise<any>((resolve, reject) => {
+                                    const kReq = http.get(forwardUrl, { timeout: 15000 }, (kRes) => {
+                                        let data = '';
+                                        kRes.on('data', chunk => { data += chunk; });
+                                        kRes.on('end', () => {
+                                            try { resolve(JSON.parse(data)); } catch { reject(); }
+                                        });
+                                    });
+                                    kReq.on('error', reject);
+                                    kReq.on('timeout', () => { kReq.destroy(); reject(); });
+                                });
+
+                                if (kestrelRes && typeof kestrelRes.isSuccess === 'boolean') {
+                                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                                    res.end(JSON.stringify(kestrelRes));
+                                    return;
+                                }
+                            } catch {}
                         }
 
-                        // Fallback response if Kestrel backend could not be reached
+                        // Fallback response with native PE analysis and clear diagnostics
                         const ext = path.extname(targetPath).toLowerCase();
+                        const stat = fs.statSync(targetPath);
+                        const peInfo = LocalServer.inspectBinaryHeader(targetPath);
+                        const diag = KestrelLauncher.lastDiagnostic;
+
                         res.writeHead(200, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({
                             path: targetPath,
                             fileName: path.basename(targetPath),
-                            format: ext === '.dll' || ext === '.exe' ? '.NET Assembly' : 'Java Binary',
-                            deterministicSummary: `Binary file '${path.basename(targetPath)}' (${(fs.statSync(targetPath).size / 1024).toFixed(1)} KB). Could not connect to background .NET engine.`,
+                            format: peInfo.format || (ext === '.dll' || ext === '.exe' ? '.NET Assembly' : 'Java Binary'),
+                            architecture: peInfo.architecture || 'Unknown',
+                            targetFramework: peInfo.targetFramework || undefined,
+                            deterministicSummary: `Binary file '${path.basename(targetPath)}' (${(stat.size / 1024).toFixed(1)} KB, ${peInfo.architecture}). Engine Status: ${diag}`,
                             dependencies: [],
                             outline: [],
-                            decompiledCode: `// Decompilation requires the VenEl .NET backend engine.\n// Path: ${targetPath}`,
+                            decompiledCode: `// ═════════════════════════════════════════════════════════════════════\n` +
+                                           `// VenEl Binary Decompiler Diagnostic\n` +
+                                           `// ═════════════════════════════════════════════════════════════════════\n` +
+                                           `// File: ${path.basename(targetPath)}\n` +
+                                           `// Size: ${(stat.size / 1024).toFixed(1)} KB\n` +
+                                           `// Format: ${peInfo.format}\n` +
+                                           `// Architecture: ${peInfo.architecture}\n` +
+                                           (peInfo.targetFramework ? `// Target: ${peInfo.targetFramework}\n` : '') +
+                                           `//\n` +
+                                           `// Status: Background .NET engine offline\n` +
+                                           `// Diagnostic: ${diag}\n//\n` +
+                                           `// Resolution tips:\n` +
+                                           `// 1. Ensure .NET 8 SDK is installed on this machine ('dotnet --version').\n` +
+                                           `// 2. Open or clone VenEl.AssistantMCP in your workspace, or configure\n` +
+                                           `//    'venel.filemanager.kestrelServerPath' in settings.\n` +
+                                           `// 3. Check VS Code Output tab -> 'VenEl Engine' for live launch logs.`,
                             isSuccess: true
                         }));
                         return;
@@ -1098,6 +1124,49 @@ export class LocalServer {
         } catch {
             return { isRepo: false };
         }
+    }
+
+    public static inspectBinaryHeader(filePath: string): { format: string; architecture: string; targetFramework?: string } {
+        try {
+            const fd = fs.openSync(filePath, 'r');
+            const buf = Buffer.alloc(8192);
+            const bytesRead = fs.readSync(fd, buf, 0, 8192, 0);
+            fs.closeSync(fd);
+
+            if (bytesRead < 64) return { format: 'Binary', architecture: 'Unknown' };
+
+            // Java Class (0xCAFEBABE)
+            if (buf[0] === 0xCA && buf[1] === 0xFE && buf[2] === 0xBA && buf[3] === 0xBE) {
+                const major = buf.readUInt16BE(6);
+                return { format: 'Java Bytecode (.class)', architecture: `Java (v${major})` };
+            }
+
+            // Java JAR / ZIP (PK\x03\x04)
+            if (buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x03 && buf[3] === 0x04) {
+                return { format: 'Java Archive (.jar)', architecture: 'JVM' };
+            }
+
+            // Windows PE (MZ)
+            if (buf[0] === 0x4D && buf[1] === 0x5A) {
+                const peOffset = buf.readUInt32LE(0x3C);
+                if (peOffset + 24 < bytesRead && buf[peOffset] === 0x50 && buf[peOffset + 1] === 0x45) {
+                    const machine = buf.readUInt16LE(peOffset + 4);
+                    let arch = 'Unknown';
+                    if (machine === 0x014c) arch = 'x86 (32-bit)';
+                    else if (machine === 0x8664) arch = 'x64 (64-bit)';
+                    else if (machine === 0xaa64) arch = 'ARM64';
+
+                    // Scan for TargetFramework string in the buffer
+                    const rawStr = buf.toString('latin1');
+                    let tf: string | undefined = undefined;
+                    const tfMatch = rawStr.match(/\.NETCoreApp,Version=v([0-9.]+)/) || rawStr.match(/\.NETFramework,Version=v([0-9.]+)/);
+                    if (tfMatch) tf = tfMatch[0];
+
+                    return { format: '.NET Assembly (PE)', architecture: arch, targetFramework: tf };
+                }
+            }
+        } catch {}
+        return { format: 'Binary', architecture: 'Unknown' };
     }
 
     private static getIndexHtml(): string {
