@@ -57,12 +57,14 @@ export class KestrelLauncher {
                 cwd: path.dirname(serverDll),
                 env: {
                     ...process.env,
+                    PATH: `${process.env.PATH || ''}:/opt/homebrew/bin:/usr/local/bin`,
                     ASPNETCORE_ENVIRONMENT: 'Production'
                 },
-                stdio: ['ignore', 'pipe', 'pipe']
+                stdio: ['pipe', 'pipe', 'pipe']
             });
 
             this._process = proc;
+            proc.stdin?.on('error', () => {});
 
             proc.stdout?.on('data', (chunk) => {
                 const text = chunk.toString();
@@ -84,10 +86,10 @@ export class KestrelLauncher {
                 this._process = undefined;
             });
 
-            // Poll for up to 3500ms until backend responds to /api/files/roots
+            // Poll for up to 12000ms until backend responds to /api/files/roots
             const startTime = Date.now();
-            while (Date.now() - startTime < 3500) {
-                await new Promise((r) => setTimeout(r, 150));
+            while (Date.now() - startTime < 12000) {
+                await new Promise((r) => setTimeout(r, 200));
                 if (await this.pingKestrel()) {
                     this.log('Backend engine is successfully online and ready on http://localhost:5050');
                     return 'http://localhost:5050';
@@ -108,6 +110,7 @@ export class KestrelLauncher {
         if (this._process && !this._process.killed) {
             this.log('Stopping background engine...');
             try {
+                this._process.stdin?.end();
                 this._process.kill('SIGTERM');
             } catch {}
             this._process = undefined;
@@ -117,9 +120,10 @@ export class KestrelLauncher {
     public static pingKestrel(): Promise<boolean> {
         return new Promise((resolve) => {
             try {
-                const req = http.get('http://localhost:5050/api/files/roots', { timeout: 800 }, (res) => {
+                const req = http.get('http://localhost:5050/api/files/roots', { timeout: 1200 }, (res) => {
                     res.resume();
-                    if (res.statusCode && res.statusCode >= 200 && res.statusCode < 400) {
+                    const isKestrel = res.headers['x-engine'] === 'VenEl-Kestrel' || (res.headers['server'] && res.headers['server'].includes('Kestrel'));
+                    if (res.statusCode && res.statusCode >= 200 && res.statusCode < 400 && isKestrel) {
                         resolve(true);
                     } else {
                         resolve(false);
@@ -139,11 +143,11 @@ export class KestrelLauncher {
     private static findDotnet(): string | undefined {
         const homedir = os.homedir();
         const candidates = [
-            'dotnet',
             '/opt/homebrew/opt/dotnet@8/bin/dotnet',
             '/opt/homebrew/bin/dotnet',
             '/usr/local/share/dotnet/dotnet',
             path.join(homedir, '.dotnet', 'dotnet'),
+            'dotnet',
             'C:\\Program Files\\dotnet\\dotnet.exe'
         ];
 

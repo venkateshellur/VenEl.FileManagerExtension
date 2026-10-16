@@ -8,8 +8,12 @@ export class ServerManager {
     private static _activeServerUrl: string | undefined;
 
     public static async getServerUrl(): Promise<string> {
-        if (this._activeServerUrl) {
+        if (this._activeServerUrl === 'http://localhost:5050' && await KestrelLauncher.pingKestrel()) {
             return this._activeServerUrl;
+        }
+        if (this._activeServerUrl && this._activeServerUrl !== 'http://localhost:5050' && this._activeServerUrl !== 'http://localhost:5055') {
+            const health = await this.pingUrl(this._activeServerUrl);
+            if (health.online) return this._activeServerUrl;
         }
 
         const config = vscode.workspace.getConfiguration('venel.filemanager');

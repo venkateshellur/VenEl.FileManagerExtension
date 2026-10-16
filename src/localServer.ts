@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as vscode from 'vscode';
 import { exec, execFile } from 'child_process';
+import { KestrelLauncher } from './kestrelLauncher';
 
 export class LocalServer {
     private static _server: http.Server | undefined;
@@ -18,7 +19,7 @@ export class LocalServer {
             return this._serverUrl;
         }
 
-        const preferredPort = 5050;
+        const preferredPort = 5055;
         const port = await this.findAvailablePort(preferredPort);
         
         await this.startServer(port);
@@ -63,6 +64,7 @@ export class LocalServer {
                     res.setHeader('Access-Control-Allow-Origin', '*');
                     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
                     res.setHeader('Access-Control-Allow-Headers', '*');
+                    res.setHeader('X-Engine', 'VenEl-Node');
 
                     if (req.method === 'OPTIONS') {
                         res.writeHead(204);
@@ -341,6 +343,59 @@ export class LocalServer {
                         }
                         res.writeHead(200, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({ ok: true }));
+                        return;
+                    }
+
+                    // 6h. Decompile & Inspect Binary (.NET DLL/EXE, Java class/jar)
+                    if (pathname === '/api/files/decompile') {
+                        const targetPath = reqUrl.searchParams.get('path');
+                        if (!targetPath || !fs.existsSync(targetPath)) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ isSuccess: false, errorMessage: 'Valid file path is required.' }));
+                            return;
+                        }
+
+                        // 1. Ensure Kestrel backend engine is running on port 5050
+                        try {
+                            await KestrelLauncher.ensureRunning();
+                        } catch {}
+
+                        // 2. Forward to Kestrel on 5050
+                        try {
+                            const kestrelRes = await new Promise<any>((resolve, reject) => {
+                                const kReq = http.get(`http://localhost:5050/api/files/decompile?path=${encodeURIComponent(targetPath)}`, { timeout: 15000 }, (kRes) => {
+                                    let data = '';
+                                    kRes.on('data', chunk => { data += chunk; });
+                                    kRes.on('end', () => {
+                                        try { resolve(JSON.parse(data)); } catch { reject(); }
+                                    });
+                                });
+                                kReq.on('error', reject);
+                                kReq.on('timeout', () => { kReq.destroy(); reject(); });
+                            });
+
+                            if (kestrelRes && typeof kestrelRes.isSuccess === 'boolean') {
+                                res.writeHead(200, { 'Content-Type': 'application/json' });
+                                res.end(JSON.stringify(kestrelRes));
+                                return;
+                            }
+                        } catch (e: any) {
+                            console.error('[VenEl] Error forwarding decompile request to Kestrel:', e);
+                        }
+
+                        // Fallback response if Kestrel backend could not be reached
+                        const ext = path.extname(targetPath).toLowerCase();
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({
+                            path: targetPath,
+                            fileName: path.basename(targetPath),
+                            format: ext === '.dll' || ext === '.exe' ? '.NET Assembly' : 'Java Binary',
+                            deterministicSummary: `Binary file '${path.basename(targetPath)}' (${(fs.statSync(targetPath).size / 1024).toFixed(1)} KB). Could not connect to background .NET engine.`,
+                            dependencies: [],
+                            outline: [],
+                            decompiledCode: `// Decompilation requires the VenEl .NET backend engine.\n// Path: ${targetPath}`,
+                            isSuccess: true
+                        }));
                         return;
                     }
 

@@ -1151,6 +1151,128 @@
             margin-top: 6px;
         }
 
+        /* ══════════════════════════════════════════════════════════
+           ⚡ DECOMPILER & BINARY INSPECTION STYLES
+           ══════════════════════════════════════════════════════════ */
+        .decompile-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .decompile-header-card {
+            background: linear-gradient(135deg, rgba(108, 92, 231, 0.15), rgba(162, 155, 254, 0.05));
+            border: 1px solid rgba(108, 92, 231, 0.35);
+            border-radius: 8px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .decompile-badge-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .decompile-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            word-break: break-all;
+        }
+        .decompile-summary-box {
+            background: rgba(0, 0, 0, 0.35);
+            border-left: 3px solid #6c5ce7;
+            border-radius: 4px;
+            padding: 8px 10px;
+            font-size: 11px;
+            line-height: 1.45;
+            color: #dfe6e9;
+        }
+        .decompile-dep-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 4px;
+        }
+        .decompile-dep-pill {
+            background: rgba(108, 92, 231, 0.2);
+            border: 1px solid rgba(108, 92, 231, 0.3);
+            border-radius: 10px;
+            padding: 2px 8px;
+            font-size: 10px;
+            color: #a29bfe;
+        }
+        .decompile-tab-bar {
+            display: flex;
+            gap: 4px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 6px;
+            margin-top: 4px;
+        }
+        .decompile-tab-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .decompile-tab-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .decompile-tab-btn.active {
+            color: #fff;
+            background: #6c5ce7;
+            border-color: #6c5ce7;
+        }
+        .decompile-tree-view {
+            max-height: 380px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        .decompile-tree-item {
+            padding: 3px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #dfe6e9;
+        }
+        .decompile-tree-item:hover {
+            background: rgba(108, 92, 231, 0.2);
+        }
+        .decompile-code-viewer {
+            width: 100%;
+            box-sizing: border-box;
+            background: #131317;
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 11px;
+            color: #a29bfe;
+            max-height: 420px;
+            overflow: auto;
+            white-space: pre-wrap;
+        }
+
         /* ══════════════════════════════════════════════════════════ */
         /* ❓ HELP & FEATURE GUIDE MODAL STYLES                      */
         /* ══════════════════════════════════════════════════════════ */
@@ -4405,6 +4527,175 @@
                 '</div>';
         }
 
+        // ══════════════════════════════════════════════════════════
+        // ⚡ DECOMPILER HELPER FUNCTIONS
+        // ══════════════════════════════════════════════════════════
+        async function renderDecompilerCard(name, ext, fullPath, isQuickLook, targetElem) {
+            const uniqueId = 'decomp_' + Math.random().toString(36).substring(2, 9);
+            targetElem.innerHTML = '<div class="media-preview-box" style="padding: 24px 16px;">' +
+                '<div class="spinner" style="margin: 0 auto 12px;"></div>' +
+                '<div style="font-size: 14px; font-weight: 600; color: #fff;">Decompiling & Inspecting...</div>' +
+                '<div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Analyzing ' + escapeHtml(name) + ' bytecode</div>' +
+                '</div>';
+
+            try {
+                const res = await fetch('/api/files/decompile?path=' + encodeURIComponent(fullPath));
+                if (!res.ok) throw new Error('Backend responded with HTTP ' + res.status);
+                const data = await res.json();
+
+                if (!data.isSuccess) {
+                    targetElem.innerHTML = renderBinaryFileCard(name, ext, fullPath, '📦', data.format || 'Binary File', data.errorMessage || 'Decompilation not supported for this binary.');
+                    return;
+                }
+
+                const icon = ext === 'class' || ext === 'jar' || ext === 'war' ? '☕' : '⚡';
+                const formatLabel = data.format || (ext.toUpperCase() + ' Binary');
+                const targetFw = data.targetFramework ? ' • ' + escapeHtml(data.targetFramework) : '';
+                const arch = data.architecture ? ' • ' + escapeHtml(data.architecture) : '';
+
+                // Dependencies Pills
+                let depsHtml = '';
+                if (data.dependencies && data.dependencies.length > 0) {
+                    depsHtml = '<div style="margin-top: 6px;"><div style="font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 3px;">Dependencies / References:</div>' +
+                        '<div class="decompile-dep-pills">' +
+                        data.dependencies.map(d => '<span class="decompile-dep-pill">' + escapeHtml(d) + '</span>').join('') +
+                        '</div></div>';
+                }
+
+                // Type Outline Tree
+                let outlineHtml = '';
+                if (data.outline && data.outline.length > 0) {
+                    outlineHtml = renderOutlineTree(data.outline, uniqueId);
+                } else {
+                    outlineHtml = '<div style="padding: 12px; color: var(--text-muted); font-size: 11px;">No type metadata available.</div>';
+                }
+
+                // Decompiled Code snippet
+                const codeSnippet = data.decompiledCode || '// No decompiled source available.';
+
+                targetElem.innerHTML = '<div class="decompile-container" id="' + uniqueId + '">' +
+                    // Header Card
+                    '<div class="decompile-header-card">' +
+                        '<div class="decompile-badge-row">' +
+                            '<span class="decompile-title">' + icon + ' ' + escapeHtml(name) + '</span>' +
+                            '<span class="preview-badge">' + escapeHtml(formatLabel) + targetFw + arch + '</span>' +
+                        '</div>' +
+                        (data.deterministicSummary ? '<div class="decompile-summary-box"><strong>📋 Summary:</strong> ' + escapeHtml(data.deterministicSummary) + '</div>' : '') +
+                        depsHtml +
+                        '<div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">' +
+                            '<button class="modal-btn" style="font-size: 11px; padding: 4px 8px;" onclick="copyDecompileSummary(\'' + uniqueId + '\')">✨ Copy AI Prompt</button>' +
+                            '<button class="modal-btn" style="font-size: 11px; padding: 4px 8px;" onclick="copyDecompiledCode(\'' + uniqueId + '\')">📋 Copy Source</button>' +
+                            '<button class="modal-btn" style="font-size: 11px; padding: 4px 8px;" onclick="openSelectedItemInEditor(\'' + escapePath(fullPath) + '\')">🚀 Open File</button>' +
+                        '</div>' +
+                    '</div>' +
+                    // Tabs
+                    '<div class="decompile-tab-bar">' +
+                        '<button class="decompile-tab-btn active" data-tab="outline" onclick="switchDecompileTab(\'' + uniqueId + '\', \'outline\')">📋 Types & Members (' + (data.outline ? data.outline.length : 0) + ')</button>' +
+                        '<button class="decompile-tab-btn" data-tab="code" onclick="switchDecompileTab(\'' + uniqueId + '\', \'code\')">💻 Decompiled Source</button>' +
+                    '</div>' +
+                    // Tab Content 1: Outline Tree
+                    '<div class="decompile-tab-content" id="' + uniqueId + '_outline">' +
+                        '<div class="decompile-tree-view" style="max-height: ' + (isQuickLook ? '60vh' : '360px') + ';">' + outlineHtml + '</div>' +
+                    '</div>' +
+                    // Tab Content 2: Source Code Viewer
+                    '<div class="decompile-tab-content" id="' + uniqueId + '_code" style="display: none;">' +
+                        '<pre class="decompile-code-viewer" style="max-height: ' + (isQuickLook ? '60vh' : '380px') + ';"><code id="' + uniqueId + '_code_text">' + escapeHtml(codeSnippet) + '</code></pre>' +
+                    '</div>' +
+                    '</div>';
+
+                // Save data in global map for copy actions
+                window._decompileDataMap = window._decompileDataMap || new Map();
+                window._decompileDataMap.set(uniqueId, data);
+
+            } catch (e) {
+                targetElem.innerHTML = renderBinaryFileCard(name, ext, fullPath, '📦', 'Binary File', 'Decompilation failed: ' + (e.message || e));
+            }
+        }
+
+        function renderOutlineTree(nodes, uniqueId) {
+            let html = '';
+            for (const node of nodes) {
+                const kindIcon = node.kind === 'namespace' ? '📦' :
+                                 node.kind === 'class' ? '🔷' :
+                                 node.kind === 'interface' ? '🔶' :
+                                 node.kind === 'struct' ? '🧱' :
+                                 node.kind === 'enum' ? '🔢' :
+                                 node.kind === 'method' ? '⚡' :
+                                 node.kind === 'property' ? '🔧' :
+                                 node.kind === 'field' ? '🏷️' : '📄';
+
+                const hasChildren = node.children && node.children.length > 0;
+                const sig = node.signature ? ' <span style="opacity: 0.6; font-size: 10px;">' + escapeHtml(node.signature) + '</span>' : '';
+
+                if (hasChildren) {
+                    html += '<details open style="margin-left: ' + (node.kind === 'namespace' ? '0' : '12px') + '; margin-bottom: 2px;">' +
+                        '<summary class="decompile-tree-item" style="font-weight: ' + (node.kind === 'namespace' ? '600' : '500') + ';">' +
+                        kindIcon + ' ' + escapeHtml(node.name) + sig +
+                        '</summary>' +
+                        renderOutlineTree(node.children, uniqueId) +
+                        '</details>';
+                } else {
+                    html += '<div class="decompile-tree-item" style="margin-left: 20px; font-size: 10px;" onclick="jumpToDecompiledMember(\'' + uniqueId + '\', \'' + escapeHtml(node.name) + '\')">' +
+                        kindIcon + ' ' + escapeHtml(node.name) + sig +
+                        '</div>';
+                }
+            }
+            return html;
+        }
+
+        function switchDecompileTab(uniqueId, tabName) {
+            const container = document.getElementById(uniqueId);
+            if (!container) return;
+            const buttons = container.querySelectorAll('.decompile-tab-btn');
+            buttons.forEach(b => {
+                b.classList.toggle('active', b.getAttribute('data-tab') === tabName);
+            });
+            const outline = document.getElementById(uniqueId + '_outline');
+            const code = document.getElementById(uniqueId + '_code');
+            if (outline) outline.style.display = tabName === 'outline' ? 'block' : 'none';
+            if (code) code.style.display = tabName === 'code' ? 'block' : 'none';
+        }
+
+        function copyDecompileSummary(uniqueId) {
+            const data = (window._decompileDataMap && window._decompileDataMap.get(uniqueId));
+            if (!data) return;
+            const prompt = `Please provide an executive summary and architectural explanation of this binary:\n` +
+                `- File: ${data.fileName}\n` +
+                `- Format: ${data.format}\n` +
+                `- Target Framework: ${data.targetFramework || 'N/A'}\n` +
+                `- Architecture: ${data.architecture || 'N/A'}\n` +
+                `- Dependencies: ${(data.dependencies || []).join(', ') || 'None'}\n` +
+                `- Deterministic Summary: ${data.deterministicSummary}\n\n` +
+                `Outline structure:\n` + JSON.stringify(data.outline || [], null, 2);
+
+            navigator.clipboard.writeText(prompt);
+            showToast('AI prompt copied to clipboard! Paste into chat.', '✨');
+        }
+
+        function copyDecompiledCode(uniqueId) {
+            const data = (window._decompileDataMap && window._decompileDataMap.get(uniqueId));
+            if (!data || !data.decompiledCode) {
+                showToast('No code to copy', '⚠️');
+                return;
+            }
+            navigator.clipboard.writeText(data.decompiledCode);
+            showToast('Decompiled code copied to clipboard!', '📋');
+        }
+
+        function jumpToDecompiledMember(uniqueId, memberName) {
+            switchDecompileTab(uniqueId, 'code');
+            const codeText = document.getElementById(uniqueId + '_code_text');
+            if (!codeText) return;
+            const pre = codeText.parentElement;
+            if (!pre) return;
+            const text = codeText.innerText;
+            const idx = text.indexOf(memberName);
+            if (idx >= 0) {
+                const ratio = idx / text.length;
+                pre.scrollTop = pre.scrollHeight * ratio;
+            }
+        }
+
         function ensureXlsx() {
             if (window.XLSX) return Promise.resolve(window.XLSX);
             if (xlsxLoadingPromise) return xlsxLoadingPromise;
@@ -4889,6 +5180,13 @@
                 } catch (e) {
                     targetElem.innerHTML = '<div style="padding: 20px; color: var(--danger);">Could not read markdown.</div>';
                 }
+                return;
+            }
+
+            // 8b. DECOMPILABLE BINARIES (.dll, .exe, .class, .jar, .war)
+            const decompileExts = ['dll', 'exe', 'class', 'jar', 'war'];
+            if (decompileExts.includes(ext)) {
+                renderDecompilerCard(name, ext, fullPath, isQuickLook, targetElem);
                 return;
             }
 
