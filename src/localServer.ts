@@ -346,6 +346,84 @@ export class LocalServer {
                         return;
                     }
 
+                    // 6g2. In-App Visual Diff / File Comparison
+                    if (pathname === '/api/files/diff') {
+                        const fileA = reqUrl.searchParams.get('fileA');
+                        const fileB = reqUrl.searchParams.get('fileB');
+
+                        if (!fileA || !fs.existsSync(fileA)) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ ok: false, error: 'File A is required and must exist.', errorMessage: 'File A is required and must exist.' }));
+                            return;
+                        }
+
+                        try {
+                            let textA = '';
+                            let textB = '';
+                            let labelA = path.basename(fileA);
+                            let labelB = fileB ? path.basename(fileB) : 'HEAD';
+
+                            if (!fileB || fileB === 'HEAD') {
+                                // Git diff with HEAD
+                                const dir = path.dirname(fileA);
+                                const relPath = await new Promise<string>((resolve, reject) => {
+                                    exec(`git ls-files --full-name "${path.basename(fileA)}"`, { cwd: dir }, (err, stdout) => {
+                                        if (err || !stdout.trim()) reject(new Error('File is not tracked in Git.'));
+                                        else resolve(stdout.trim());
+                                    });
+                                });
+                                textA = await new Promise<string>((resolve, reject) => {
+                                    exec(`git show HEAD:"${relPath}"`, { cwd: dir }, (err, stdout) => {
+                                        if (err) reject(err); else resolve(stdout);
+                                    });
+                                });
+                                textB = await fs.promises.readFile(fileA, 'utf8');
+                                labelA = `${path.basename(fileA)} (Git HEAD)`;
+                                labelB = `${path.basename(fileA)} (Working Copy)`;
+                            } else {
+                                if (!fs.existsSync(fileB)) {
+                                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                                    res.end(JSON.stringify({ ok: false, error: `File B does not exist: ${fileB}`, errorMessage: `File B does not exist: ${fileB}` }));
+                                    return;
+                                }
+                                textA = await fs.promises.readFile(fileA, 'utf8');
+                                textB = await fs.promises.readFile(fileB, 'utf8');
+                            }
+
+                            // Check binary or max size
+                            const isBinaryA = textA.includes('\0');
+                            const isBinaryB = textB.includes('\0');
+                            if (isBinaryA || isBinaryB) {
+                                res.writeHead(200, { 'Content-Type': 'application/json' });
+                                res.end(JSON.stringify({
+                                    ok: true,
+                                    isBinary: true,
+                                    fileA: { path: fileA, name: path.basename(fileA), label: labelA, size: Buffer.byteLength(textA) },
+                                    fileB: { path: fileB || fileA, name: fileB ? path.basename(fileB) : path.basename(fileA), label: labelB, size: Buffer.byteLength(textB) },
+                                    message: 'Binary files cannot be displayed as text diff.'
+                                }));
+                                return;
+                            }
+
+                            const diffResult = LocalServer.computeDiff(textA, textB);
+                            res.writeHead(200, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({
+                                ok: true,
+                                isBinary: false,
+                                fileA: { path: fileA, name: path.basename(fileA), label: labelA, size: Buffer.byteLength(textA) },
+                                fileB: { path: fileB || fileA, name: fileB ? path.basename(fileB) : path.basename(fileA), label: labelB, size: Buffer.byteLength(textB) },
+                                stats: diffResult.stats,
+                                lines: diffResult.lines
+                            }));
+                            return;
+                        } catch (diffErr: any) {
+                            const msg = diffErr?.message || String(diffErr);
+                            res.writeHead(200, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ ok: false, error: msg, errorMessage: msg }));
+                            return;
+                        }
+                    }
+
                     // 6h. Decompile & Inspect Binary (.NET DLL/EXE, Java class/jar)
                     if (pathname === '/api/files/decompile') {
                         const targetPath = reqUrl.searchParams.get('path');
@@ -521,45 +599,80 @@ export class LocalServer {
                         return;
                     }
 
-                    // 11. Copy File or Folder
+                    // 11. Copy File or Folder (Supports single or multi-item drag & drop)
                     if (pathname === '/api/files/copy' && req.method === 'POST') {
                         const body = await LocalServer.parseJsonBody(req);
-                        const { source, destinationDir } = body;
-                        if (!source || !destinationDir || !fs.existsSync(source)) {
+                        const { destinationDir } = body;
+                        const items: string[] = Array.isArray(body.items) ? body.items : (body.source ? [body.source] : []);
+                        if (items.length === 0 || !destinationDir || !fs.existsSync(destinationDir)) {
                             res.writeHead(400, { 'Content-Type': 'application/json' });
-                            res.end(JSON.stringify({ error: 'Valid source and destinationDir are required' }));
+                            res.end(JSON.stringify({ error: 'Valid source/items and destinationDir are required' }));
                             return;
                         }
-                        const baseName = path.basename(source);
-                        let destPath = path.join(destinationDir, baseName);
-                        
-                        // If copying into same directory, add " - Copy"
-                        if (fs.existsSync(destPath) && path.dirname(source) === destinationDir) {
-                            const ext = path.extname(baseName);
-                            const nameWithoutExt = path.basename(baseName, ext);
-                            destPath = path.join(destinationDir, `${nameWithoutExt} - Copy${ext}`);
+                        const copied: string[] = [];
+                        for (const source of items) {
+                            if (!source || !fs.existsSync(source)) continue;
+                            const baseName = path.basename(source);
+                            let destPath = path.join(destinationDir, baseName);
+                            if (fs.existsSync(destPath) && path.dirname(source) === destinationDir) {
+                                const ext = path.extname(baseName);
+                                const nameWithoutExt = path.basename(baseName, ext);
+                                destPath = path.join(destinationDir, `${nameWithoutExt} - Copy${ext}`);
+                            }
+                            await fs.promises.cp(source, destPath, { recursive: true });
+                            copied.push(destPath);
                         }
-
-                        await fs.promises.cp(source, destPath, { recursive: true });
                         res.writeHead(200, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ success: true, path: destPath }));
+                        res.end(JSON.stringify({ success: true, count: copied.length, path: copied[0], paths: copied }));
                         return;
                     }
 
-                    // 12. Move / Cut File or Folder
+                    // 12. Move / Cut File or Folder (Supports single or multi-item drag & drop)
                     if (pathname === '/api/files/move' && req.method === 'POST') {
                         const body = await LocalServer.parseJsonBody(req);
-                        const { source, destinationDir } = body;
-                        if (!source || !destinationDir || !fs.existsSync(source)) {
+                        const { destinationDir } = body;
+                        const items: string[] = Array.isArray(body.items) ? body.items : (body.source ? [body.source] : []);
+                        if (items.length === 0 || !destinationDir || !fs.existsSync(destinationDir)) {
                             res.writeHead(400, { 'Content-Type': 'application/json' });
-                            res.end(JSON.stringify({ error: 'Valid source and destinationDir are required' }));
+                            res.end(JSON.stringify({ error: 'Valid source/items and destinationDir are required' }));
                             return;
                         }
-                        const baseName = path.basename(source);
-                        const destPath = path.join(destinationDir, baseName);
-                        await fs.promises.rename(source, destPath);
+                        const moved: string[] = [];
+                        for (const source of items) {
+                            if (!source || !fs.existsSync(source)) continue;
+                            const baseName = path.basename(source);
+                            const destPath = path.join(destinationDir, baseName);
+                            await fs.promises.rename(source, destPath);
+                            moved.push(destPath);
+                        }
                         res.writeHead(200, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ success: true, path: destPath }));
+                        res.end(JSON.stringify({ success: true, count: moved.length, path: moved[0], paths: moved }));
+                        return;
+                    }
+
+                    // 12a. Drag & Drop Upload Files from Desktop / External OS
+                    if (pathname === '/api/files/upload' && req.method === 'POST') {
+                        const body = await LocalServer.parseJsonBody(req);
+                        const { destinationDir, files } = body;
+                        if (!destinationDir || !fs.existsSync(destinationDir) || !Array.isArray(files) || files.length === 0) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Valid destinationDir and files array required' }));
+                            return;
+                        }
+                        const created: string[] = [];
+                        for (const f of files) {
+                            if (!f.name) continue;
+                            const targetPath = path.join(destinationDir, path.basename(f.name));
+                            if (f.contentBase64) {
+                                const buf = Buffer.from(f.contentBase64, 'base64');
+                                await fs.promises.writeFile(targetPath, buf);
+                            } else {
+                                await fs.promises.writeFile(targetPath, f.content || '', 'utf8');
+                            }
+                            created.push(targetPath);
+                        }
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ success: true, count: created.length, paths: created }));
                         return;
                     }
 
@@ -1166,6 +1279,75 @@ export class LocalServer {
             }
         } catch {}
         return { format: 'Binary', architecture: 'Unknown' };
+    }
+
+    public static computeDiff(textA: string, textB: string): {
+        stats: { added: number; removed: number; unchanged: number };
+        lines: Array<{ type: 'unchanged' | 'added' | 'removed'; lineA: number | null; lineB: number | null; text: string }>;
+    } {
+        const linesA = textA.split(/\r?\n/);
+        const linesB = textB.split(/\r?\n/);
+
+        // Fast path for identical files
+        if (textA === textB) {
+            return {
+                stats: { added: 0, removed: 0, unchanged: linesA.length },
+                lines: linesA.map((t, idx) => ({ type: 'unchanged', lineA: idx + 1, lineB: idx + 1, text: t }))
+            };
+        }
+
+        // Limit diff comparison window to first 2500 lines for fast interactive rendering
+        const maxLines = 2500;
+        const a = linesA.slice(0, maxLines);
+        const b = linesB.slice(0, maxLines);
+
+        const dp: Int32Array[] = [];
+        for (let i = 0; i <= a.length; i++) {
+            dp[i] = new Int32Array(b.length + 1);
+        }
+
+        for (let i = 1; i <= a.length; i++) {
+            const lineAi = a[i - 1];
+            const dpPrev = dp[i - 1];
+            const dpCurr = dp[i];
+            for (let j = 1; j <= b.length; j++) {
+                if (lineAi === b[j - 1]) {
+                    dpCurr[j] = dpPrev[j - 1] + 1;
+                } else {
+                    dpCurr[j] = Math.max(dpPrev[j], dpCurr[j - 1]);
+                }
+            }
+        }
+
+        const out: Array<{ type: 'unchanged' | 'added' | 'removed'; lineA: number | null; lineB: number | null; text: string }> = [];
+        let i = a.length;
+        let j = b.length;
+        let added = 0;
+        let removed = 0;
+        let unchanged = 0;
+
+        while (i > 0 || j > 0) {
+            if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+                out.push({ type: 'unchanged', lineA: i, lineB: j, text: a[i - 1] });
+                unchanged++;
+                i--;
+                j--;
+            } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+                out.push({ type: 'added', lineA: null, lineB: j, text: b[j - 1] });
+                added++;
+                j--;
+            } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
+                out.push({ type: 'removed', lineA: i, lineB: null, text: a[i - 1] });
+                removed++;
+                i--;
+            }
+        }
+
+        out.reverse();
+        return {
+            stats: { added, removed, unchanged },
+            lines: out
+        };
     }
 
     private static getIndexHtml(): string {

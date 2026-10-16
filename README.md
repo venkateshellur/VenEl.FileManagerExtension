@@ -38,6 +38,9 @@ Standard IDE file trees are built for project codebases, but they are clunky and
 | :--- | :--- |
 | **Unified View Options** | Switch instantly between Details, List, Grid, Large Icons, and Small Icons. |
 | **Machine Agent Search** | System-level indexed search via Spotlight/PowerShell with instant folder jump. |
+| **⚖️ Visual File Diff** | Side-by-side split & unified line diffs between any two files or against Git HEAD. |
+| **🖱️ Drag & Drop & Upload** | Drag to move/copy between folders/breadcrumbs/favorites + desktop upload overlay. |
+| **🔍 Decompiler Search** | Real-time AST symbol search with exact line jump across .NET & Java binaries. |
 | **🏷️ Smart Batch Renamer** | Find & replace, prefix/suffix, numbering, and case conversions with live preview. |
 | **🗜️ Zip & Archive Tools** | 1-click compress to `.zip` and extraction for `.zip`, `.tar.gz`, `.tgz`, and `.tar`. |
 | **🗑️ Safe Move to Trash** | All deletes safely move items to OS Trash / Recycle Bin with recovery support. |

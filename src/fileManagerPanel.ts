@@ -99,6 +99,17 @@ export class FileManagerPanel {
                             fetch(`http://localhost:5050/api/files/diffWithHead?path=${encodeURIComponent(message.path)}`).catch(() => {});
                         }
                     }
+                } else if (message.command === 'diffFiles') {
+                    if (message.fileA && message.fileB) {
+                        try {
+                            const uriA = vscode.Uri.file(message.fileA);
+                            const uriB = vscode.Uri.file(message.fileB);
+                            const title = `${path.basename(message.fileA)} ↔ ${path.basename(message.fileB)}`;
+                            await vscode.commands.executeCommand('vscode.diff', uriA, uriB, title);
+                        } catch (err: any) {
+                            vscode.window.showErrorMessage(`Could not open diff: ${err?.message || err}`);
+                        }
+                    }
                 } else if (message.command === 'copyToClipboard') {
                     if (message.text) {
                         vscode.env.clipboard.writeText(message.text);
