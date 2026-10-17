@@ -699,16 +699,19 @@
         .preview-pane {
             width: 320px;
             min-width: 180px;
-            max-width: 700px;
+            max-width: 900px;
             background: var(--panel-bg);
             border-left: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             padding: 16px;
             overflow-y: auto;
-            transition: width 0.2s, opacity 0.2s;
+            transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s;
             box-sizing: border-box;
             flex-shrink: 0;
+        }
+        .preview-pane.split-active {
+            width: 640px !important;
         }
         .preview-pane.collapsed {
             width: 0 !important;
@@ -1215,6 +1218,12 @@
             border-bottom: 1px solid var(--border-color);
             padding-bottom: 6px;
             margin-top: 4px;
+            overflow-x: auto;
+            white-space: nowrap;
+            scrollbar-width: none;
+        }
+        .decompile-tab-bar::-webkit-scrollbar {
+            display: none;
         }
         .decompile-tab-btn {
             background: transparent;
@@ -1222,9 +1231,11 @@
             color: var(--text-muted);
             font-size: 11px;
             font-weight: 500;
-            padding: 4px 10px;
+            padding: 4px 8px;
             border-radius: 4px;
             cursor: pointer;
+            white-space: nowrap;
+            flex-shrink: 0;
             transition: all 0.15s ease;
         }
         .decompile-tab-btn:hover {
@@ -1271,6 +1282,48 @@
             max-height: 420px;
             overflow: auto;
             white-space: pre-wrap;
+        }
+
+        /* ◫ DECOMPILER SPLIT VIEW STYLES */
+        .decompile-split-container {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 8px;
+        }
+        .decompile-split-pane {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .decompile-split-header {
+            font-size: 11px;
+            font-weight: 600;
+            color: #a29bfe;
+            padding: 6px 10px;
+            background: rgba(108, 92, 231, 0.15);
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            border-radius: 6px 6px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .decompile-split-pre {
+            border-radius: 0 0 6px 6px !important;
+            margin: 0 !important;
+        }
+        .decompile-split-btn {
+            margin-left: auto;
+            border: 1px dashed rgba(162, 155, 254, 0.4);
+        }
+        .decompile-split-btn.active {
+            background: #6c5ce7 !important;
+            color: #fff !important;
+            border-style: solid !important;
+            border-color: #6c5ce7 !important;
         }
 
         /* ══════════════════════════════════════════════════════════ */
@@ -1630,6 +1683,60 @@
         @keyframes pulseGlow {
             0% { box-shadow: 0 0 15px rgba(108, 92, 231, 0.3); }
             100% { box-shadow: 0 0 35px rgba(108, 92, 231, 0.7); }
+        }
+
+        /* ══════════════════════════════════════════════════════════ */
+        /* ⌨️ TYPE-TO-SELECT / INCREMENTAL QUICK SEARCH HUD          */
+        /* ══════════════════════════════════════════════════════════ */
+        .type-ahead-badge {
+            position: fixed;
+            bottom: 38px;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            display: flex;
+            visibility: hidden;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 18px;
+            background: rgba(20, 20, 28, 0.94);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(108, 92, 231, 0.45);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), 0 0 16px rgba(108, 92, 231, 0.25);
+            border-radius: 20px;
+            z-index: 6000;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            pointer-events: none;
+            transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+            opacity: 0;
+        }
+        .type-ahead-badge.visible {
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        .type-ahead-badge.no-match {
+            border-color: rgba(235, 77, 75, 0.65);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), 0 0 16px rgba(235, 77, 75, 0.25);
+        }
+        .type-ahead-badge .type-ahead-icon {
+            font-size: 13px;
+        }
+        .type-ahead-badge .type-ahead-text {
+            color: #a29bfe;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .type-ahead-badge.no-match .type-ahead-text {
+            color: #ff8b8b;
+        }
+        .type-ahead-badge .type-ahead-count {
+            font-size: 11px;
+            color: var(--text-muted);
+            padding-left: 2px;
         }
 
         /* ══════════════════════════════════════════════════════════ */
@@ -3184,7 +3291,8 @@
                             <tr><td><kbd>Ctrl/Cmd</kbd> + <kbd>W</kbd></td><td>Close active tab</td></tr>
                             <tr><td><kbd>Ctrl/Cmd</kbd> + <kbd>Tab</kbd></td><td>Cycle forward / backward between open tabs</td></tr>
                             <tr><td><kbd>Alt</kbd> + <kbd>1</kbd> .. <kbd>9</kbd></td><td>Jump directly to Tab 1 through 9</td></tr>
-                            <tr><td><kbd>/</kbd></td><td>Focus <strong>Instant Live Filter</strong> for current folder</td></tr>
+                            <tr><td><kbd>Type A-Z</kbd></td><td><strong>Type-to-Select</strong>: Quick jump to matching file/folder (repeating cycles matches)</td></tr>
+                            <tr><td><kbd>↑</kbd> / <kbd>↓</kbd> / <kbd>Home</kbd> / <kbd>End</kbd></td><td>Navigate items (Hold <kbd>Shift</kbd> to extend range selection)</td></tr>
                             <tr><td><kbd>Spacebar</kbd></td><td>Toggle <strong>Quick Look</strong> popup preview (Finder style)</td></tr>
                             <tr><td><kbd>Alt</kbd> + <kbd>←</kbd> / <kbd>→</kbd></td><td>Navigate History Back / Forward</td></tr>
                             <tr><td><kbd>Alt</kbd> + <kbd>↑</kbd></td><td>Navigate up one level to Parent Folder</td></tr>
@@ -3516,12 +3624,22 @@
         </div>
     </div>
 
+    <!-- ⌨️ Type-to-Select / Incremental Quick Search Floating HUD -->
+    <div id="type-ahead-badge" class="type-ahead-badge">
+        <span class="type-ahead-icon">🔎</span>
+        <span class="type-ahead-text" id="type-ahead-query"></span>
+        <span class="type-ahead-count" id="type-ahead-count"></span>
+    </div>
+
     <script>
         let currentPath = '.';
         let currentItems = [];
+        let displayedItems = [];
         let selectedItem = null;
         let selectedItems = [];
         let lastSelectedName = null;
+        let typeAheadBuffer = '';
+        let typeAheadTimer = null;
         let activeBatchTab = 'replace';
         let batchGeneratedNames = [];
         let selectedPropPath = '';
@@ -4527,6 +4645,8 @@
         }
 
         function renderItems(items) {
+            displayedItems = items || [];
+            clearTypeAhead();
             let html = '';
             for (let i = 0; i < items.length; i++) {
                 const item = items[i];
@@ -4823,6 +4943,211 @@
         }
 
         // ══════════════════════════════════════════════════════════
+        // ⌨️ TYPE-TO-SELECT / INCREMENTAL SEARCH & KEYBOARD NAV
+        // ══════════════════════════════════════════════════════════
+        function getVisibleItems() {
+            return (displayedItems && displayedItems.length > 0) ? displayedItems : (currentItems || []);
+        }
+
+        function findItemElementByName(name) {
+            const items = document.querySelectorAll('#files .item');
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].getAttribute('data-name') === name) {
+                    return items[i];
+                }
+            }
+            return null;
+        }
+
+        function selectAndScrollToItem(item) {
+            if (!item) return;
+            selectedItems = [item];
+            selectedItem = item;
+            lastSelectedName = item.name;
+            syncItemSelectionDOM();
+            updateSelectionState();
+            handlePreview(item.name, item.type === 'Directory');
+
+            const el = findItemElementByName(item.name);
+            if (el) {
+                el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+            }
+        }
+
+        function showTypeAheadBadge(query, currentMatchIdx, totalMatches) {
+            const badge = document.getElementById('type-ahead-badge');
+            const queryEl = document.getElementById('type-ahead-query');
+            const countEl = document.getElementById('type-ahead-count');
+            if (!badge || !queryEl || !countEl) return;
+
+            queryEl.textContent = query;
+            if (totalMatches > 0) {
+                badge.classList.remove('no-match');
+                countEl.textContent = '(' + (currentMatchIdx + 1) + '/' + totalMatches + ')';
+            } else {
+                badge.classList.add('no-match');
+                countEl.textContent = '(no matches)';
+            }
+            badge.classList.add('visible');
+        }
+
+        function hideTypeAheadBadge() {
+            const badge = document.getElementById('type-ahead-badge');
+            if (badge) {
+                badge.classList.remove('visible');
+            }
+        }
+
+        function clearTypeAhead() {
+            typeAheadBuffer = '';
+            if (typeAheadTimer) {
+                clearTimeout(typeAheadTimer);
+                typeAheadTimer = null;
+            }
+            hideTypeAheadBadge();
+        }
+
+        function handleTypeAhead(char) {
+            const items = getVisibleItems();
+            if (!items || items.length === 0) return;
+
+            const lowerChar = char.toLowerCase();
+            const isSingleCharCycle = (typeAheadBuffer.length === 1 && typeAheadBuffer.toLowerCase() === lowerChar);
+
+            if (isSingleCharCycle) {
+                // Repeating the same single character cycles through all matches starting with that letter
+                const matches = items.filter(function(i) {
+                    return i.name && i.name.toLowerCase().startsWith(lowerChar);
+                });
+
+                if (matches.length > 0) {
+                    let currentIdx = -1;
+                    if (selectedItem) {
+                        currentIdx = matches.findIndex(function(m) { return m.name === selectedItem.name; });
+                    }
+                    const nextIdx = (currentIdx + 1) % matches.length;
+                    selectAndScrollToItem(matches[nextIdx]);
+                    showTypeAheadBadge(typeAheadBuffer, nextIdx, matches.length);
+                } else {
+                    showTypeAheadBadge(typeAheadBuffer, 0, 0);
+                }
+            } else {
+                // Appending character to incremental search buffer
+                typeAheadBuffer += char;
+                const q = typeAheadBuffer.toLowerCase();
+
+                // 1. Prefix matches first (standard OS Explorer / Finder behavior)
+                let matches = items.filter(function(i) {
+                    return i.name && i.name.toLowerCase().startsWith(q);
+                });
+
+                // 2. Fallback to contains matches if no prefix matches
+                if (matches.length === 0) {
+                    matches = items.filter(function(i) {
+                        return i.name && i.name.toLowerCase().includes(q);
+                    });
+                }
+
+                if (matches.length > 0) {
+                    selectAndScrollToItem(matches[0]);
+                    showTypeAheadBadge(typeAheadBuffer, 0, matches.length);
+                } else {
+                    showTypeAheadBadge(typeAheadBuffer, 0, 0);
+                }
+            }
+
+            if (typeAheadTimer) clearTimeout(typeAheadTimer);
+            typeAheadTimer = setTimeout(function() {
+                clearTypeAhead();
+            }, 1100);
+        }
+
+        function handleTypeAheadBackspace() {
+            if (!typeAheadBuffer || typeAheadBuffer.length === 0) return false;
+            typeAheadBuffer = typeAheadBuffer.slice(0, -1);
+            if (typeAheadBuffer.length === 0) {
+                clearTypeAhead();
+                return true;
+            }
+
+            const items = getVisibleItems();
+            const q = typeAheadBuffer.toLowerCase();
+            let matches = items.filter(function(i) {
+                return i.name && i.name.toLowerCase().startsWith(q);
+            });
+            if (matches.length === 0) {
+                matches = items.filter(function(i) {
+                    return i.name && i.name.toLowerCase().includes(q);
+                });
+            }
+
+            if (matches.length > 0) {
+                selectAndScrollToItem(matches[0]);
+                showTypeAheadBadge(typeAheadBuffer, 0, matches.length);
+            } else {
+                showTypeAheadBadge(typeAheadBuffer, 0, 0);
+            }
+
+            if (typeAheadTimer) clearTimeout(typeAheadTimer);
+            typeAheadTimer = setTimeout(function() {
+                clearTypeAhead();
+            }, 1100);
+            return true;
+        }
+
+        function navigateSelection(delta, isShift) {
+            const items = getVisibleItems();
+            if (!items || items.length === 0) return;
+
+            clearTypeAhead();
+
+            let curIdx = -1;
+            if (selectedItem) {
+                curIdx = items.findIndex(function(i) { return i.name === selectedItem.name; });
+            }
+
+            let nextIdx;
+            if (delta === 'first') {
+                nextIdx = 0;
+            } else if (delta === 'last') {
+                nextIdx = items.length - 1;
+            } else {
+                if (curIdx === -1) {
+                    nextIdx = delta > 0 ? 0 : items.length - 1;
+                } else {
+                    nextIdx = curIdx + delta;
+                    if (nextIdx < 0) nextIdx = 0;
+                    if (nextIdx >= items.length) nextIdx = items.length - 1;
+                }
+            }
+
+            const target = items[nextIdx];
+            if (!target) return;
+
+            if (isShift && lastSelectedName) {
+                const fromIdx = items.findIndex(function(i) { return i.name === lastSelectedName; });
+                if (fromIdx !== -1) {
+                    const start = Math.min(fromIdx, nextIdx);
+                    const end = Math.max(fromIdx, nextIdx);
+                    selectedItems = items.slice(start, end + 1);
+                    selectedItem = target;
+                    syncItemSelectionDOM();
+                    updateSelectionState();
+                    if (selectedItems.length === 1) {
+                        handlePreview(selectedItem.name, selectedItem.type === 'Directory');
+                    } else {
+                        renderMultiSelectionPreview();
+                    }
+                    const el = findItemElementByName(target.name);
+                    if (el) el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+                    return;
+                }
+            }
+
+            selectAndScrollToItem(target);
+        }
+
+        // ══════════════════════════════════════════════════════════
         // 📊 RICH PREVIEW SYSTEM (CSV, Excel, Word, PDF, Media, Markdown)
         // ══════════════════════════════════════════════════════════
         let activeWorkbookMap = new Map();
@@ -4962,7 +5287,9 @@
                     return;
                 }
 
-                const icon = ext === 'class' || ext === 'jar' || ext === 'war' ? '☕' : '⚡';
+                const icon = ext === 'class' || ext === 'jar' || ext === 'war' ? '☕' : 
+                             ext === 'wasm' ? '🕸️' : 
+                             (ext === 'dylib' || ext === 'so' ? '⚙️' : '⚡');
                 const formatLabel = data.format || (ext.toUpperCase() + ' Binary');
                 const targetFw = data.targetFramework ? ' • ' + escapeHtml(data.targetFramework) : '';
                 const arch = data.architecture ? ' • ' + escapeHtml(data.architecture) : '';
@@ -4984,8 +5311,9 @@
                     outlineHtml = '<div style="padding: 12px; color: var(--text-muted); font-size: 11px;">No type metadata available.</div>';
                 }
 
-                // Decompiled Code snippet
+                // Decompiled Code snippet & IL snippet
                 const codeSnippet = data.decompiledCode || '// No decompiled source available.';
+                const ilSnippet = data.intermediateLanguageCode || '// No IL / bytecode disassembly available.';
 
                 targetElem.innerHTML = '<div class="decompile-container" id="' + uniqueId + '">' +
                     // Header Card
@@ -4999,18 +5327,22 @@
                         '<div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">' +
                             '<button class="modal-btn" style="font-size: 11px; padding: 4px 8px;" onclick="copyDecompileSummary(\'' + uniqueId + '\')">✨ Copy AI Prompt</button>' +
                             '<button class="modal-btn" style="font-size: 11px; padding: 4px 8px;" onclick="copyDecompiledCode(\'' + uniqueId + '\')">📋 Copy Source</button>' +
+                            '<button class="modal-btn" style="font-size: 11px; padding: 4px 8px;" onclick="copyDecompiledIL(\'' + uniqueId + '\')">⚡ Copy IL</button>' +
+                            '<button class="modal-btn" style="font-size: 11px; padding: 4px 8px; background: rgba(108, 92, 231, 0.25); border-color: #6c5ce7; color: #a29bfe;" onclick="showExportProjectModal(\'' + uniqueId + '\', \'' + escapePath(fullPath) + '\')">📦 Export Project</button>' +
                             '<button class="modal-btn" style="font-size: 11px; padding: 4px 8px;" onclick="openSelectedItemInEditor(\'' + escapePath(fullPath) + '\')">🚀 Open File</button>' +
                         '</div>' +
                     '</div>' +
                     // Tabs
                     '<div class="decompile-tab-bar">' +
-                        '<button class="decompile-tab-btn active" data-tab="outline" onclick="switchDecompileTab(\'' + uniqueId + '\', \'outline\')">📋 Types & Members (' + (data.outline ? data.outline.length : 0) + ')</button>' +
-                        '<button class="decompile-tab-btn" data-tab="code" onclick="switchDecompileTab(\'' + uniqueId + '\', \'code\')">💻 Decompiled Source</button>' +
+                        '<button class="decompile-tab-btn active" data-tab="outline" onclick="switchDecompileTab(\'' + uniqueId + '\', \'outline\')">📋 Outline (' + (data.outline ? data.outline.length : 0) + ')</button>' +
+                        '<button class="decompile-tab-btn" data-tab="code" onclick="switchDecompileTab(\'' + uniqueId + '\', \'code\')" title="Decompiled High-Level Source Code">💻 Source</button>' +
+                        '<button class="decompile-tab-btn" data-tab="il" onclick="switchDecompileTab(\'' + uniqueId + '\', \'il\')" title="Raw Low-Level IL / Bytecode Disassembly">⚡ Bytecode</button>' +
+                        '<button class="decompile-tab-btn decompile-split-btn" id="' + uniqueId + '_split_btn" onclick="toggleDecompileSplitView(\'' + uniqueId + '\')" title="Side-by-side Source & Bytecode view">◫ Split View</button>' +
                     '</div>' +
                     // Tab Content 1: Outline Tree
                     '<div class="decompile-tab-content" id="' + uniqueId + '_outline">' +
                         '<div class="decompile-filter-bar">' +
-                            '<input type="text" class="decompile-search-input" id="' + uniqueId + '_search" placeholder="🔍 Search types, methods, properties..." oninput="filterDecompileOutline(\'' + uniqueId + '\')">' +
+                            '<input type="text" class="decompile-search-input" id="' + uniqueId + '_search" placeholder="🔍 Search types, methods, properties, exports..." oninput="filterDecompileOutline(\'' + uniqueId + '\')">' +
                             '<button class="decompile-kind-btn active" data-kind="all" onclick="filterDecompileByKind(\'' + uniqueId + '\', \'all\')">All</button>' +
                             '<button class="decompile-kind-btn" data-kind="type" onclick="filterDecompileByKind(\'' + uniqueId + '\', \'type\')">Types</button>' +
                             '<button class="decompile-kind-btn" data-kind="method" onclick="filterDecompileByKind(\'' + uniqueId + '\', \'method\')">Methods</button>' +
@@ -5021,6 +5353,23 @@
                     // Tab Content 2: Source Code Viewer
                     '<div class="decompile-tab-content" id="' + uniqueId + '_code" style="display: none;">' +
                         '<pre class="decompile-code-viewer" style="max-height: ' + (isQuickLook ? '60vh' : '380px') + ';"><code id="' + uniqueId + '_code_text">' + escapeHtml(codeSnippet) + '</code></pre>' +
+                    '</div>' +
+                    // Tab Content 3: IL / Bytecode Viewer
+                    '<div class="decompile-tab-content" id="' + uniqueId + '_il" style="display: none;">' +
+                        '<pre class="decompile-code-viewer" style="max-height: ' + (isQuickLook ? '60vh' : '380px') + ';"><code id="' + uniqueId + '_il_text">' + escapeHtml(ilSnippet) + '</code></pre>' +
+                    '</div>' +
+                    // Tab Content 4: Side-by-Side Split View
+                    '<div class="decompile-tab-content" id="' + uniqueId + '_split" style="display: none;">' +
+                        '<div class="decompile-split-container">' +
+                            '<div class="decompile-split-pane">' +
+                                '<div class="decompile-split-header"><span>💻 Source Code (' + escapeHtml(formatLabel) + ')</span><button class="modal-btn" style="font-size: 10px; padding: 2px 6px;" onclick="copyDecompiledCode(\'' + uniqueId + '\')">📋 Copy</button></div>' +
+                                '<pre class="decompile-code-viewer decompile-split-pre" id="' + uniqueId + '_split_left_pre" style="max-height: ' + (isQuickLook ? '55vh' : '380px') + ';"><code id="' + uniqueId + '_split_code">' + escapeHtml(codeSnippet) + '</code></pre>' +
+                            '</div>' +
+                            '<div class="decompile-split-pane">' +
+                                '<div class="decompile-split-header"><span>⚡ IL / Bytecode Disassembly</span><button class="modal-btn" style="font-size: 10px; padding: 2px 6px;" onclick="copyDecompiledIL(\'' + uniqueId + '\')">⚡ Copy</button></div>' +
+                                '<pre class="decompile-code-viewer decompile-split-pre" id="' + uniqueId + '_split_right_pre" style="max-height: ' + (isQuickLook ? '55vh' : '380px') + ';"><code id="' + uniqueId + '_split_il">' + escapeHtml(ilSnippet) + '</code></pre>' +
+                            '</div>' +
+                        '</div>' +
                     '</div>' +
                     '</div>';
 
@@ -5165,14 +5514,168 @@
         function switchDecompileTab(uniqueId, tabName) {
             const container = document.getElementById(uniqueId);
             if (!container) return;
-            const buttons = container.querySelectorAll('.decompile-tab-btn');
+            const splitBtn = document.getElementById(uniqueId + '_split_btn');
+            if (splitBtn) splitBtn.classList.remove('active');
+
+            const pane = document.getElementById('preview-pane');
+            if (pane) pane.classList.remove('split-active');
+
+            const buttons = container.querySelectorAll('.decompile-tab-bar > .decompile-tab-btn:not(.decompile-split-btn)');
             buttons.forEach(b => {
                 b.classList.toggle('active', b.getAttribute('data-tab') === tabName);
             });
             const outline = document.getElementById(uniqueId + '_outline');
             const code = document.getElementById(uniqueId + '_code');
+            const il = document.getElementById(uniqueId + '_il');
+            const split = document.getElementById(uniqueId + '_split');
             if (outline) outline.style.display = tabName === 'outline' ? 'block' : 'none';
             if (code) code.style.display = tabName === 'code' ? 'block' : 'none';
+            if (il) il.style.display = tabName === 'il' ? 'block' : 'none';
+            if (split) split.style.display = 'none';
+        }
+
+        function toggleDecompileSplitView(uniqueId) {
+            const container = document.getElementById(uniqueId);
+            if (!container) return;
+            const splitBtn = document.getElementById(uniqueId + '_split_btn');
+            const outline = document.getElementById(uniqueId + '_outline');
+            const code = document.getElementById(uniqueId + '_code');
+            const il = document.getElementById(uniqueId + '_il');
+            const split = document.getElementById(uniqueId + '_split');
+            const pane = document.getElementById('preview-pane');
+
+            const isCurrentlySplit = splitBtn && splitBtn.classList.contains('active');
+            if (isCurrentlySplit) {
+                if (pane) pane.classList.remove('split-active');
+                switchDecompileTab(uniqueId, 'code');
+            } else {
+                if (pane) pane.classList.add('split-active');
+                const tabButtons = container.querySelectorAll('.decompile-tab-bar > .decompile-tab-btn');
+                tabButtons.forEach(b => b.classList.remove('active'));
+                if (splitBtn) splitBtn.classList.add('active');
+
+                if (outline) outline.style.display = 'none';
+                if (code) code.style.display = 'none';
+                if (il) il.style.display = 'none';
+                if (split) split.style.display = 'block';
+
+                const leftPre = document.getElementById(uniqueId + '_split_left_pre');
+                const rightPre = document.getElementById(uniqueId + '_split_right_pre');
+                if (leftPre && rightPre && !leftPre._hasSyncScroll) {
+                    leftPre._hasSyncScroll = true;
+                    let syncing = false;
+                    leftPre.addEventListener('scroll', () => {
+                        if (syncing) return;
+                        syncing = true;
+                        const ratio = leftPre.scrollTop / (leftPre.scrollHeight - leftPre.clientHeight || 1);
+                        rightPre.scrollTop = ratio * (rightPre.scrollHeight - rightPre.clientHeight || 1);
+                        requestAnimationFrame(() => { syncing = false; });
+                    });
+                    rightPre.addEventListener('scroll', () => {
+                        if (syncing) return;
+                        syncing = true;
+                        const ratio = rightPre.scrollTop / (rightPre.scrollHeight - rightPre.clientHeight || 1);
+                        leftPre.scrollTop = ratio * (leftPre.scrollHeight - leftPre.clientHeight || 1);
+                        requestAnimationFrame(() => { syncing = false; });
+                    });
+                }
+            }
+        }
+
+        function copyDecompiledIL(uniqueId) {
+            const data = (window._decompileDataMap && window._decompileDataMap.get(uniqueId));
+            if (!data || !data.intermediateLanguageCode) {
+                showToast('No IL/bytecode to copy', '⚠️');
+                return;
+            }
+            navigator.clipboard.writeText(data.intermediateLanguageCode);
+            showToast('IL / Bytecode copied to clipboard!', '⚡');
+        }
+
+        function showExportProjectModal(uniqueId, fullPath) {
+            const data = (window._decompileDataMap && window._decompileDataMap.get(uniqueId));
+            const fileName = data ? data.fileName : fullPath.split('/').pop();
+            const stem = fileName.replace(/\.[^/.]+$/, '');
+            const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/')) || '';
+            const defaultDest = parentDir ? parentDir + '/' + stem + '_Decompiled' : stem + '_Decompiled';
+
+            const modalHtml = '<div class="modal-overlay" id="exportProjModal" style="display: flex; align-items: center; justify-content: center; z-index: 10000;">' +
+                '<div class="modal-box" style="width: 520px; max-width: 90vw; background: #181825; border: 1px solid #313244; border-radius: 10px; padding: 20px; box-shadow: 0 16px 48px rgba(0,0,0,0.6);">' +
+                    '<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">' +
+                        '<h3 style="margin: 0; font-size: 15px; color: #89b4fa; display: flex; align-items: center; gap: 8px;">📦 Reconstruct Project to Disk</h3>' +
+                        '<button class="modal-btn" style="padding: 2px 8px; font-size: 12px;" onclick="document.getElementById(\'exportProjModal\').remove()">✕</button>' +
+                    '</div>' +
+                    '<p style="font-size: 12px; color: var(--text-muted); margin: 0 0 14px 0;">' +
+                        'Reconstruct a complete, compilable source project from <code>' + escapeHtml(fileName) + '</code>. ' +
+                        'Source files will be structured into their original package/namespace directories with an active project file (.csproj, pom.xml, or CMakeLists.txt).' +
+                    '</p>' +
+                    '<div style="margin-bottom: 12px;">' +
+                        '<label style="display: block; font-size: 11px; font-weight: 600; color: #cdd6f4; margin-bottom: 4px;">Destination Directory:</label>' +
+                        '<input type="text" id="exportDestInput" class="modal-input" value="' + escapeHtml(defaultDest) + '" style="width: 100%; box-sizing: border-box; font-family: monospace; font-size: 12px; padding: 8px; border-radius: 6px; background: #11111b; border: 1px solid #313244; color: #fff;">' +
+                    '</div>' +
+                    '<div id="exportStatusArea" style="min-height: 24px; margin-bottom: 14px; font-size: 12px;"></div>' +
+                    '<div style="display: flex; justify-content: flex-end; gap: 8px;">' +
+                        '<button class="modal-btn" onclick="document.getElementById(\'exportProjModal\').remove()">Cancel</button>' +
+                        '<button class="modal-btn" id="exportActionBtn" style="background: #6c5ce7; color: #fff; font-weight: 600;" onclick="executeExportProject(\'' + escapePath(fullPath) + '\')">🚀 Reconstruct Project</button>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+
+            const existing = document.getElementById('exportProjModal');
+            if (existing) existing.remove();
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+
+        async function executeExportProject(filePath) {
+            const destInput = document.getElementById('exportDestInput');
+            const statusArea = document.getElementById('exportStatusArea');
+            const actionBtn = document.getElementById('exportActionBtn');
+            if (!destInput || !statusArea) return;
+
+            const targetDest = destInput.value.trim();
+            if (!targetDest) {
+                statusArea.innerHTML = '<span style="color: #f38ba8;">Please specify a destination directory.</span>';
+                return;
+            }
+
+            statusArea.innerHTML = '<div style="display: flex; align-items: center; gap: 8px; color: #89b4fa;"><div class="spinner" style="width: 14px; height: 14px; border-width: 2px;"></div> Reconstructing source files and project structure...</div>';
+            if (actionBtn) actionBtn.disabled = true;
+
+            try {
+                const res = await fetch('/api/files/decompile/export', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: filePath, destinationDir: targetDest })
+                });
+
+                const data = await res.json();
+                if (!res.ok || !data.isSuccess) {
+                    throw new Error(data.errorMessage || 'Export failed with HTTP ' + res.status);
+                }
+
+                statusArea.innerHTML = '<div style="background: rgba(166, 227, 161, 0.1); border: 1px solid #a6e3a1; border-radius: 6px; padding: 10px; color: #a6e3a1;">' +
+                    '<div style="font-weight: 600; margin-bottom: 4px;">🎉 Reconstructed Successfully!</div>' +
+                    '<div style="font-size: 11px; opacity: 0.9;">' + escapeHtml(data.summary) + '</div>' +
+                    (data.projectFilePath ? '<div style="font-size: 11px; margin-top: 4px; font-family: monospace;">Project: ' + escapeHtml(data.projectFilePath) + '</div>' : '') +
+                    '</div>';
+
+                if (actionBtn) {
+                    actionBtn.textContent = '📂 Open Folder in File Manager';
+                    actionBtn.disabled = false;
+                    actionBtn.onclick = () => {
+                        const modal = document.getElementById('exportProjModal');
+                        if (modal) modal.remove();
+                        if (typeof loadDirectory === 'function') {
+                            loadDirectory(data.projectDirectory);
+                        }
+                    };
+                }
+
+                showToast('Reconstructed ' + data.filesWritten + ' files to disk!', '🎉');
+            } catch (err) {
+                statusArea.innerHTML = '<div style="color: #f38ba8;">Export error: ' + escapeHtml(err.message) + '</div>';
+                if (actionBtn) actionBtn.disabled = false;
+            }
         }
 
         function copyDecompileSummary(uniqueId) {
@@ -5762,7 +6265,10 @@
 
         async function handlePreview(name, isDir) {
             const previewPane = document.getElementById('preview-pane');
-            if (previewPane.classList.contains('collapsed')) return;
+            if (previewPane) {
+                previewPane.classList.remove('split-active');
+                if (previewPane.classList.contains('collapsed')) return;
+            }
 
             const previewContent = document.getElementById('preview-content');
             document.querySelector('#preview-pane h2').innerText = name;
@@ -6852,6 +7358,7 @@
         document.addEventListener('click', function(e) {
             hideContextMenu();
             closeViewMenu();
+            clearTypeAhead();
             const container = document.querySelector('.path-bar-container');
             if (container && !container.contains(e.target)) {
                 closePathDropdown();
@@ -6862,6 +7369,7 @@
             const isEditing = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
             
             if (e.key === 'Escape') {
+                clearTypeAhead();
                 closePathDropdown();
                 closeViewMenu();
                 hideModals();
@@ -6949,8 +7457,13 @@
                 return;
             }
 
-            // Spacebar: Quick Look (Finder style)
+            // Spacebar: Quick Look (Finder style) or Type-Ahead space
             if (e.code === 'Space') {
+                if (typeAheadBuffer.length > 0) {
+                    e.preventDefault();
+                    handleTypeAhead(' ');
+                    return;
+                }
                 e.preventDefault();
                 toggleQuickLook();
                 return;
@@ -6977,11 +7490,52 @@
                 return;
             }
 
+            // Arrow Keys Navigation & Home/End
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                navigateSelection(1, e.shiftKey);
+                return;
+            }
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                navigateSelection(-1, e.shiftKey);
+                return;
+            }
+            if (!e.altKey && e.key === 'ArrowRight') {
+                e.preventDefault();
+                navigateSelection(1, e.shiftKey);
+                return;
+            }
+            if (!e.altKey && e.key === 'ArrowLeft') {
+                e.preventDefault();
+                navigateSelection(-1, e.shiftKey);
+                return;
+            }
+            if (e.key === 'Home') {
+                e.preventDefault();
+                navigateSelection('first', e.shiftKey);
+                return;
+            }
+            if (e.key === 'End') {
+                e.preventDefault();
+                navigateSelection('last', e.shiftKey);
+                return;
+            }
+
             // F2: Rename
             if (e.key === 'F2') {
                 e.preventDefault();
                 renameSelectedItem();
                 return;
+            }
+
+            // Backspace in Type-Ahead mode edits the search buffer
+            if (e.key === 'Backspace' && !e.metaKey && !e.ctrlKey) {
+                if (typeAheadBuffer.length > 0) {
+                    e.preventDefault();
+                    handleTypeAheadBackspace();
+                    return;
+                }
             }
 
             // Delete: Delete / Backspace / Cmd+Backspace (Mac & Windows delete)
@@ -7045,6 +7599,24 @@
             if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'r' || e.key === 'R')) {
                 e.preventDefault();
                 showBatchRenameModal();
+                return;
+            }
+
+            // Incremental Type-to-Select / Quick Jump (Finder & Explorer style)
+            let typedChar = null;
+            if (e.key.length === 1) {
+                typedChar = e.key;
+            } else if (/^Key[A-Za-z]$/.test(e.key)) {
+                typedChar = e.key.slice(3).toLowerCase();
+            } else if (/^Digit[0-9]$/.test(e.key)) {
+                typedChar = e.key.slice(5);
+            }
+
+            if (typedChar && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                if (typedChar === '/' && typeAheadBuffer.length === 0) return;
+                if (typedChar === '?' && typeAheadBuffer.length === 0) return;
+                e.preventDefault();
+                handleTypeAhead(typedChar);
                 return;
             }
         });

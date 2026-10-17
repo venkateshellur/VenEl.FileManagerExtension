@@ -424,7 +424,63 @@ export class LocalServer {
                         }
                     }
 
-                    // 6h. Decompile & Inspect Binary (.NET DLL/EXE, Java class/jar)
+                    // 6g-2. Export Reconstructed Project from Binary
+                    if (pathname === '/api/files/decompile/export') {
+                        let postBody = '';
+                        req.on('data', chunk => { postBody += chunk; });
+                        req.on('end', async () => {
+                            let targetPath = reqUrl.searchParams.get('path');
+                            let destDir = reqUrl.searchParams.get('destinationDir');
+                            if (postBody) {
+                                try {
+                                    const parsed = JSON.parse(postBody);
+                                    if (parsed.path) targetPath = parsed.path;
+                                    if (parsed.destinationDir) destDir = parsed.destinationDir;
+                                } catch {}
+                            }
+
+                            if (!targetPath) {
+                                res.writeHead(400, { 'Content-Type': 'application/json' });
+                                res.end(JSON.stringify({ isSuccess: false, errorMessage: 'Valid file path is required.' }));
+                                return;
+                            }
+
+                            try { await KestrelLauncher.ensureRunning(); } catch {}
+
+                            const endpoints = [
+                                `http://127.0.0.1:5050/api/files/decompile/export?path=${encodeURIComponent(targetPath)}${destDir ? '&destinationDir=' + encodeURIComponent(destDir) : ''}`,
+                                `http://localhost:5050/api/files/decompile/export?path=${encodeURIComponent(targetPath)}${destDir ? '&destinationDir=' + encodeURIComponent(destDir) : ''}`
+                            ];
+
+                            for (const forwardUrl of endpoints) {
+                                try {
+                                    const kestrelRes = await new Promise<any>((resolve, reject) => {
+                                        const kReq = http.get(forwardUrl, { timeout: 30000 }, (kRes) => {
+                                            let data = '';
+                                            kRes.on('data', chunk => { data += chunk; });
+                                            kRes.on('end', () => {
+                                                try { resolve(JSON.parse(data)); } catch { reject(); }
+                                            });
+                                        });
+                                        kReq.on('error', reject);
+                                        kReq.on('timeout', () => { kReq.destroy(); reject(); });
+                                    });
+
+                                    if (kestrelRes && typeof kestrelRes.isSuccess === 'boolean') {
+                                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                                        res.end(JSON.stringify(kestrelRes));
+                                        return;
+                                    }
+                                } catch {}
+                            }
+
+                            res.writeHead(500, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ isSuccess: false, errorMessage: 'Backend decompiler export service is currently unavailable.' }));
+                        });
+                        return;
+                    }
+
+                    // 6h. Decompile & Inspect Binary (.NET DLL/EXE, Java class/jar, WASM, Native)
                     if (pathname === '/api/files/decompile') {
                         const targetPath = reqUrl.searchParams.get('path');
                         if (!targetPath || !fs.existsSync(targetPath)) {
