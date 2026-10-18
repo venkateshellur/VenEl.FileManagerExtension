@@ -5433,7 +5433,7 @@
                 bannerText.innerHTML = '⚡ <strong>' + data.count + '</strong> match' + (data.count === 1 ? '' : 'es') + ' found across machine for "<strong>' + escapeHtml(query) + '</strong>"';
                 bannerMeta.innerText = (data.engine || 'Spotlight Index') + ' • ' + (data.executionTimeMs || 0) + 'ms';
 
-                currentItems = data.items.map(function(item) {
+                currentItems = (data.items || []).map(function(item) {
                     return {
                         name: item.name,
                         path: item.path,
@@ -5870,7 +5870,7 @@
             const filtered = currentItems.filter(function(item) {
                 // 1. Hidden Files Filter
                 const isHidden = (item.name && item.name.startsWith('.')) || item.isHidden;
-                if (isHidden && !showHiddenFiles) return false;
+                if (isHidden && !showHiddenFiles && !isAgentSearchResultsActive) return false;
 
                 // 2. Quick Filter Category
                 if (currentQuickFilter !== 'all') {
@@ -5878,8 +5878,8 @@
                     if (cat !== currentQuickFilter) return false;
                 }
 
-                // 3. Search Query Filter
-                if (q) {
+                // 3. Search Query Filter (Only apply client-side filter in standard folder view; Agent Search results are already matched by system engine)
+                if (q && !isAgentSearchResultsActive) {
                     const matchName = item.name && item.name.toLowerCase().includes(q);
                     const matchPath = item.path && item.path.toLowerCase().includes(q);
                     if (!matchName && !matchPath) return false;
@@ -5982,7 +5982,11 @@
             }
 
             if (!activeRenderItems || activeRenderItems.length === 0) {
-                container.innerHTML = '<div style="grid-column: 1 / -1; padding: 40px; text-align: center; color: var(--text-muted); font-size: 13px;">No items match this filter or folder is empty</div>';
+                const searchVal = document.getElementById('search') ? document.getElementById('search').value.trim() : '';
+                const emptyMsg = isAgentSearchResultsActive && searchVal
+                    ? '🤖 No matches found on this machine for "<strong>' + escapeHtml(searchVal) + '</strong>"'
+                    : 'No items match this filter or folder is empty';
+                container.innerHTML = '<div style="grid-column: 1 / -1; padding: 40px; text-align: center; color: var(--text-muted); font-size: 13px;">' + emptyMsg + '</div>';
                 updateSelectionState();
                 const statusEl = document.getElementById('status-items-count');
                 if (statusEl) statusEl.innerText = '0 items';
