@@ -3176,10 +3176,6 @@
             <button id="btn-up" onclick="goUp()" title="Up One Level (Alt+Up)">⬆</button>
             <button id="btn-home" onclick="goHome()" title="Home Folder">🏠</button>
             <button id="btn-reload" onclick="refreshCurrentFolder()" title="Reload / Refresh (⌘R / F5)">🔄</button>
-            <button id="btn-nav-new-tab" onclick="addNewTab()" title="Open New Tab (Ctrl+T / Cmd+T)" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 11px; font-weight: 500; background: rgba(108, 92, 231, 0.12); border: 1px solid rgba(108, 92, 231, 0.3); border-radius: 6px; color: #a29bfe; cursor: pointer; transition: all 0.15s ease;">
-                <span>🗂️</span>
-                <span>+ Tab</span>
-            </button>
         </div>
         <div class="path-bar-container">
             <div class="path-bar" id="path-bar-box" onclick="handlePathBarClick(event)">
@@ -3199,7 +3195,6 @@
             <button id="btn-view-dropdown" class="tool-btn view-dropdown-btn" onclick="toggleViewMenu(event)" title="Change layout view">
                 <span id="current-view-icon">⊞</span> <span id="current-view-label">Grid</span> <span style="font-size: 8px; opacity: 0.7; margin-left: 2px;">▾</span>
             </button>
-            <button id="btn-settings-gear" onclick="openSettingsModal()" class="tool-btn" title="VenEl Settings & Engine Status" style="font-size: 13px; padding: 5px 8px;">⚙️</button>
             <button id="btn-toggle-compact" onclick="toggleCompactBars()" class="tool-btn" title="Collapse Menus & Toolbars (Ctrl+F1 / ⌘⌥T)" style="font-size: 13px; padding: 5px 8px; font-weight: bold; color: #a29bfe;">⌃</button>
 
             <!-- Unified View Dropdown Menu -->
@@ -3754,7 +3749,10 @@
                 <span id="git-sync-status" style="font-size: 10px; opacity: 0.85;"></span>
             </div>
             <button class="status-help-hint" onclick="openHelpModal('shortcuts')" title="View Feature Guide & Keyboard Shortcuts (Press ?)">
-                <span>❓ Guide & Shortcuts (?)</span>
+                <span>❓ Guide (?)</span>
+            </button>
+            <button class="status-help-hint" onclick="openSettingsModal()" title="VenEl Settings & Engine Status (⌘, / Ctrl+,)">
+                <span>⚙️ Settings</span>
             </button>
             <div style="display: flex; align-items: center; gap: 6px; margin-left: 6px;">
                 <button class="status-help-hint" onclick="toggleSidebarRail()" title="Toggle Places Panel (⌘⇧B / Alt+B)">🧭 Places</button>
