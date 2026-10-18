@@ -239,6 +239,13 @@
             border-color: var(--accent);
             color: #fff;
         }
+        @keyframes reloadSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #btn-reload.spinning {
+            animation: reloadSpin 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
 
         /* Path Bar with Interactive Breadcrumb Pills */
         .path-bar-container {
@@ -323,10 +330,10 @@
             color: var(--text-main);
         }
 
-        /* Toolbar */
+        /* Toolbar & Desktop Menu Bar (macOS Finder / Windows Explorer Style) */
         .toolbar {
             position: relative;
-            z-index: 100;
+            z-index: 1000;
             height: 42px;
             min-height: 42px;
             max-height: 42px;
@@ -339,15 +346,7 @@
             justify-content: space-between;
             gap: 8px;
             box-sizing: border-box;
-            overflow-x: auto;
-            overflow-y: hidden;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        }
-        .toolbar::-webkit-scrollbar {
-            display: none;
-            height: 0;
-            width: 0;
+            overflow: visible;
         }
         .toolbar-group {
             display: flex;
@@ -360,6 +359,181 @@
             height: 18px;
             background: var(--border-color);
             margin: 0 3px;
+        }
+        .menubar-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+            user-select: none;
+        }
+        .app-menubar {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            position: relative;
+            user-select: none;
+        }
+        .menubar-item {
+            position: relative;
+        }
+        .menubar-trigger {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-main);
+            padding: 4px 9px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            font-family: inherit;
+            letter-spacing: 0.15px;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+            line-height: 1.4;
+            outline: none;
+        }
+        .menubar-trigger:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+        }
+        .menubar-item.open > .menubar-trigger {
+            background: var(--accent);
+            color: #ffffff;
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+        }
+        .menubar-dropdown {
+            display: none;
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            min-width: 220px;
+            background: rgba(24, 24, 30, 0.96);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            padding: 5px;
+            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.4);
+            z-index: 10000;
+            animation: menuFadeIn 0.12s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes menuFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-4px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        .menubar-item.open > .menubar-dropdown {
+            display: block;
+        }
+        .menu-entry {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: background 0.12s ease, color 0.12s ease;
+            white-space: nowrap;
+        }
+        .menu-entry:hover {
+            background: var(--accent);
+            color: #ffffff;
+        }
+        .menu-entry:hover .menu-shortcut {
+            color: rgba(255, 255, 255, 0.85);
+        }
+        .menu-entry:hover .menu-icon {
+            transform: scale(1.08);
+        }
+        .menu-entry.disabled {
+            opacity: 0.38;
+            pointer-events: none;
+            cursor: not-allowed;
+        }
+        .menu-entry.danger:hover {
+            background: var(--danger);
+            color: #ffffff;
+        }
+        .menu-icon {
+            font-size: 14px;
+            width: 18px;
+            text-align: center;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.1s ease;
+            flex-shrink: 0;
+        }
+        .menu-check {
+            width: 14px;
+            font-size: 11px;
+            font-weight: bold;
+            color: var(--accent);
+            text-align: center;
+            flex-shrink: 0;
+            display: inline-block;
+        }
+        .menu-entry:hover .menu-check {
+            color: #ffffff;
+        }
+        .menu-label {
+            flex: 1;
+            font-weight: 450;
+        }
+        .menu-shortcut {
+            font-size: 10px;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+            color: var(--text-muted);
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            margin-left: 16px;
+            flex-shrink: 0;
+        }
+        .menu-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.08);
+            margin: 4px 6px;
+        }
+
+        /* Quick Action Micro-Pills (3 Essential 1-Click Conveniences) */
+        .quick-action-cluster {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2px 4px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 7px;
+        }
+        .quick-cluster-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 4px 7px;
+            border-radius: 5px;
+            font-size: 13px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+            outline: none;
+        }
+        .quick-cluster-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            transform: translateY(-1px);
+        }
+        .quick-cluster-btn:active {
+            transform: translateY(0);
         }
 
         /* Search bar */
@@ -638,6 +812,7 @@
             word-break: break-all;
             display: -webkit-box;
             -webkit-line-clamp: 2;
+            line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
             font-size: 11px;
@@ -695,18 +870,19 @@
         .folder .item-name { color: #74b9ff; font-weight: 600; }
         .file .item-name { color: #dfe6e9; }
 
-        /* Preview Pane */
+        /* Right Preview Pane (Dockable Visual Studio Panel) */
         .preview-pane {
             width: 320px;
             min-width: 180px;
             max-width: 900px;
             background: var(--panel-bg);
             border-left: 1px solid var(--border-color);
+            border-right: none;
             display: flex;
             flex-direction: column;
-            padding: 16px;
+            padding: 12px 10px;
             overflow-y: auto;
-            transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s;
+            transition: width 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s;
             box-sizing: border-box;
             flex-shrink: 0;
         }
@@ -718,15 +894,135 @@
             min-width: 0 !important;
             padding: 0 !important;
             border-left: none !important;
+            border-right: none !important;
             overflow: hidden !important;
+            display: none !important;
         }
         .preview-pane h2 {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
-            margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--border-color);
+            margin: 0;
+            padding: 0;
+            border: none;
             word-break: break-all;
+        }
+
+        /* ══════════════════════════════════════════════════════════ */
+        /* 🗂️ VISUAL STUDIO AUTO-HIDE DOCK MARGINS & ROTATED TABS     */
+        /* ══════════════════════════════════════════════════════════ */
+        .dock-margin-strip {
+            width: 30px;
+            background: rgba(18, 18, 24, 0.96);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px 0;
+            gap: 14px;
+            flex-shrink: 0;
+            z-index: 25;
+            user-select: none;
+            box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
+        }
+        .dock-margin-strip-right {
+            border-right: none;
+            border-left: 1px solid var(--border-color);
+            box-shadow: -2px 0 8px rgba(0, 0, 0, 0.3);
+        }
+        .dock-tab {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            padding: 10px 4px;
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.6px;
+            color: #a4b0be;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 5px;
+            transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+            white-space: nowrap;
+            outline: none;
+        }
+        .dock-tab:hover {
+            color: #ffffff;
+            background: rgba(108, 92, 231, 0.22);
+            border-color: rgba(108, 92, 231, 0.55);
+            box-shadow: 0 0 12px rgba(108, 92, 231, 0.35);
+            transform: rotate(180deg) scale(1.05);
+        }
+        .dock-tab-icon {
+            font-size: 13px;
+            display: inline-block;
+            transform: rotate(90deg);
+        }
+        .dock-tab-text {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        /* Compact Mode Header (Visual Studio Zen Mode) */
+        .compact-window-title {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-grow: 1;
+            font-size: 13px;
+            font-weight: 500;
+            color: #f1f2f6;
+            letter-spacing: 0.3px;
+            padding: 4px 14px;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            max-width: 650px;
+            margin: 0 auto;
+        }
+        .compact-window-title:hover {
+            background: rgba(108, 92, 231, 0.15);
+            border-color: rgba(108, 92, 231, 0.35);
+            color: #ffffff;
+            box-shadow: 0 0 12px rgba(108, 92, 231, 0.2);
+        }
+        .compact-title-icon {
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        .compact-title-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+        .compact-title-badge {
+            font-size: 9px;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            padding: 2px 6px;
+            background: rgba(108, 92, 231, 0.3);
+            border: 1px solid rgba(108, 92, 231, 0.5);
+            color: #a29bfe;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+        body.compact-header #bookmarks-bar,
+        body.compact-header #main-toolbar,
+        body.compact-header #quick-filter-bar {
+            display: none !important;
         }
         .preview-content {
             font-size: 12px;
@@ -2034,6 +2330,151 @@
             font-weight: 600;
         }
 
+        /* ══════════════════════════════════════════════════════════ */
+        /* 🏷️ QUICK FILTER BAR & FILE TYPE CHIPS                      */
+        /* ══════════════════════════════════════════════════════════ */
+        .quick-filter-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 4px 16px;
+            background: rgba(18, 18, 26, 0.96);
+            border-bottom: 1px solid var(--border-color);
+            font-size: 11px;
+            box-sizing: border-box;
+            min-height: 32px;
+            max-height: 32px;
+            flex-shrink: 0;
+            user-select: none;
+        }
+        .quick-filter-chips {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .quick-filter-chips::-webkit-scrollbar { display: none; }
+        .filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-muted);
+            cursor: pointer;
+            white-space: nowrap;
+            font-size: 11px;
+            font-weight: 500;
+            font-family: inherit;
+            transition: all 0.15s ease;
+            outline: none;
+            line-height: 1.4;
+        }
+        .filter-chip:hover {
+            background: rgba(255, 255, 255, 0.09);
+            color: var(--text-main);
+            border-color: rgba(255, 255, 255, 0.18);
+        }
+        .filter-chip.active {
+            background: rgba(108, 92, 231, 0.22);
+            color: #a29bfe;
+            border-color: #6c5ce7;
+            box-shadow: 0 0 8px rgba(108, 92, 231, 0.25);
+            font-weight: 600;
+        }
+        .filter-chip .chip-icon {
+            font-size: 11px;
+            line-height: 1;
+        }
+        .filter-chip .chip-label {
+            font-size: 11px;
+        }
+        .filter-chip .chip-count {
+            display: inline-block;
+            padding: 0 5px;
+            font-size: 10px;
+            font-weight: 600;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-muted);
+            margin-left: 2px;
+            line-height: 1.3;
+        }
+        .filter-chip.active .chip-count {
+            background: #6c5ce7;
+            color: #ffffff;
+        }
+        .filter-chip.chip-empty {
+            opacity: 0.45;
+        }
+        .quick-filter-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .toggle-hidden-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 9px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            font-family: inherit;
+            transition: all 0.15s ease;
+            outline: none;
+            line-height: 1.4;
+        }
+        .toggle-hidden-btn:hover {
+            background: rgba(255, 255, 255, 0.09);
+            color: var(--text-main);
+            border-color: rgba(255, 255, 255, 0.18);
+        }
+        .toggle-hidden-btn.active {
+            background: rgba(0, 206, 201, 0.18);
+            color: #00cec9;
+            border-color: #00cec9;
+            font-weight: 600;
+        }
+        .toggle-hidden-btn.active .hidden-icon {
+            filter: drop-shadow(0 0 4px #00cec9);
+        }
+
+        /* Hidden files appearance when visible */
+        .item.is-hidden {
+            opacity: 0.55;
+            filter: grayscale(25%);
+        }
+        .item.is-hidden:hover {
+            opacity: 0.92;
+            filter: none;
+        }
+
+        /* Virtual Chunk Sentinel */
+        .files-sentinel {
+            grid-column: 1 / -1;
+            width: 100%;
+            min-height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 11px;
+            padding: 8px 0;
+            opacity: 0.75;
+            user-select: none;
+        }
+
         @keyframes pulse {
             0% { transform: scale(1); opacity: 0.8; }
             50% { transform: scale(1.04); opacity: 1; }
@@ -2518,6 +2959,7 @@
             word-break: break-all;
             display: -webkit-box;
             -webkit-line-clamp: 2;
+            line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
             font-size: 12px;
@@ -2733,6 +3175,7 @@
             <button id="btn-forward" onclick="goForward()" disabled title="Forward (Alt+Right)">➡</button>
             <button id="btn-up" onclick="goUp()" title="Up One Level (Alt+Up)">⬆</button>
             <button id="btn-home" onclick="goHome()" title="Home Folder">🏠</button>
+            <button id="btn-reload" onclick="refreshCurrentFolder()" title="Reload / Refresh (⌘R / F5)">🔄</button>
             <button id="btn-nav-new-tab" onclick="addNewTab()" title="Open New Tab (Ctrl+T / Cmd+T)" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 11px; font-weight: 500; background: rgba(108, 92, 231, 0.12); border: 1px solid rgba(108, 92, 231, 0.3); border-radius: 6px; color: #a29bfe; cursor: pointer; transition: all 0.15s ease;">
                 <span>🗂️</span>
                 <span>+ Tab</span>
@@ -2744,15 +3187,21 @@
                 <input type="text" id="path" onkeypress="handlePathEnter(event)" onblur="exitPathEditMode()" style="display: none;" placeholder="Type path and press Enter..." autocomplete="off" />
                 <button id="btn-path-dropdown" onclick="togglePathDropdown(event)" title="Browse drives and folders">▾</button>
             </div>
+            <!-- Collapsed Window Title (Visual Studio Zen Mode) -->
+            <div class="compact-window-title" id="compact-window-title" onclick="expandPathFromCompactTitle(event)" style="display: none;">
+                <span class="compact-title-icon">📁</span>
+                <span class="compact-title-text" id="compact-title-text">VenEl File Manager</span>
+                <span class="compact-title-badge">Zen</span>
+            </div>
             <div id="path-dropdown" class="path-dropdown" onclick="event.stopPropagation()" style="display: none;"></div>
         </div>
         <div class="nav-buttons view-toggles" style="position: relative;">
             <button id="btn-view-dropdown" class="tool-btn view-dropdown-btn" onclick="toggleViewMenu(event)" title="Change layout view">
                 <span id="current-view-icon">⊞</span> <span id="current-view-label">Grid</span> <span style="font-size: 8px; opacity: 0.7; margin-left: 2px;">▾</span>
             </button>
-            <button id="btn-preview" onclick="togglePreview()" class="active" title="Toggle Preview Pane">👁</button>
             <button id="btn-settings-gear" onclick="openSettingsModal()" class="tool-btn" title="VenEl Settings & Engine Status" style="font-size: 13px; padding: 5px 8px;">⚙️</button>
             <button id="btn-help-guide" onclick="openHelpModal('shortcuts')" class="tool-btn" title="Feature Guide & Keyboard Shortcuts (Press ?)" style="font-size: 13px; padding: 5px 8px;">❓</button>
+            <button id="btn-toggle-compact" onclick="toggleCompactBars()" class="tool-btn" title="Collapse Menus & Toolbars (Ctrl+F1 / ⌘⌥T)" style="font-size: 13px; padding: 5px 8px; font-weight: bold; color: #a29bfe;">⌃</button>
 
             <!-- Unified View Dropdown Menu -->
             <div id="view-dropdown-menu" class="view-dropdown-menu" onclick="event.stopPropagation()" style="display: none;">
@@ -2811,56 +3260,335 @@
         </button>
     </div>
 
-    <!-- CRUD & Explorer Action Toolbar -->
-    <div class="toolbar">
-        <div class="toolbar-group">
+    <!-- Desktop-Class Menu Bar & Action Toolbar (macOS Finder / Windows Explorer Style) -->
+    <div class="toolbar" id="main-toolbar">
+        <div class="toolbar-group menubar-wrapper">
+            <nav class="app-menubar" id="app-menubar" role="menubar" aria-label="Application Menu Bar">
+                <!-- File Menu -->
+                <div class="menubar-item" id="menu-file">
+                    <button class="menubar-trigger" onclick="toggleMenuBar('file', event)" onmouseenter="handleMenuHover('file')">
+                        File
+                    </button>
+                    <div class="menubar-dropdown" id="dropdown-file" onclick="event.stopPropagation()">
+                        <div class="menu-entry" onclick="menuAction(showNewFolderModal)">
+                            <span class="menu-icon">📁</span>
+                            <span class="menu-label">New Folder...</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘⇧N" data-shortcut-win="Ctrl+Shift+N">⌘⇧N</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(showNewFileModal)">
+                            <span class="menu-icon">📄</span>
+                            <span class="menu-label">New File...</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘N" data-shortcut-win="Ctrl+N">⌘N</span>
+                        </div>
+                        <div class="menu-divider"></div>
+                        <div class="menu-entry" id="menu-item-open-editor" onclick="menuAction(openSelectedFileInEditor)">
+                            <span class="menu-icon">🚀</span>
+                            <span class="menu-label">Open in VS Code Editor</span>
+                            <span class="menu-shortcut">Enter</span>
+                        </div>
+                        <div class="menu-entry" id="menu-item-quicklook" onclick="menuAction(toggleQuickLook)">
+                            <span class="menu-icon">👁️</span>
+                            <span class="menu-label">Quick Look Preview</span>
+                            <span class="menu-shortcut">Space</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(openTerminalAtCurrent)">
+                            <span class="menu-icon">💻</span>
+                            <span class="menu-label">Open in Integrated Terminal</span>
+                        </div>
+                        <div class="menu-divider"></div>
+                        <div class="menu-entry" id="menu-item-properties" onclick="menuAction(showPropertiesModal)">
+                            <span class="menu-icon">ℹ️</span>
+                            <span class="menu-label">Get Info / Properties</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘I" data-shortcut-win="Alt+Enter">⌘I</span>
+                        </div>
+                        <div class="menu-divider"></div>
+                        <div class="menu-entry" onclick="menuAction(refreshCurrentFolder)">
+                            <span class="menu-icon">🔄</span>
+                            <span class="menu-label">Refresh View</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘R" data-shortcut-win="F5">⌘R</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(openSettingsModal)">
+                            <span class="menu-icon">⚙️</span>
+                            <span class="menu-label">Settings & Preferences...</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘," data-shortcut-win="Ctrl+,">⌘,</span>
+                        </div>
+                    </div>
+                </div>
 
-            <button class="tool-btn primary" onclick="showNewFolderModal()">
-                <i>📁</i> New Folder
-            </button>
-            <button class="tool-btn" onclick="showNewFileModal()">
-                <i>📄</i> New File
-            </button>
-            <div class="toolbar-divider"></div>
-            <button class="tool-btn" id="btn-cut" onclick="cutSelectedItem()" disabled title="Cut (Ctrl+X)">
-                <i>✂️</i> Cut
-            </button>
-            <button class="tool-btn" id="btn-copy" onclick="copySelectedItem()" disabled title="Copy (Ctrl+C)">
-                <i>📋</i> Copy
-            </button>
-            <button class="tool-btn" id="btn-paste" onclick="pasteClipboardItem()" disabled title="Paste (Ctrl+V)">
-                <i>📥</i> Paste
-            </button>
-            <div class="toolbar-divider"></div>
-            <button class="tool-btn" id="btn-rename" onclick="renameSelectedItem()" disabled title="Rename (F2)">
-                <i>✏️</i> Rename
-            </button>
-            <button class="tool-btn" id="btn-delete" onclick="deleteSelectedItem()" disabled title="Move to Trash (Del / Backspace / Cmd+Backspace)" style="color: var(--danger);">
-                <i>🗑️</i> Move to Trash
-            </button>
-            <div class="toolbar-divider"></div>
-            <button class="tool-btn" id="btn-batch-rename" onclick="showBatchRenameModal()" disabled title="Smart Batch Rename (Ctrl+Shift+R / Cmd+Shift+R)">
-                <i>🏷️</i> Batch Rename
-            </button>
-            <button class="tool-btn" id="btn-zip-archive" onclick="handleCompressSelected()" disabled title="Compress to .zip archive">
-                <i>🗜️</i> Zip
-            </button>
-            <button class="tool-btn" id="btn-unzip-archive" onclick="handleExtractSelected(false)" style="display: none;" title="Extract Archive">
-                <i>📦</i> Unzip
-            </button>
-            <button class="tool-btn" id="btn-diff-compare" onclick="diffSelectedPair()" style="display: none;" title="Compare 2 Selected Files (Diff)">
-                <i>⚖️</i> Compare
-            </button>
-            <div class="toolbar-divider"></div>
-            <button class="tool-btn" id="btn-terminal" onclick="openTerminalAtCurrent()" title="Open in Terminal">
-                <i>💻</i> Terminal
-            </button>
-            <button class="tool-btn" id="btn-properties" onclick="showPropertiesModal()" disabled title="Properties (Alt+Enter)">
-                <i>ℹ️</i> Properties
-            </button>
-            <button class="tool-btn" onclick="refreshCurrentFolder()" title="Refresh (F5)">
-                <i>🔄</i>
-            </button>
+                <!-- Edit Menu -->
+                <div class="menubar-item" id="menu-edit">
+                    <button class="menubar-trigger" onclick="toggleMenuBar('edit', event)" onmouseenter="handleMenuHover('edit')">
+                        Edit
+                    </button>
+                    <div class="menubar-dropdown" id="dropdown-edit" onclick="event.stopPropagation()">
+                        <div class="menu-entry" id="menu-item-cut" onclick="menuAction(cutSelectedItem)">
+                            <span class="menu-icon">✂️</span>
+                            <span class="menu-label">Cut</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘X" data-shortcut-win="Ctrl+X">⌘X</span>
+                        </div>
+                        <div class="menu-entry" id="menu-item-copy" onclick="menuAction(copySelectedItem)">
+                            <span class="menu-icon">📋</span>
+                            <span class="menu-label">Copy</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘C" data-shortcut-win="Ctrl+C">⌘C</span>
+                        </div>
+                        <div class="menu-entry" id="menu-item-paste" onclick="menuAction(pasteClipboardItem)">
+                            <span class="menu-icon">📥</span>
+                            <span class="menu-label">Paste</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘V" data-shortcut-win="Ctrl+V">⌘V</span>
+                        </div>
+                        <div class="menu-divider"></div>
+                        <div class="menu-entry" id="menu-item-rename" onclick="menuAction(renameSelectedItem)">
+                            <span class="menu-icon">✏️</span>
+                            <span class="menu-label">Rename...</span>
+                            <span class="menu-shortcut">F2</span>
+                        </div>
+                        <div class="menu-entry" id="menu-item-batch-rename" onclick="menuAction(showBatchRenameModal)">
+                            <span class="menu-icon">🏷️</span>
+                            <span class="menu-label">Batch Rename...</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘⇧R" data-shortcut-win="Ctrl+Shift+R">⌘⇧R</span>
+                        </div>
+                        <div class="menu-divider"></div>
+                        <div class="menu-entry" onclick="menuAction(selectAllItems)">
+                            <span class="menu-icon">☑️</span>
+                            <span class="menu-label">Select All</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘A" data-shortcut-win="Ctrl+A">⌘A</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(invertSelection)">
+                            <span class="menu-icon">🔄</span>
+                            <span class="menu-label">Invert Selection</span>
+                        </div>
+                        <div class="menu-divider"></div>
+                        <div class="menu-entry danger" id="menu-item-delete" onclick="menuAction(deleteSelectedItem)">
+                            <span class="menu-icon">🗑️</span>
+                            <span class="menu-label">Move to Trash</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘⌫" data-shortcut-win="Del">⌘⌫</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- View Menu -->
+                <div class="menubar-item" id="menu-view">
+                    <button class="menubar-trigger" onclick="toggleMenuBar('view', event)" onmouseenter="handleMenuHover('view')">
+                        View
+                    </button>
+                    <div class="menubar-dropdown" id="dropdown-view" onclick="event.stopPropagation()">
+                        <div class="menu-entry" onclick="menuAction(function() { setView('grid'); })">
+                            <span class="menu-check" id="menu-chk-grid">✓</span>
+                            <span class="menu-icon">⊞</span>
+                            <span class="menu-label">Grid / Medium Icons</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(function() { setView('details'); })">
+                            <span class="menu-check" id="menu-chk-details"></span>
+                            <span class="menu-icon">📑</span>
+                            <span class="menu-label">Details Table</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(function() { setView('list'); })">
+                            <span class="menu-check" id="menu-chk-list"></span>
+                            <span class="menu-icon">☰</span>
+                            <span class="menu-label">List View</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(function() { setView('large'); })">
+                            <span class="menu-check" id="menu-chk-large"></span>
+                            <span class="menu-icon">🖼️</span>
+                            <span class="menu-label">Large Icons</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(function() { setView('compact'); })">
+                            <span class="menu-check" id="menu-chk-compact"></span>
+                            <span class="menu-icon">🗂️</span>
+                            <span class="menu-label">Small Icons / Compact</span>
+                        </div>
+                        <div class="menu-divider"></div>
+                        <div class="menu-entry" onclick="menuAction(togglePreview)">
+                            <span class="menu-check" id="menu-chk-preview">✓</span>
+                            <span class="menu-icon">👁️</span>
+                            <span class="menu-label">Show Preview Pane</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘⇧P" data-shortcut-win="Alt+P">⌘⇧P</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(toggleSidebarRail)">
+                            <span class="menu-check" id="menu-chk-sidebar">✓</span>
+                            <span class="menu-icon">🧭</span>
+                            <span class="menu-label">Show Places Panel</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘⇧B" data-shortcut-win="Alt+B">⌘⇧B</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(toggleBookmarksBar)">
+                            <span class="menu-check" id="menu-chk-bookmarks">✓</span>
+                            <span class="menu-icon">⭐</span>
+                            <span class="menu-label">Show Pinned Favorites Bar</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(toggleQuickFilterBar)">
+                            <span class="menu-check" id="menu-chk-quick-filter">✓</span>
+                            <span class="menu-icon">🏷️</span>
+                            <span class="menu-label">Show File Type Filter Bar</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(toggleCompactBars)">
+                            <span class="menu-check" id="menu-chk-compact-bars"></span>
+                            <span class="menu-icon">🗜️</span>
+                            <span class="menu-label">Compact Bars / Title View</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘⌥T" data-shortcut-win="Ctrl+F1">Ctrl+F1</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(toggleShowHiddenFiles)">
+                            <span class="menu-check" id="menu-chk-hidden"></span>
+                            <span class="menu-icon">👁️‍🗨️</span>
+                            <span class="menu-label">Show Hidden Files</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘⇧." data-shortcut-win="Ctrl+H">⌘⇧.</span>
+                        </div>
+                        <div class="menu-divider"></div>
+                        <div class="menu-entry" onclick="menuAction(function() { handleSort('name'); })">
+                            <span class="menu-check" id="menu-chk-sort-name"></span>
+                            <span class="menu-icon">🔤</span>
+                            <span class="menu-label">Sort by Name</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(function() { handleSort('size'); })">
+                            <span class="menu-check" id="menu-chk-sort-size"></span>
+                            <span class="menu-icon">⚖️</span>
+                            <span class="menu-label">Sort by Size</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(function() { handleSort('modified'); })">
+                            <span class="menu-check" id="menu-chk-sort-modified"></span>
+                            <span class="menu-icon">📅</span>
+                            <span class="menu-label">Sort by Date Modified</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(function() { handleSort('type'); })">
+                            <span class="menu-check" id="menu-chk-sort-type"></span>
+                            <span class="menu-icon">🏷️</span>
+                            <span class="menu-label">Sort by Type</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions / Tools Menu -->
+                <div class="menubar-item" id="menu-actions">
+                    <button class="menubar-trigger" onclick="toggleMenuBar('actions', event)" onmouseenter="handleMenuHover('actions')">
+                        Actions
+                    </button>
+                    <div class="menubar-dropdown" id="dropdown-actions" onclick="event.stopPropagation()">
+                        <div class="menu-entry" id="menu-item-zip" onclick="menuAction(handleCompressSelected)">
+                            <span class="menu-icon">🗜️</span>
+                            <span class="menu-label">Compress to .zip Archive</span>
+                        </div>
+                        <div class="menu-entry" id="menu-item-unzip" onclick="menuAction(function() { handleExtractSelected(false); })">
+                            <span class="menu-icon">📦</span>
+                            <span class="menu-label">Extract Archive (Unzip)...</span>
+                        </div>
+                        <div class="menu-entry" id="menu-item-diff" onclick="menuAction(diffSelectedPair)">
+                            <span class="menu-icon">⚖️</span>
+                            <span class="menu-label">Compare 2 Selected Files (Diff)...</span>
+                        </div>
+                        <div class="menu-divider"></div>
+                        <div class="menu-entry" id="menu-item-decompile" onclick="menuAction(triggerSelectedDecompile)">
+                            <span class="menu-icon">🔬</span>
+                            <span class="menu-label">Inspect Binary / Decompile...</span>
+                        </div>
+                        <div class="menu-entry" id="menu-item-export" onclick="menuAction(triggerSelectedExport)">
+                            <span class="menu-icon">📦</span>
+                            <span class="menu-label">Export Decompiled C# Project...</span>
+                        </div>
+                        <div class="menu-divider"></div>
+                        <div class="menu-entry" onclick="menuAction(function() { copyPathToClipboard(false); })">
+                            <span class="menu-icon">🔗</span>
+                            <span class="menu-label">Copy Full Path</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌥⌘C" data-shortcut-win="Ctrl+Alt+C">⌥⌘C</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(function() { copyPathToClipboard(true); })">
+                            <span class="menu-icon">📎</span>
+                            <span class="menu-label">Copy Relative Path</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Go Menu -->
+                <div class="menubar-item" id="menu-go">
+                    <button class="menubar-trigger" onclick="toggleMenuBar('go', event)" onmouseenter="handleMenuHover('go')">
+                        Go
+                    </button>
+                    <div class="menubar-dropdown" id="dropdown-go" onclick="event.stopPropagation()">
+                        <div class="menu-entry" id="menu-go-back" onclick="menuAction(goBack)">
+                            <span class="menu-icon">⬅️</span>
+                            <span class="menu-label">Back</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘[" data-shortcut-win="Alt+←">⌘[</span>
+                        </div>
+                        <div class="menu-entry" id="menu-go-forward" onclick="menuAction(goForward)">
+                            <span class="menu-icon">➡️</span>
+                            <span class="menu-label">Forward</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘]" data-shortcut-win="Alt+→">⌘]</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(goUp)">
+                            <span class="menu-icon">⬆️</span>
+                            <span class="menu-label">Enclosing Folder</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘↑" data-shortcut-win="Alt+↑">⌘↑</span>
+                        </div>
+                        <div class="menu-divider"></div>
+                        <div class="menu-entry" onclick="menuAction(goHome)">
+                            <span class="menu-icon">🏠</span>
+                            <span class="menu-label">Home Folder</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘⇧H" data-shortcut-win="Alt+Home">⌘⇧H</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(function() { quickNav('Desktop'); })">
+                            <span class="menu-icon">🖥️</span>
+                            <span class="menu-label">Desktop</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘⇧D" data-shortcut-win="Ctrl+D">⌘⇧D</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(function() { quickNav('Documents'); })">
+                            <span class="menu-icon">📄</span>
+                            <span class="menu-label">Documents</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘⇧O" data-shortcut-win="Ctrl+O">⌘⇧O</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(function() { quickNav('Downloads'); })">
+                            <span class="menu-icon">⬇️</span>
+                            <span class="menu-label">Downloads</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌥⌘L" data-shortcut-win="Ctrl+J">⌥⌘L</span>
+                        </div>
+                        <div class="menu-divider"></div>
+                        <div class="menu-entry" onclick="menuAction(addNewTab)">
+                            <span class="menu-icon">🗂️</span>
+                            <span class="menu-label">New Tab</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘T" data-shortcut-win="Ctrl+T">⌘T</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Help Menu -->
+                <div class="menubar-item" id="menu-help">
+                    <button class="menubar-trigger" onclick="toggleMenuBar('help', event)" onmouseenter="handleMenuHover('help')">
+                        Help
+                    </button>
+                    <div class="menubar-dropdown" id="dropdown-help" onclick="event.stopPropagation()">
+                        <div class="menu-entry" onclick="menuAction(function() { openHelpModal('shortcuts'); })">
+                            <span class="menu-icon">⌨️</span>
+                            <span class="menu-label">Keyboard Shortcuts Guide</span>
+                            <span class="menu-shortcut">?</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(function() { openHelpModal('features'); })">
+                            <span class="menu-icon">📖</span>
+                            <span class="menu-label">Power Features Cheatsheet</span>
+                        </div>
+                        <div class="menu-divider"></div>
+                        <div class="menu-entry" onclick="menuAction(openSettingsModal)">
+                            <span class="menu-icon">⚡</span>
+                            <span class="menu-label">VenEl Engine Status</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(function() { openHelpModal('features'); })">
+                            <span class="menu-icon">ℹ️</span>
+                            <span class="menu-label">About VenEl File Manager</span>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Legacy Buttons (Hidden container to ensure full backward compatibility for DOM lookups) -->
+            <div style="display: none;" aria-hidden="true">
+                <button id="btn-cut" onclick="cutSelectedItem()"></button>
+                <button id="btn-copy" onclick="copySelectedItem()"></button>
+                <button id="btn-paste" onclick="pasteClipboardItem()"></button>
+                <button id="btn-rename" onclick="renameSelectedItem()"></button>
+                <button id="btn-delete" onclick="deleteSelectedItem()"></button>
+                <button id="btn-batch-rename" onclick="showBatchRenameModal()"></button>
+                <button id="btn-zip-archive" onclick="handleCompressSelected()"></button>
+                <button id="btn-unzip-archive" onclick="handleExtractSelected(false)"></button>
+                <button id="btn-diff-compare" onclick="diffSelectedPair()"></button>
+                <button id="btn-terminal" onclick="openTerminalAtCurrent()"></button>
+                <button id="btn-properties" onclick="showPropertiesModal()"></button>
+            </div>
         </div>
 
         <div class="toolbar-group toolbar-search-group">
@@ -2877,16 +3605,65 @@
         </div>
     </div>
 
+    <!-- Quick Filter Bar (File Types & Hidden Files) -->
+    <div id="quick-filter-bar" class="quick-filter-bar" role="toolbar" aria-label="Filter by file type">
+        <div class="quick-filter-chips">
+            <button class="filter-chip active" id="filter-chip-all" onclick="setQuickFilter('all')" title="Show All Items">
+                <span class="chip-label">All</span>
+                <span class="chip-count" id="count-all">0</span>
+            </button>
+            <button class="filter-chip" id="filter-chip-folders" onclick="setQuickFilter('folders')" title="Filter by Folders">
+                <span class="chip-icon">📁</span>
+                <span class="chip-label">Folders</span>
+                <span class="chip-count" id="count-folders">0</span>
+            </button>
+            <button class="filter-chip" id="filter-chip-code" onclick="setQuickFilter('code')" title="Filter by Code & Scripts">
+                <span class="chip-icon">⚡</span>
+                <span class="chip-label">Code</span>
+                <span class="chip-count" id="count-code">0</span>
+            </button>
+            <button class="filter-chip" id="filter-chip-documents" onclick="setQuickFilter('documents')" title="Filter by Documents">
+                <span class="chip-icon">📄</span>
+                <span class="chip-label">Docs</span>
+                <span class="chip-count" id="count-documents">0</span>
+            </button>
+            <button class="filter-chip" id="filter-chip-images" onclick="setQuickFilter('images')" title="Filter by Images & Media">
+                <span class="chip-icon">🖼️</span>
+                <span class="chip-label">Media</span>
+                <span class="chip-count" id="count-images">0</span>
+            </button>
+            <button class="filter-chip" id="filter-chip-archives" onclick="setQuickFilter('archives')" title="Filter by Archives & Zips">
+                <span class="chip-icon">🗜️</span>
+                <span class="chip-label">Archives</span>
+                <span class="chip-count" id="count-archives">0</span>
+            </button>
+        </div>
+        <div class="quick-filter-right">
+            <button class="toggle-hidden-btn" id="btn-toggle-hidden" onclick="toggleShowHiddenFiles()" title="Toggle Hidden Files (⌘⇧. / Ctrl+H)">
+                <span class="hidden-icon" id="hidden-files-icon">👁️‍🗨️</span>
+                <span class="hidden-label" id="hidden-files-label">Hidden: Off</span>
+            </button>
+        </div>
+    </div>
+
     <!-- Main Explorer Area -->
     <div class="main-content">
-        <!-- Left Edge Expand Button (appears when sidebar is collapsed) -->
-        <button id="sidebar-edge-toggle" class="sidebar-edge-toggle" onclick="toggleSidebarRail()" title="Expand Sidebar (>)" style="display: none;">❯</button>
+        <!-- Visual Studio Auto-Hide Left Dock Margin Strip (shows vertical tabs for collapsed left panels) -->
+        <div class="dock-margin-strip" id="dock-margin-strip" style="display: none;">
+            <button class="dock-tab" id="dock-tab-favorites" onclick="toggleSidebarRail()" title="Expand Places Panel (⌘⇧B / Alt+B)" style="display: none;">
+                <span class="dock-tab-icon">🧭</span>
+                <span class="dock-tab-text">Places</span>
+            </button>
+        </div>
 
-        <!-- Collapsible Left Favorites & Drives Sidebar (Windows Quick Access / macOS Favorites) -->
+        <!-- Collapsible Left Places Sidebar (Favorites, Drives & Volumes, Network / FTP) -->
         <aside class="quick-access-sidebar" id="quick-access-sidebar">
-            <div class="sidebar-header-row" style="display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 6px;">
-                <span class="sidebar-group-title" style="margin: 0;">Favorites</span>
-                <button class="sidebar-collapse-chevron" onclick="toggleSidebarRail()" title="Collapse Sidebar (<)">❮</button>
+            <div class="sidebar-header-row" style="display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 6px; border-bottom: 1px solid var(--border-color); margin-bottom: 8px;">
+                <span class="sidebar-group-title" style="margin: 0; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; color: var(--text-main); padding: 0 4px;">🧭 Places</span>
+                <button class="sidebar-collapse-chevron" onclick="toggleSidebarRail()" title="Auto-Hide / Collapse Places to Left Margin (❮)">❮</button>
+            </div>
+            <div class="sidebar-group-title" style="margin-top: 2px;">
+                <span>Favorites</span>
             </div>
             <div id="quick-favorites">
                 <div class="quick-item" onclick="goHome()">
@@ -2945,12 +3722,25 @@
         <!-- Draggable Preview Resizer Handle -->
         <div class="resizer-handle" id="preview-resizer" title="Drag to resize preview pane (Double-click to reset)"></div>
 
-        <!-- Right Split Preview Pane -->
-        <div class="preview-pane" id="preview-pane">
-            <h2>Preview</h2>
+        <!-- Right Preview Pane (Dockable Visual Studio Panel) -->
+        <aside class="preview-pane" id="preview-pane">
+            <div class="sidebar-header-row preview-header-row" style="display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 6px; border-bottom: 1px solid var(--border-color); margin-bottom: 8px;">
+                <h2 style="margin: 0; padding: 0; border: none; font-size: 13px; display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px;">
+                    <span id="preview-header-title">Preview</span>
+                </h2>
+                <button class="sidebar-collapse-chevron" onclick="togglePreview()" title="Auto-Hide / Collapse Preview to Right Margin (❯)">❯</button>
+            </div>
             <div class="preview-content" id="preview-content">
                 Select a file to preview.<br><br>💡 Tap <strong>Spacebar</strong> for Quick Look or double-click to open in VS Code!
             </div>
+        </aside>
+
+        <!-- Visual Studio Auto-Hide Right Dock Margin Strip (shows vertical tabs for collapsed right panels) -->
+        <div class="dock-margin-strip dock-margin-strip-right" id="dock-margin-strip-right" style="display: none;">
+            <button class="dock-tab" id="dock-tab-preview" onclick="togglePreview()" title="Expand File Preview Pane (⌘⇧P / Alt+P)" style="display: none;">
+                <span class="dock-tab-icon">👁️</span>
+                <span class="dock-tab-text">Preview</span>
+            </button>
         </div>
     </div>
 
@@ -2967,6 +3757,11 @@
             <button class="status-help-hint" onclick="openHelpModal('shortcuts')" title="View Feature Guide & Keyboard Shortcuts (Press ?)">
                 <span>❓ Guide & Shortcuts (?)</span>
             </button>
+            <div style="display: flex; align-items: center; gap: 6px; margin-left: 6px;">
+                <button class="status-help-hint" onclick="toggleSidebarRail()" title="Toggle Places Panel (⌘⇧B / Alt+B)">🧭 Places</button>
+                <button class="status-help-hint" onclick="togglePreview()" title="Toggle Preview Pane (⌘⇧P / Alt+P)">👁️ Preview</button>
+                <button class="status-help-hint" onclick="toggleCompactBars()" title="Toggle Compact Mode (Ctrl+F1 / ⌘⌥T)">🗜️ Compact</button>
+            </div>
         </div>
         <span style="margin-left: auto; opacity: 0.85; font-size: 11px;">
             VenEl File Manager &bull; <a href="https://www.linkedin.com/in/venkateshellur/" target="_blank" style="color: inherit; text-decoration: underline; text-underline-offset: 2px;">Venkatesh Ellur</a>
@@ -3305,7 +4100,10 @@
                             <tr><td><kbd>Ctrl/Cmd</kbd> + <kbd>V</kbd></td><td>Paste file/folder from clipboard</td></tr>
                             <tr><td><kbd>Ctrl/Cmd</kbd> + <kbd>A</kbd></td><td><strong>Select All</strong> files and folders in view</td></tr>
                             <tr><td><kbd>Ctrl/Cmd</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd></td><td>Open <strong>Smart Batch Renamer</strong> for selected files</td></tr>
-                            <tr><td><kbd>Ctrl/Cmd</kbd> + <kbd>B</kbd></td><td>Toggle Primary VS Code Sidebar</td></tr>
+                            <tr><td><kbd>⌘⇧.</kbd> (Mac) / <kbd>Ctrl</kbd> + <kbd>H</kbd></td><td>Toggle <strong>Show / Hide Hidden Files</strong> (dotfiles)</td></tr>
+                            <tr><td><kbd>Ctrl+F1</kbd> / <kbd>⌘⌥T</kbd></td><td>Toggle <strong>Compact Bars / Zen Mode</strong> (collapse top menus to folder title)</td></tr>
+                            <tr><td><kbd>⌘⇧P</kbd> / <kbd>Alt+P</kbd></td><td>Toggle <strong>File Preview Pane</strong> (auto-hides to right margin tab)</td></tr>
+                            <tr><td><kbd>⌘⇧B</kbd> / <kbd>Alt+B</kbd></td><td>Toggle <strong>Places Panel</strong> (auto-hides to left margin tab)</td></tr>
                             <tr><td><kbd>Esc</kbd></td><td>Close active modal, context menu, or Quick Look</td></tr>
                             <tr><td><kbd>?</kbd> or <kbd>F1</kbd></td><td>Open this Feature Guide & Shortcuts Sheet</td></tr>
                         </tbody>
@@ -3657,6 +4455,205 @@
         let currentSort = { field: 'name', asc: true };
 
         // ══════════════════════════════════════════════════════════
+        // 🧭 DESKTOP-CLASS MENU BAR LOGIC (macOS Finder / Windows Explorer)
+        // ══════════════════════════════════════════════════════════
+        let activeMenuBarId = null;
+
+        function toggleMenuBar(menuName, event) {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+            if (activeMenuBarId === menuName) {
+                closeAllMenus();
+            } else {
+                openMenuBar(menuName);
+            }
+        }
+
+        function openMenuBar(menuName) {
+            closeAllMenus();
+            activeMenuBarId = menuName;
+            const item = document.getElementById('menu-' + menuName);
+            if (item) item.classList.add('open');
+            syncMenuShortcuts();
+            updateViewMenuChecks();
+        }
+
+        function handleMenuHover(menuName) {
+            // Hover scrubbing only when a menu is already open (native macOS / Windows behavior)
+            if (activeMenuBarId && activeMenuBarId !== menuName) {
+                openMenuBar(menuName);
+            }
+        }
+
+        function closeAllMenus() {
+            activeMenuBarId = null;
+            document.querySelectorAll('.menubar-item.open').forEach(function(el) {
+                el.classList.remove('open');
+            });
+        }
+
+        function menuAction(fn) {
+            closeAllMenus();
+            if (typeof fn === 'function') {
+                try {
+                    fn();
+                } catch (e) {
+                    console.error('Menu action error:', e);
+                }
+            }
+        }
+
+        function setMenuEntryDisabled(id, disabled) {
+            const el = document.getElementById(id);
+            if (el) {
+                if (disabled) {
+                    el.classList.add('disabled');
+                    el.setAttribute('aria-disabled', 'true');
+                } else {
+                    el.classList.remove('disabled');
+                    el.removeAttribute('aria-disabled');
+                }
+            }
+        }
+
+        function syncMenuShortcuts() {
+            const isMacPlatform = typeof isMac !== 'undefined' ? isMac : /Mac/i.test(navigator.platform || navigator.userAgent);
+            document.querySelectorAll('.menu-shortcut[data-shortcut-mac]').forEach(function(el) {
+                const text = isMacPlatform ? el.getAttribute('data-shortcut-mac') : el.getAttribute('data-shortcut-win');
+                if (text) el.textContent = text;
+            });
+        }
+
+        function updateViewMenuChecks() {
+            const currentV = typeof currentViewMode !== 'undefined' ? currentViewMode : 'grid';
+            ['grid', 'details', 'list', 'large', 'compact'].forEach(function(v) {
+                const chk = document.getElementById('menu-chk-' + v);
+                if (chk) chk.textContent = currentV === v ? '✓' : '';
+            });
+
+            const previewPane = document.getElementById('preview-pane');
+            const chkPreview = document.getElementById('menu-chk-preview');
+            if (chkPreview && previewPane) {
+                chkPreview.textContent = !previewPane.classList.contains('collapsed') ? '✓' : '';
+            }
+
+            const bookmarksBar = document.getElementById('bookmarks-bar');
+            const chkBookmarks = document.getElementById('menu-chk-bookmarks');
+            if (chkBookmarks && bookmarksBar) {
+                chkBookmarks.textContent = bookmarksBar.style.display !== 'none' ? '✓' : '';
+            }
+
+            const sidebar = document.getElementById('quick-access-sidebar');
+            const chkSidebar = document.getElementById('menu-chk-sidebar');
+            if (chkSidebar && sidebar) {
+                chkSidebar.textContent = !sidebar.classList.contains('collapsed') ? '✓' : '';
+            }
+
+            const quickFilterBar = document.getElementById('quick-filter-bar');
+            const chkFilter = document.getElementById('menu-chk-quick-filter');
+            if (chkFilter && quickFilterBar) {
+                chkFilter.textContent = quickFilterBar.style.display !== 'none' ? '✓' : '';
+            }
+
+            const chkHidden = document.getElementById('menu-chk-hidden');
+            if (chkHidden) {
+                chkHidden.textContent = (typeof showHiddenFiles !== 'undefined' && showHiddenFiles) ? '✓' : '';
+            }
+
+            const chkCompactBars = document.getElementById('menu-chk-compact-bars');
+            if (chkCompactBars) {
+                chkCompactBars.textContent = (typeof isCompactBars !== 'undefined' && isCompactBars) ? '✓' : '';
+            }
+
+            if (typeof currentSort !== 'undefined' && currentSort.field) {
+                ['name', 'size', 'modified', 'type'].forEach(function(s) {
+                    const chkSort = document.getElementById('menu-chk-sort-' + s);
+                    if (chkSort) {
+                        if (currentSort.field === s) {
+                            chkSort.textContent = currentSort.asc ? '▲' : '▼';
+                        } else {
+                            chkSort.textContent = '';
+                        }
+                    }
+                });
+            }
+        }
+
+        function toggleBookmarksBar() {
+            const bar = document.getElementById('bookmarks-bar');
+            if (!bar) return;
+            const isHidden = bar.style.display === 'none';
+            bar.style.display = isHidden ? 'flex' : 'none';
+            updateViewMenuChecks();
+        }
+
+        function toggleQuickFilterBar() {
+            const bar = document.getElementById('quick-filter-bar');
+            if (!bar) return;
+            const isHidden = bar.style.display === 'none';
+            bar.style.display = isHidden ? 'flex' : 'none';
+            localStorage.setItem('venel_show_quick_filter', isHidden ? 'true' : 'false');
+            updateViewMenuChecks();
+        }
+
+        let showHiddenFiles = localStorage.getItem('venel_show_hidden') === 'true';
+
+        function toggleShowHiddenFiles() {
+            showHiddenFiles = !showHiddenFiles;
+            localStorage.setItem('venel_show_hidden', showHiddenFiles ? 'true' : 'false');
+            updateHiddenFilesUI();
+            updateViewMenuChecks();
+            updateQuickFilterCounts();
+            applyFilterAndRender();
+            showToast(showHiddenFiles ? 'Hidden files visible' : 'Hidden files hidden', '👁️‍🗨️');
+        }
+
+        function updateHiddenFilesUI() {
+            const btn = document.getElementById('btn-toggle-hidden');
+            const label = document.getElementById('hidden-files-label');
+            if (btn) {
+                if (showHiddenFiles) btn.classList.add('active');
+                else btn.classList.remove('active');
+            }
+            if (label) {
+                label.textContent = showHiddenFiles ? 'Hidden: On' : 'Hidden: Off';
+            }
+        }
+
+        function initQuickFilterAndHiddenFiles() {
+            updateHiddenFilesUI();
+            const showFilterBar = localStorage.getItem('venel_show_quick_filter') !== 'false';
+            const bar = document.getElementById('quick-filter-bar');
+            if (bar) bar.style.display = showFilterBar ? 'flex' : 'none';
+        }
+
+        function openSelectedFileInEditor() {
+            if (selectedItem) {
+                const sep = isWindows ? '\\' : '/';
+                const fullPath = selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name);
+                if (selectedItem.type === 'Directory') {
+                    navigateTo(fullPath);
+                } else {
+                    openSelectedItemInEditor(fullPath);
+                }
+            }
+        }
+
+        function triggerSelectedDecompile() {
+            if (!selectedItem || selectedItem.type === 'Directory') return;
+            toggleQuickLook();
+        }
+
+        function triggerSelectedExport() {
+            if (!selectedItem || selectedItem.type === 'Directory') return;
+            const sep = isWindows ? '\\' : '/';
+            const fullPath = selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name);
+            if (typeof showExportProjectModal === 'function') {
+                showExportProjectModal('', fullPath);
+            }
+        }
         // 🗂️ MULTI-TAB BROWSING STATE & MANAGEMENT
         // ══════════════════════════════════════════════════════════
         let tabs = [];
@@ -4050,6 +5047,8 @@
             const btnForward = document.getElementById('btn-forward');
             if (btnBack) btnBack.disabled = (navHistoryIndex <= 0);
             if (btnForward) btnForward.disabled = (navHistoryIndex >= navHistory.length - 1);
+            setMenuEntryDisabled('menu-go-back', navHistoryIndex <= 0);
+            setMenuEntryDisabled('menu-go-forward', navHistoryIndex >= navHistory.length - 1);
         }
 
         function goUp() {
@@ -4109,6 +5108,7 @@
                         escapeHtml(parts[i]) + '</span>';
             }
             container.innerHTML = html;
+            updateCompactWindowTitle();
         }
 
         function handlePathBarClick(e) {
@@ -4132,9 +5132,18 @@
         function exitPathEditMode() {
             const breadcrumbs = document.getElementById('path-breadcrumbs');
             const input = document.getElementById('path');
+            const pathBarBox = document.getElementById('path-bar-box');
+            const compactTitle = document.getElementById('compact-window-title');
             if (breadcrumbs && input) {
                 input.style.display = 'none';
                 breadcrumbs.style.display = 'flex';
+            }
+            if (typeof isCompactBars !== 'undefined' && isCompactBars) {
+                if (pathBarBox) pathBarBox.style.display = 'none';
+                if (compactTitle) {
+                    updateCompactWindowTitle();
+                    compactTitle.style.display = 'flex';
+                }
             }
         }
 
@@ -4172,10 +5181,14 @@
             // A. Left Sidebar Splitter Drag
             if (sidebar && sidebarResizer) {
                 let isDraggingSidebar = false;
+                let startX = 0;
+                let startWidth = 0;
 
                 sidebarResizer.addEventListener('mousedown', function(e) {
                     e.preventDefault();
                     isDraggingSidebar = true;
+                    startX = e.clientX;
+                    startWidth = sidebar.getBoundingClientRect().width;
                     sidebarResizer.classList.add('resizing');
                     mainContent.classList.add('resizing-active');
                     document.body.style.cursor = 'col-resize';
@@ -4189,8 +5202,7 @@
 
                 window.addEventListener('mousemove', function(e) {
                     if (!isDraggingSidebar) return;
-                    const mainRect = mainContent.getBoundingClientRect();
-                    let newWidth = e.clientX - mainRect.left;
+                    let newWidth = startWidth + (e.clientX - startX);
                     if (newWidth < 130) newWidth = 130;
                     if (newWidth > 480) newWidth = 480;
                     sidebar.style.width = newWidth + 'px';
@@ -4207,13 +5219,17 @@
                 });
             }
 
-            // B. Right Preview Pane Splitter Drag
+            // B. Left Preview Pane Splitter Drag
             if (preview && previewResizer) {
                 let isDraggingPreview = false;
+                let startX = 0;
+                let startWidth = 0;
 
                 previewResizer.addEventListener('mousedown', function(e) {
                     e.preventDefault();
                     isDraggingPreview = true;
+                    startX = e.clientX;
+                    startWidth = preview.getBoundingClientRect().width;
                     previewResizer.classList.add('resizing');
                     mainContent.classList.add('resizing-active');
                     document.body.style.cursor = 'col-resize';
@@ -4227,10 +5243,9 @@
 
                 window.addEventListener('mousemove', function(e) {
                     if (!isDraggingPreview) return;
-                    const mainRect = mainContent.getBoundingClientRect();
-                    let newWidth = mainRect.right - e.clientX;
+                    let newWidth = startWidth + (startX - e.clientX);
                     if (newWidth < 180) newWidth = 180;
-                    if (newWidth > 680) newWidth = 680;
+                    if (newWidth > 750) newWidth = 750;
                     preview.style.width = newWidth + 'px';
                     localStorage.setItem('venel_preview_width', newWidth);
                 });
@@ -4249,7 +5264,7 @@
         // ══════════════════════════════════════════════════════════
         // ◧ QUICK ACCESS SIDEBAR
         // ══════════════════════════════════════════════════════════
-        function toggleSidebarRail() {
+        function toggleSidebarRail(forcedState) {
             const sidebar = document.getElementById('quick-access-sidebar');
             const resizer = document.getElementById('sidebar-resizer');
             const btn = document.getElementById('btn-rail-toggle');
@@ -4257,20 +5272,29 @@
             const label = document.getElementById('rail-toggle-label');
             const edgeBtn = document.getElementById('sidebar-edge-toggle');
             if (sidebar) {
-                const isNowCollapsed = sidebar.classList.toggle('collapsed');
+                let isNowCollapsed;
+                if (typeof forcedState === 'boolean') {
+                    isNowCollapsed = forcedState;
+                    sidebar.classList.toggle('collapsed', isNowCollapsed);
+                } else {
+                    isNowCollapsed = sidebar.classList.toggle('collapsed');
+                }
+                localStorage.setItem('venel_sidebar_collapsed', isNowCollapsed ? 'true' : 'false');
                 if (chevron) chevron.textContent = isNowCollapsed ? '❯' : '❮';
-                if (label) label.textContent = 'Sidebar';
+                if (label) label.textContent = 'Places';
                 if (btn) {
-                    btn.title = isNowCollapsed ? 'Expand Sidebar (>)' : 'Collapse Sidebar (<)';
+                    btn.title = isNowCollapsed ? 'Expand Places (>)' : 'Collapse Places (<)';
                     btn.classList.toggle('active', isNowCollapsed);
                 }
                 if (edgeBtn) {
-                    edgeBtn.style.display = isNowCollapsed ? 'flex' : 'none';
+                    edgeBtn.style.display = 'none';
                 }
                 if (resizer) {
                     resizer.style.display = isNowCollapsed ? 'none' : 'block';
                 }
             }
+            updateDockStripVisibility();
+            updateViewMenuChecks();
         }
 
         function renderQuickAccessDrives() {
@@ -4525,9 +5549,11 @@
                     }
                 }
             });
+            updateViewMenuChecks();
         }
 
         function applySortAndRender() {
+            if (!currentItems) return;
             currentItems.sort(function(a, b) {
                 const aIsDir = a.type === 'Directory';
                 const bIsDir = b.type === 'Directory';
@@ -4551,7 +5577,8 @@
                 }
                 return 0;
             });
-            renderItems(currentItems);
+            updateQuickFilterCounts();
+            applyFilterAndRender();
         }
 
         // ══════════════════════════════════════════════════════════
@@ -4610,103 +5637,454 @@
             if (iconEl) iconEl.textContent = cfg.icon;
             if (labelEl) labelEl.textContent = cfg.label;
 
+            updateViewMenuChecks();
             showToast('View: ' + cfg.label, cfg.icon);
         }
 
-        function togglePreview() {
+        function togglePreview(forcedState) {
             const pane = document.getElementById('preview-pane');
             const resizer = document.getElementById('preview-resizer');
             const btn = document.getElementById('btn-preview');
-            const isNowCollapsed = pane.classList.toggle('collapsed');
-            if (!isNowCollapsed) {
-                btn.classList.add('active');
-                if (resizer) resizer.style.display = 'block';
-                if (selectedItem) handlePreview(selectedItem.name, selectedItem.type === 'Directory');
+            if (pane) {
+                let isNowCollapsed;
+                if (typeof forcedState === 'boolean') {
+                    isNowCollapsed = forcedState;
+                    pane.classList.toggle('collapsed', isNowCollapsed);
+                } else {
+                    isNowCollapsed = pane.classList.toggle('collapsed');
+                }
+                localStorage.setItem('venel_preview_collapsed', isNowCollapsed ? 'true' : 'false');
+                if (btn) btn.classList.toggle('active', !isNowCollapsed);
+                if (resizer) resizer.style.display = isNowCollapsed ? 'none' : 'block';
+                if (!isNowCollapsed) {
+                    if (selectedItem) handlePreview(selectedItem.name, selectedItem.type === 'Directory');
+                }
+            }
+            updateDockStripVisibility();
+            updateViewMenuChecks();
+        }
+
+        function updateDockStripVisibility() {
+            const sidebar = document.getElementById('quick-access-sidebar');
+            const preview = document.getElementById('preview-pane');
+            const leftStrip = document.getElementById('dock-margin-strip');
+            const rightStrip = document.getElementById('dock-margin-strip-right');
+            const dockFav = document.getElementById('dock-tab-favorites');
+            const dockPrev = document.getElementById('dock-tab-preview');
+
+            const sidebarCollapsed = sidebar ? sidebar.classList.contains('collapsed') : false;
+            const previewCollapsed = preview ? preview.classList.contains('collapsed') : false;
+
+            if (dockFav) dockFav.style.display = sidebarCollapsed ? 'flex' : 'none';
+            if (dockPrev) dockPrev.style.display = previewCollapsed ? 'flex' : 'none';
+
+            if (leftStrip) {
+                leftStrip.style.display = sidebarCollapsed ? 'flex' : 'none';
+            }
+            if (rightStrip) {
+                rightStrip.style.display = previewCollapsed ? 'flex' : 'none';
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // 🗜️ COMPACT MODE & FOLDER TITLE DISPLAY (VISUAL STUDIO ZEN)
+        // ══════════════════════════════════════════════════════════
+        let isCompactBars = localStorage.getItem('venel_compact_bars') === 'true';
+
+        function toggleCompactBars(forcedState) {
+            if (typeof forcedState === 'boolean') {
+                isCompactBars = forcedState;
             } else {
-                btn.classList.remove('active');
-                if (resizer) resizer.style.display = 'none';
+                isCompactBars = !isCompactBars;
+            }
+            localStorage.setItem('venel_compact_bars', isCompactBars ? 'true' : 'false');
+            applyCompactBarsState();
+            showToast(isCompactBars ? 'Compact Header Mode (Bars Collapsed)' : 'Full Power Chrome (Bars Expanded)', isCompactBars ? '🗜️' : '⊞');
+        }
+
+        function applyCompactBarsState() {
+            const bookmarksBar = document.getElementById('bookmarks-bar');
+            const mainToolbar = document.getElementById('main-toolbar');
+            const quickFilterBar = document.getElementById('quick-filter-bar');
+            const btnCompact = document.getElementById('btn-toggle-compact');
+            const compactTitle = document.getElementById('compact-window-title');
+            const pathBarBox = document.getElementById('path-bar-box');
+            const chkCompact = document.getElementById('menu-chk-compact-bars');
+
+            if (isCompactBars) {
+                document.body.classList.add('compact-header');
+                if (bookmarksBar) bookmarksBar.style.display = 'none';
+                if (mainToolbar) mainToolbar.style.display = 'none';
+                if (quickFilterBar) quickFilterBar.style.display = 'none';
+                if (btnCompact) {
+                    btnCompact.textContent = '⌄';
+                    btnCompact.title = 'Expand Menus & Toolbars (Ctrl+F1 / ⌘⌥T)';
+                    btnCompact.classList.add('active');
+                }
+                if (compactTitle) {
+                    updateCompactWindowTitle();
+                    compactTitle.style.display = 'flex';
+                }
+                if (pathBarBox) pathBarBox.style.display = 'none';
+                if (chkCompact) chkCompact.textContent = '✓';
+            } else {
+                document.body.classList.remove('compact-header');
+                if (bookmarksBar) bookmarksBar.style.display = 'flex';
+                if (mainToolbar) mainToolbar.style.display = 'flex';
+                if (quickFilterBar) quickFilterBar.style.display = 'flex';
+                if (btnCompact) {
+                    btnCompact.textContent = '⌃';
+                    btnCompact.title = 'Collapse Menus & Toolbars (Ctrl+F1 / ⌘⌥T)';
+                    btnCompact.classList.remove('active');
+                }
+                if (compactTitle) compactTitle.style.display = 'none';
+                if (pathBarBox) pathBarBox.style.display = 'flex';
+                if (chkCompact) chkCompact.textContent = '';
+            }
+            updateViewMenuChecks();
+        }
+
+        function updateCompactWindowTitle() {
+            const titleEl = document.getElementById('compact-title-text');
+            if (!titleEl) return;
+            const sep = isWindows ? '\\' : '/';
+            if (!currentPath || currentPath === '.') {
+                titleEl.textContent = 'VenEl File Manager';
+                return;
+            }
+            const parts = currentPath.split(sep).filter(Boolean);
+            const folderName = parts.length > 0 ? parts[parts.length - 1] : currentPath;
+            titleEl.textContent = folderName + ' — VenEl File Manager';
+            const box = document.getElementById('compact-window-title');
+            if (box) {
+                box.title = currentPath + ' (Click to edit path • Double-click to expand toolbars)';
+            }
+        }
+
+        function expandPathFromCompactTitle(e) {
+            if (e && e.detail === 2) {
+                toggleCompactBars(false);
+                return;
+            }
+            const pathBarBox = document.getElementById('path-bar-box');
+            const compactTitle = document.getElementById('compact-window-title');
+            if (compactTitle) compactTitle.style.display = 'none';
+            if (pathBarBox) {
+                pathBarBox.style.display = 'flex';
+                enterPathEditMode();
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // 🏷️ QUICK FILTERING & ITEM CATEGORIZATION
+        // ══════════════════════════════════════════════════════════
+        let currentQuickFilter = 'all';
+
+        function getItemCategory(item) {
+            if (item.type === 'Directory') return 'folders';
+            const name = item.name || '';
+            const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+            
+            // Code & Binaries
+            const codeExts = ['cs', 'ts', 'js', 'jsx', 'tsx', 'py', 'json', 'html', 'css', 'scss', 'less', 'sql', 'sh', 'bash', 'zsh', 'xml', 'yaml', 'yml', 'c', 'cpp', 'h', 'hpp', 'java', 'go', 'rs', 'php', 'rb', 'swift', 'kt', 'dart', 'dll', 'exe', 'wasm', 'vue', 'svelte', 'toml', 'ini', 'config', 'env', 'properties'];
+            if (codeExts.includes(ext) || name.startsWith('Dockerfile') || name.startsWith('.env') || name.startsWith('.git')) {
+                return 'code';
+            }
+            
+            // Documents
+            const docExts = ['md', 'markdown', 'pdf', 'txt', 'log', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'ppt', 'pptx', 'rtf', 'odt', 'ods', 'odp'];
+            if (docExts.includes(ext)) {
+                return 'documents';
+            }
+            
+            // Images & Media
+            const mediaExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'bmp', 'tiff', 'mp4', 'mov', 'mkv', 'webm', 'mp3', 'wav', 'flac', 'm4a', 'ogg', 'aac'];
+            if (mediaExts.includes(ext)) {
+                return 'images';
+            }
+            
+            // Archives
+            const archiveExts = ['zip', 'tar', 'gz', 'tgz', 'rar', '7z', 'bz2', 'xz', 'iso', 'dmg'];
+            if (archiveExts.includes(ext)) {
+                return 'archives';
+            }
+            
+            return 'other';
+        }
+
+        function updateQuickFilterCounts() {
+            const counts = {
+                all: 0,
+                folders: 0,
+                code: 0,
+                documents: 0,
+                images: 0,
+                archives: 0
+            };
+
+            if (currentItems && currentItems.length > 0) {
+                for (let i = 0; i < currentItems.length; i++) {
+                    const item = currentItems[i];
+                    const isHidden = (item.name && item.name.startsWith('.')) || item.isHidden;
+                    if (isHidden && !showHiddenFiles) continue;
+
+                    counts.all++;
+                    const cat = getItemCategory(item);
+                    if (counts[cat] !== undefined) {
+                        counts[cat]++;
+                    }
+                }
+            }
+
+            ['all', 'folders', 'code', 'documents', 'images', 'archives'].forEach(function(cat) {
+                const countEl = document.getElementById('count-' + cat);
+                const chipEl = document.getElementById('filter-chip-' + cat);
+                if (countEl) countEl.textContent = counts[cat] || 0;
+                if (chipEl) {
+                    if ((counts[cat] || 0) === 0 && cat !== 'all') {
+                        chipEl.classList.add('chip-empty');
+                    } else {
+                        chipEl.classList.remove('chip-empty');
+                    }
+                }
+            });
+        }
+
+        function setQuickFilter(cat) {
+            currentQuickFilter = cat || 'all';
+            ['all', 'folders', 'code', 'documents', 'images', 'archives'].forEach(function(c) {
+                const chip = document.getElementById('filter-chip-' + c);
+                if (chip) {
+                    if (c === currentQuickFilter) chip.classList.add('active');
+                    else chip.classList.remove('active');
+                }
+            });
+            applyFilterAndRender();
+        }
+
+        function applyFilterAndRender() {
+            if (!currentItems) {
+                renderItems([]);
+                return;
+            }
+
+            const q = document.getElementById('search') ? document.getElementById('search').value.toLowerCase().trim() : '';
+
+            const filtered = currentItems.filter(function(item) {
+                // 1. Hidden Files Filter
+                const isHidden = (item.name && item.name.startsWith('.')) || item.isHidden;
+                if (isHidden && !showHiddenFiles) return false;
+
+                // 2. Quick Filter Category
+                if (currentQuickFilter !== 'all') {
+                    const cat = getItemCategory(item);
+                    if (cat !== currentQuickFilter) return false;
+                }
+
+                // 3. Search Query Filter
+                if (q) {
+                    const matchName = item.name && item.name.toLowerCase().includes(q);
+                    const matchPath = item.path && item.path.toLowerCase().includes(q);
+                    if (!matchName && !matchPath) return false;
+                }
+
+                return true;
+            });
+
+            renderItems(filtered);
+
+            const countElem = document.getElementById('status-items-count');
+            if (countElem) {
+                if (filtered.length !== currentItems.length) {
+                    countElem.innerText = filtered.length + ' of ' + currentItems.length + ' items' + (q ? ' (Esc to clear)' : '');
+                } else {
+                    countElem.innerText = filtered.length + ' item' + (filtered.length === 1 ? '' : 's');
+                }
             }
         }
 
         function handleSearch() {
-            const q = document.getElementById('search').value.toLowerCase().trim();
-            if (!q) {
-                renderItems(currentItems);
-                return;
+            applyFilterAndRender();
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // ⚡ VIRTUAL CHUNKED RENDERING ENGINE (60 FPS SCALING)
+        // ══════════════════════════════════════════════════════════
+        const RENDER_CHUNK_SIZE = 80;
+        let renderedChunkCount = 0;
+        let chunkObserver = null;
+        let activeRenderItems = [];
+
+        function renderItemHtml(item) {
+            const isDir = item.type === 'Directory';
+            const isHidden = (item.name && item.name.startsWith('.')) || item.isHidden;
+            const visual = getFileVisual(item.name, isDir);
+            const className = isDir ? 'folder' : 'file';
+            const sizeText = !isDir ? formatBytes(item.size) : '--';
+            const modDate = item.modified ? formatDate(item.modified) : '';
+            const isSelected = selectedItems.some(function(si) { return si.name === item.name; }) || (selectedItem && selectedItem.name === item.name);
+            const isCut = clipboard && clipboard.action === 'cut' && ((clipboard.items && clipboard.items.some(function(ci) { return ci.name === item.name; })) || clipboard.name === item.name);
+
+            const sep = isWindows ? '\\' : '/';
+            const fullItemPath = (item.isSearchResult && item.path) ? item.path : (currentPath.endsWith(sep) ? currentPath + item.name : currentPath + sep + item.name);
+
+            let iconHtml = '<i>' + visual.icon + '</i>';
+            if (visual.isImage) {
+                iconHtml = '<img src="/api/files/raw?path=' + encodeURIComponent(fullItemPath) + '" class="item-thumb" onerror="this.onerror=null; this.outerHTML=\'<i>🖼️</i>\';"/>';
             }
-            const filtered = currentItems.filter(function(i) {
-                return i.name.toLowerCase().includes(q) || (i.path && i.path.toLowerCase().includes(q));
-            });
-            renderItems(filtered);
-            const countElem = document.getElementById('status-items-count');
-            if (countElem) {
-                countElem.innerText = filtered.length + ' of ' + currentItems.length + ' items (Esc to clear)';
+
+            let locationHtml = '';
+            if (item.isSearchResult && item.directory) {
+                locationHtml = '<span class="item-search-location" onclick="event.stopPropagation(); jumpToSearchResult(\'' + escapePath(item.directory) + '\', \'' + escapePath(item.name) + '\')" title="Jump to ' + escapeHtml(item.directory) + '">📂 ' + escapeHtml(item.directory) + '</span>';
             }
+
+            let gitBadgeHtml = '';
+            if (currentGitStatuses && currentGitStatuses[item.name]) {
+                const code = currentGitStatuses[item.name];
+                const badgeClass = 'git-' + code.toLowerCase();
+                const title = code === 'M' ? 'Modified in Git' : (code === 'U' || code === '?' ? 'Untracked in Git' : (code === 'A' ? 'Added / Staged in Git' : (code === 'D' ? 'Deleted in Git' : 'Changed in Git')));
+                gitBadgeHtml = '<span class="git-badge ' + badgeClass + '" title="' + title + '">' + (code === '?' ? 'U' : code) + '</span>';
+            }
+
+            let dragAttr = 'draggable="true" ondragstart="handleItemDragStart(event, \'' + escapePath(item.name) + '\', ' + isDir + ')" ondragend="handleItemDragEnd(event)"';
+            if (isDir) {
+                dragAttr += ' ondragover="handleFolderDragOver(event, \'' + escapePath(item.name) + '\')" ondragleave="handleFolderDragLeave(event)" ondrop="handleFolderDrop(event, \'' + escapePath(item.name) + '\')"';
+            }
+
+            return '<div class="item ' + className + (isSelected ? ' selected' : '') + (isCut ? ' cut-item' : '') + (isHidden ? ' is-hidden' : '') + '" ' +
+                    dragAttr + ' ' +
+                    'data-name="' + escapeHtml(item.name) + '" ' +
+                    'onclick="handleItemClick(event, \'' + escapePath(item.name) + '\', ' + isDir + ')" ' +
+                    'onauxclick="handleItemAuxClick(event, \'' + escapePath(item.name) + '\', ' + isDir + ')" ' +
+                    'ondblclick="handleDoubleClick(\'' + escapePath(item.name) + '\', ' + isDir + ')" ' +
+                    'oncontextmenu="handleItemContextMenu(event, \'' + escapePath(item.name) + '\', ' + isDir + ')">' +
+                    '<div class="item-icon-wrapper">' + iconHtml + (visual.badge ? '<span class="item-badge">' + visual.badge + '</span>' : '') + '</div>' +
+                    '<div style="display: flex; flex-direction: column; overflow: hidden; min-width: 0; flex: 1;">' +
+                    '<div style="display: flex; align-items: center; overflow: hidden; min-width: 0;">' +
+                    '<span class="item-name">' + escapeHtml(item.name) + '</span>' +
+                    gitBadgeHtml +
+                    '</div>' +
+                    locationHtml +
+                    '</div>' +
+                    '<span class="item-modified">' + modDate + '</span>' +
+                    '<span class="item-type">' + visual.typeLabel + '</span>' +
+                    '<span class="item-size">' + sizeText + '</span>' +
+                    '</div>';
         }
 
         function renderItems(items) {
             displayedItems = items || [];
+            activeRenderItems = displayedItems;
             clearTypeAhead();
-            let html = '';
-            for (let i = 0; i < items.length; i++) {
-                const item = items[i];
-                const isDir = item.type === 'Directory';
-                const visual = getFileVisual(item.name, isDir);
-                const className = isDir ? 'folder' : 'file';
-                const sizeText = !isDir ? formatBytes(item.size) : '--';
-                const modDate = item.modified ? formatDate(item.modified) : '';
-                const isSelected = selectedItems.some(function(si) { return si.name === item.name; }) || (selectedItem && selectedItem.name === item.name);
-                const isCut = clipboard && clipboard.action === 'cut' && ((clipboard.items && clipboard.items.some(function(ci) { return ci.name === item.name; })) || clipboard.name === item.name);
 
-                const sep = isWindows ? '\\' : '/';
-                const fullItemPath = (item.isSearchResult && item.path) ? item.path : (currentPath.endsWith(sep) ? currentPath + item.name : currentPath + sep + item.name);
+            const container = document.getElementById('files');
+            if (!container) return;
 
-                let iconHtml = '<i>' + visual.icon + '</i>';
-                if (visual.isImage) {
-                    iconHtml = '<img src="/api/files/raw?path=' + encodeURIComponent(fullItemPath) + '" class="item-thumb" onerror="this.onerror=null; this.outerHTML=\'<i>🖼️</i>\';"/>';
-                }
-
-                let locationHtml = '';
-                if (item.isSearchResult && item.directory) {
-                    locationHtml = '<span class="item-search-location" onclick="event.stopPropagation(); jumpToSearchResult(\'' + escapePath(item.directory) + '\', \'' + escapePath(item.name) + '\')" title="Jump to ' + escapeHtml(item.directory) + '">📂 ' + escapeHtml(item.directory) + '</span>';
-                }
-
-                let gitBadgeHtml = '';
-                if (currentGitStatuses && currentGitStatuses[item.name]) {
-                    const code = currentGitStatuses[item.name];
-                    const badgeClass = 'git-' + code.toLowerCase();
-                    const title = code === 'M' ? 'Modified in Git' : (code === 'U' || code === '?' ? 'Untracked in Git' : (code === 'A' ? 'Added / Staged in Git' : (code === 'D' ? 'Deleted in Git' : 'Changed in Git')));
-                    gitBadgeHtml = '<span class="git-badge ' + badgeClass + '" title="' + title + '">' + (code === '?' ? 'U' : code) + '</span>';
-                }
-
-                let dragAttr = 'draggable="true" ondragstart="handleItemDragStart(event, \'' + escapePath(item.name) + '\', ' + isDir + ')" ondragend="handleItemDragEnd(event)"';
-                if (isDir) {
-                    dragAttr += ' ondragover="handleFolderDragOver(event, \'' + escapePath(item.name) + '\')" ondragleave="handleFolderDragLeave(event)" ondrop="handleFolderDrop(event, \'' + escapePath(item.name) + '\')"';
-                }
-
-                html += '<div class="item ' + className + (isSelected ? ' selected' : '') + (isCut ? ' cut-item' : '') + '" ' +
-                        dragAttr + ' ' +
-                        'data-name="' + escapeHtml(item.name) + '" ' +
-                        'onclick="handleItemClick(event, \'' + escapePath(item.name) + '\', ' + isDir + ')" ' +
-                        'onauxclick="handleItemAuxClick(event, \'' + escapePath(item.name) + '\', ' + isDir + ')" ' +
-                        'ondblclick="handleDoubleClick(\'' + escapePath(item.name) + '\', ' + isDir + ')" ' +
-                        'oncontextmenu="handleItemContextMenu(event, \'' + escapePath(item.name) + '\', ' + isDir + ')">' +
-                        '<div class="item-icon-wrapper">' + iconHtml + (visual.badge ? '<span class="item-badge">' + visual.badge + '</span>' : '') + '</div>' +
-                        '<div style="display: flex; flex-direction: column; overflow: hidden; min-width: 0; flex: 1;">' +
-                        '<div style="display: flex; align-items: center; overflow: hidden; min-width: 0;">' +
-                        '<span class="item-name">' + escapeHtml(item.name) + '</span>' +
-                        gitBadgeHtml +
-                        '</div>' +
-                        locationHtml +
-                        '</div>' +
-                        '<span class="item-modified">' + modDate + '</span>' +
-                        '<span class="item-type">' + visual.typeLabel + '</span>' +
-                        '<span class="item-size">' + sizeText + '</span>' +
-                        '</div>';
+            if (chunkObserver) {
+                chunkObserver.disconnect();
             }
-            document.getElementById('files').innerHTML = html;
+
+            if (!activeRenderItems || activeRenderItems.length === 0) {
+                container.innerHTML = '<div style="grid-column: 1 / -1; padding: 40px; text-align: center; color: var(--text-muted); font-size: 13px;">No items match this filter or folder is empty</div>';
+                updateSelectionState();
+                const statusEl = document.getElementById('status-items-count');
+                if (statusEl) statusEl.innerText = '0 items';
+                return;
+            }
+
+            // Fast synchronous render of the first chunk (instant display in <2ms)
+            const firstChunkEnd = Math.min(activeRenderItems.length, RENDER_CHUNK_SIZE);
+            let html = '';
+            for (let i = 0; i < firstChunkEnd; i++) {
+                html += renderItemHtml(activeRenderItems[i]);
+            }
+            renderedChunkCount = firstChunkEnd;
+
+            if (renderedChunkCount < activeRenderItems.length) {
+                html += '<div id="files-sentinel" class="files-sentinel"><span>⚡ Loading more items (' + renderedChunkCount + '/' + activeRenderItems.length + ')...</span></div>';
+            }
+
+            container.innerHTML = html;
             updateSelectionState();
-            document.getElementById('status-items-count').innerText = items.length + ' item' + (items.length === 1 ? '' : 's');
+
+            const statusEl = document.getElementById('status-items-count');
+            if (statusEl) {
+                statusEl.innerText = activeRenderItems.length + ' item' + (activeRenderItems.length === 1 ? '' : 's');
+            }
+
+            if (renderedChunkCount < activeRenderItems.length) {
+                setupChunkSentinel();
+            }
+        }
+
+        function setupChunkSentinel() {
+            const sentinel = document.getElementById('files-sentinel');
+            if (!sentinel) return;
+
+            if (!chunkObserver) {
+                const rootContainer = document.getElementById('file-list-container');
+                chunkObserver = new IntersectionObserver(function(entries) {
+                    if (entries[0] && entries[0].isIntersecting) {
+                        renderNextChunk();
+                    }
+                }, {
+                    root: rootContainer,
+                    rootMargin: '400px'
+                });
+            }
+            chunkObserver.observe(sentinel);
+        }
+
+        function renderNextChunk() {
+            if (renderedChunkCount >= activeRenderItems.length) {
+                const sentinel = document.getElementById('files-sentinel');
+                if (sentinel) sentinel.remove();
+                if (chunkObserver) chunkObserver.disconnect();
+                return;
+            }
+
+            const nextEnd = Math.min(activeRenderItems.length, renderedChunkCount + RENDER_CHUNK_SIZE);
+            let chunkHtml = '';
+            for (let i = renderedChunkCount; i < nextEnd; i++) {
+                chunkHtml += renderItemHtml(activeRenderItems[i]);
+            }
+            renderedChunkCount = nextEnd;
+
+            const sentinel = document.getElementById('files-sentinel');
+            if (sentinel) {
+                sentinel.insertAdjacentHTML('beforebegin', chunkHtml);
+                if (renderedChunkCount >= activeRenderItems.length) {
+                    sentinel.remove();
+                    if (chunkObserver) chunkObserver.disconnect();
+                } else {
+                    const span = sentinel.querySelector('span');
+                    if (span) span.innerText = '⚡ Loading more items (' + renderedChunkCount + '/' + activeRenderItems.length + ')...';
+                }
+            } else {
+                const container = document.getElementById('files');
+                if (container) container.insertAdjacentHTML('beforeend', chunkHtml);
+            }
+        }
+
+        function ensureItemRendered(name) {
+            if (!activeRenderItems || renderedChunkCount >= activeRenderItems.length) return;
+            const targetIdx = activeRenderItems.findIndex(function(i) { return i.name === name; });
+            if (targetIdx >= renderedChunkCount) {
+                const neededEnd = Math.min(activeRenderItems.length, targetIdx + 20);
+                let chunkHtml = '';
+                for (let i = renderedChunkCount; i < neededEnd; i++) {
+                    chunkHtml += renderItemHtml(activeRenderItems[i]);
+                }
+                renderedChunkCount = neededEnd;
+                const sentinel = document.getElementById('files-sentinel');
+                if (sentinel) {
+                    sentinel.insertAdjacentHTML('beforebegin', chunkHtml);
+                    if (renderedChunkCount >= activeRenderItems.length) {
+                        sentinel.remove();
+                        if (chunkObserver) chunkObserver.disconnect();
+                    }
+                }
+            }
         }
 
         async function loadFiles(targetPath) {
@@ -4750,6 +6128,13 @@
         }
 
         function refreshCurrentFolder() {
+            const btnReload = document.getElementById('btn-reload');
+            if (btnReload) {
+                btnReload.classList.add('spinning');
+                setTimeout(function() {
+                    btnReload.classList.remove('spinning');
+                }, 500);
+            }
             loadFiles(currentPath);
             showToast('Refreshed', '🔄');
         }
@@ -4777,8 +6162,9 @@
         }
 
         function selectAllItems() {
-            if (!currentItems || currentItems.length === 0) return;
-            selectedItems = currentItems.slice();
+            const items = (displayedItems && displayedItems.length > 0) ? displayedItems : (currentItems || []);
+            if (!items || items.length === 0) return;
+            selectedItems = items.slice();
             selectedItem = selectedItems[0] || null;
             lastSelectedName = selectedItem ? selectedItem.name : null;
             syncItemSelectionDOM();
@@ -4787,6 +6173,25 @@
                 handlePreview(selectedItem.name, selectedItem.type === 'Directory');
             } else if (selectedItems.length > 1) {
                 renderMultiSelectionPreview();
+            }
+        }
+
+        function invertSelection() {
+            const items = (displayedItems && displayedItems.length > 0) ? displayedItems : (currentItems || []);
+            if (!items || items.length === 0) return;
+            const currentSelectedNames = new Set(selectedItems.map(function(i) { return i.name; }));
+            selectedItems = items.filter(function(i) { return !currentSelectedNames.has(i.name); });
+            selectedItem = selectedItems.length > 0 ? selectedItems[0] : null;
+            lastSelectedName = selectedItem ? selectedItem.name : null;
+            syncItemSelectionDOM();
+            updateSelectionState();
+            if (selectedItems.length === 1) {
+                handlePreview(selectedItem.name, selectedItem.type === 'Directory');
+            } else if (selectedItems.length > 1) {
+                renderMultiSelectionPreview();
+            } else {
+                const content = document.getElementById('preview-content');
+                if (content) content.innerHTML = 'Select a file to preview.<br><br>💡 Tap <strong>Spacebar</strong> for Quick Look or double-click to open in VS Code!';
             }
         }
 
@@ -4894,11 +6299,16 @@
             const hasSelection = count > 0;
             const isSingle = count === 1;
 
-            document.getElementById('btn-cut').disabled = !hasSelection;
-            document.getElementById('btn-copy').disabled = !hasSelection;
-            document.getElementById('btn-rename').disabled = !isSingle;
-            document.getElementById('btn-delete').disabled = !hasSelection;
-            document.getElementById('btn-properties').disabled = !isSingle;
+            const btnCut = document.getElementById('btn-cut');
+            if (btnCut) btnCut.disabled = !hasSelection;
+            const btnCopy = document.getElementById('btn-copy');
+            if (btnCopy) btnCopy.disabled = !hasSelection;
+            const btnRename = document.getElementById('btn-rename');
+            if (btnRename) btnRename.disabled = !isSingle;
+            const btnDelete = document.getElementById('btn-delete');
+            if (btnDelete) btnDelete.disabled = !hasSelection;
+            const btnProperties = document.getElementById('btn-properties');
+            if (btnProperties) btnProperties.disabled = !isSingle;
 
             const btnBatchRename = document.getElementById('btn-batch-rename');
             if (btnBatchRename) btnBatchRename.disabled = !hasSelection;
@@ -4912,6 +6322,23 @@
 
             const btnDiffCompare = document.getElementById('btn-diff-compare');
             if (btnDiffCompare) btnDiffCompare.style.display = count === 2 ? 'inline-flex' : 'none';
+
+            // Sync Desktop Menu Bar entries
+            setMenuEntryDisabled('menu-item-cut', !hasSelection);
+            setMenuEntryDisabled('menu-item-copy', !hasSelection);
+            setMenuEntryDisabled('menu-item-rename', !isSingle);
+            setMenuEntryDisabled('menu-item-delete', !hasSelection);
+            setMenuEntryDisabled('menu-item-properties', !isSingle);
+            setMenuEntryDisabled('menu-item-batch-rename', !hasSelection);
+            setMenuEntryDisabled('menu-item-zip', !hasSelection);
+            setMenuEntryDisabled('menu-item-unzip', !isArchive);
+            setMenuEntryDisabled('menu-item-diff', count !== 2);
+            setMenuEntryDisabled('menu-item-open-editor', !hasSelection);
+            setMenuEntryDisabled('menu-item-quicklook', !isSingle);
+
+            const isBinary = isSingle && selectedItem && /\.(dll|exe|nupkg)$/i.test(selectedItem.name);
+            setMenuEntryDisabled('menu-item-decompile', !isBinary);
+            setMenuEntryDisabled('menu-item-export', !isBinary);
 
             const selectedInfo = document.getElementById('status-selected-info');
             if (count === 1 && selectedItem) {
@@ -4950,6 +6377,7 @@
         }
 
         function findItemElementByName(name) {
+            ensureItemRendered(name);
             const items = document.querySelectorAll('#files .item');
             for (let i = 0; i < items.length; i++) {
                 if (items[i].getAttribute('data-name') === name) {
@@ -6647,7 +8075,7 @@
                     if (branchContainer) branchContainer.style.display = 'none';
                 }
                 // Re-render items with updated git badges
-                renderItems(currentItems);
+                applyFilterAndRender();
             } catch {
                 currentGitRepo = false;
                 currentGitStatuses = {};
@@ -6789,7 +8217,9 @@
             });
             clipboard = { action: 'copy', items: mapped, path: mapped[0].path, name: mapped[0].name };
             updateSelectionState();
-            document.getElementById('btn-paste').disabled = false;
+            const btnPaste = document.getElementById('btn-paste');
+            if (btnPaste) btnPaste.disabled = false;
+            setMenuEntryDisabled('menu-item-paste', false);
             showToast(items.length === 1 ? 'Copied "' + items[0].name + '" to clipboard' : 'Copied ' + items.length + ' items to clipboard', '📋');
         }
 
@@ -6804,8 +8234,10 @@
             });
             clipboard = { action: 'cut', items: mapped, path: mapped[0].path, name: mapped[0].name };
             updateSelectionState();
-            document.getElementById('btn-paste').disabled = false;
-            renderItems(currentItems);
+            const btnPaste = document.getElementById('btn-paste');
+            if (btnPaste) btnPaste.disabled = false;
+            setMenuEntryDisabled('menu-item-paste', false);
+            applyFilterAndRender();
             showToast(items.length === 1 ? 'Cut "' + items[0].name + '" (ready to paste)' : 'Cut ' + items.length + ' items (ready to paste)', '✂️');
         }
 
@@ -6828,7 +8260,9 @@
             if (successCount > 0) {
                 showToast((clipboard.action === 'cut' ? 'Moved ' : 'Copied ') + successCount + (successCount === 1 ? ' item' : ' items') + ' successfully', '✅');
                 if (clipboard.action === 'cut') clipboard = null;
-                document.getElementById('btn-paste').disabled = !clipboard;
+                const btnPaste = document.getElementById('btn-paste');
+                if (btnPaste) btnPaste.disabled = !clipboard;
+                setMenuEntryDisabled('menu-item-paste', !clipboard);
                 loadFiles(currentPath);
             } else {
                 showToast('Failed to paste item(s)', '❌');
@@ -7363,12 +8797,16 @@
             if (container && !container.contains(e.target)) {
                 closePathDropdown();
             }
+            if (!e.target.closest('.menubar-item')) {
+                closeAllMenus();
+            }
         });
 
         document.addEventListener('keydown', function(e) {
             const isEditing = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
             
             if (e.key === 'Escape') {
+                closeAllMenus();
                 clearTypeAhead();
                 closePathDropdown();
                 closeViewMenu();
@@ -7408,10 +8846,46 @@
 
             if (isEditing) return;
 
+            // Ctrl+F1 (Win/Linux) or Cmd+Option+T (Mac): Toggle Compact Bars
+            const isCompactShortcutMac = e.metaKey && e.altKey && (e.key === 't' || e.key === 'T');
+            const isCompactShortcutWin = e.ctrlKey && e.key === 'F1';
+            if (isCompactShortcutMac || isCompactShortcutWin) {
+                e.preventDefault();
+                toggleCompactBars();
+                return;
+            }
+
+            // Alt+P (Windows Explorer) or Cmd+Shift+P / Cmd+Option+P: Toggle Preview Pane
+            const isPreviewShortcutMac = (e.metaKey && e.shiftKey && (e.key === 'p' || e.key === 'P')) || (e.metaKey && e.altKey && (e.key === 'p' || e.key === 'P'));
+            const isPreviewShortcutWin = e.altKey && (e.key === 'p' || e.key === 'P') && !e.ctrlKey;
+            if (isPreviewShortcutMac || isPreviewShortcutWin) {
+                e.preventDefault();
+                togglePreview();
+                return;
+            }
+
+            // Alt+B or Cmd+Shift+B: Toggle Sidebar
+            const isSidebarShortcutMac = e.metaKey && e.shiftKey && (e.key === 'b' || e.key === 'B');
+            const isSidebarShortcutWin = e.altKey && (e.key === 'b' || e.key === 'B');
+            if (isSidebarShortcutMac || isSidebarShortcutWin) {
+                e.preventDefault();
+                toggleSidebarRail();
+                return;
+            }
+
             // ? or F1: Open Feature Guide & Keyboard Shortcuts
-            if (e.key === '?' || (e.shiftKey && e.key === '/') || e.key === 'F1') {
+            if ((e.key === '?' || (e.shiftKey && e.key === '/') || e.key === 'F1') && !e.ctrlKey && !e.metaKey && !e.altKey) {
                 e.preventDefault();
                 openHelpModal();
+                return;
+            }
+
+            // Cmd+Shift+. (Mac) or Ctrl+H / Ctrl+Shift+. (Win/Linux): Toggle Hidden Files
+            const isHiddenShortcutMac = e.metaKey && e.shiftKey && (e.key === '.' || e.code === 'Period');
+            const isHiddenShortcutWin = (e.ctrlKey && (e.key === 'h' || e.key === 'H')) || (e.ctrlKey && e.shiftKey && (e.key === '.' || e.code === 'Period'));
+            if (isHiddenShortcutMac || isHiddenShortcutWin) {
+                e.preventDefault();
+                toggleShowHiddenFiles();
                 return;
             }
 
@@ -8394,10 +9868,21 @@
         // Initialize
         fetchRoots();
         initBookmarks();
+        initQuickFilterAndHiddenFiles();
         const initialTab = tabs.find(function(t) { return t.id === activeTabId; }) || tabs[0];
         navigateTo(initialTab.path);
         setView(currentViewMode);
         setupWindowDragAndDrop();
+        syncMenuShortcuts();
+
+        // Restore saved panel states
+        const savedSidebarCollapsed = localStorage.getItem('venel_sidebar_collapsed') === 'true';
+        if (savedSidebarCollapsed) toggleSidebarRail(true);
+        const savedPreviewCollapsed = localStorage.getItem('venel_preview_collapsed') === 'true';
+        if (savedPreviewCollapsed) togglePreview(true);
+        if (typeof isCompactBars !== 'undefined' && isCompactBars) applyCompactBarsState();
+        updateDockStripVisibility();
+        updateViewMenuChecks();
 
         // Update OS-specific tab shortcut badges
         const badgeShortcut = document.getElementById('badge-tab-shortcut');
