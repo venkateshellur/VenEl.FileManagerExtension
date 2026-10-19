@@ -82,6 +82,27 @@ export class LocalServer {
                         return;
                     }
 
+                    // 1b. Static Assets (styles.css, app.js, media files)
+                    const staticExtensions = ['.css', '.js', '.png', '.svg', '.ico'];
+                    const reqExt = path.extname(pathname).toLowerCase();
+                    if (staticExtensions.includes(reqExt)) {
+                        const safeFileName = path.basename(pathname);
+                        const mediaPath = path.join(__dirname, '..', 'media', safeFileName);
+                        if (fs.existsSync(mediaPath) && fs.statSync(mediaPath).isFile()) {
+                            const mimeTypes: Record<string, string> = {
+                                '.css': 'text/css; charset=utf-8',
+                                '.js': 'application/javascript; charset=utf-8',
+                                '.png': 'image/png',
+                                '.svg': 'image/svg+xml',
+                                '.ico': 'image/x-icon'
+                            };
+                            res.writeHead(200, { 'Content-Type': mimeTypes[reqExt] || 'application/octet-stream' });
+                            res.end(fs.readFileSync(mediaPath));
+                            return;
+                        }
+                    }
+
+
                     // 2. System Roots / Drives
                     if (pathname === '/api/files/roots') {
                         const roots = LocalServer.getSystemRoots();
