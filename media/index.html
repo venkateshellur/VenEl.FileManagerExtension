@@ -50,6 +50,9 @@
             <button id="btn-view-dropdown" class="tool-btn view-dropdown-btn" onclick="toggleViewMenu(event)" title="Change layout view">
                 <span id="current-view-icon">⊞</span> <span id="current-view-label">Grid</span> <span style="font-size: 8px; opacity: 0.7; margin-left: 2px;">▾</span>
             </button>
+            <button id="btn-toggle-theme" onclick="cycleThemeMode()" class="tool-btn" title="Toggle Theme (Auto / Dark / Light / High Contrast)" style="font-size: 13px; padding: 5px 8px;">
+                <span id="theme-btn-icon">🌓</span>
+            </button>
             <button id="btn-toggle-compact" onclick="toggleCompactBars()" class="tool-btn" title="Collapse Menus & Toolbars (Ctrl+F1 / ⌘⌥T)" style="font-size: 13px; padding: 5px 8px; font-weight: bold; color: #a29bfe;">⌃</button>
 
             <!-- Unified View Dropdown Menu -->
@@ -307,6 +310,28 @@
                             <span class="menu-check" id="menu-chk-sort-type"></span>
                             <span class="menu-icon">🏷️</span>
                             <span class="menu-label">Sort by Type</span>
+                        </div>
+                        <div class="menu-divider"></div>
+                        <div class="menu-section-header" style="padding: 4px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px;">Theme Appearance</div>
+                        <div class="menu-entry" onclick="menuAction(function() { setThemeMode('auto'); })">
+                            <span class="menu-check" id="menu-chk-theme-auto">✓</span>
+                            <span class="menu-icon">🎨</span>
+                            <span class="menu-label">Auto (Follow IDE / System)</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(function() { setThemeMode('dark'); })">
+                            <span class="menu-check" id="menu-chk-theme-dark"></span>
+                            <span class="menu-icon">🌙</span>
+                            <span class="menu-label">Dark Theme</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(function() { setThemeMode('light'); })">
+                            <span class="menu-check" id="menu-chk-theme-light"></span>
+                            <span class="menu-icon">☀️</span>
+                            <span class="menu-label">Light Theme</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(function() { setThemeMode('high-contrast'); })">
+                            <span class="menu-check" id="menu-chk-theme-high-contrast"></span>
+                            <span class="menu-icon">👁️</span>
+                            <span class="menu-label">High Contrast</span>
                         </div>
                     </div>
                 </div>

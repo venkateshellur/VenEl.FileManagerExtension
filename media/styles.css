@@ -1,20 +1,182 @@
 :root {
-    --bg-color: #121214;
-    --sidebar-bg: #15151a;
-    --panel-bg: rgba(255, 255, 255, 0.03);
-    --border-color: rgba(255, 255, 255, 0.1);
-    --text-main: #e0e0e0;
-    --text-muted: #888899;
-    --accent: #6c5ce7;
+    --bg-color: var(--vscode-editor-background, #121214);
+    --sidebar-bg: var(--vscode-sideBar-background, #15151a);
+    --panel-bg: var(--vscode-editorWidget-background, rgba(255, 255, 255, 0.03));
+    --border-color: var(--vscode-sideBar-border, var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.1)));
+    --text-main: var(--vscode-editor-foreground, #e0e0e0);
+    --text-muted: var(--vscode-descriptionForeground, #888899);
+    --accent: var(--vscode-focusBorder, #6c5ce7);
     --accent-hover: #8172fa;
     --accent-gradient: linear-gradient(135deg, #6c5ce7 0%, #00cec9 100%);
     --danger: #eb4d4b;
     --danger-hover: #ff7675;
-    --hover-bg: rgba(255, 255, 255, 0.08);
-    --active-bg: rgba(108, 92, 231, 0.22);
-    --active-border: #6c5ce7;
-    --modal-bg: #1c1c21;
+    --hover-bg: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.08));
+    --active-bg: var(--vscode-list-activeSelectionBackground, rgba(108, 92, 231, 0.22));
+    --active-border: var(--vscode-focusBorder, #6c5ce7);
+    --modal-bg: var(--vscode-editorWidget-background, #1c1c21);
+
+    --header-bg: var(--vscode-sideBar-background, #141418);
+    --toolbar-bg: rgba(0, 0, 0, 0.22);
+    --tabs-bar-bg: var(--vscode-editorGroupHeader-tabsBackground, #0d0d11);
+    --tab-active-bg: var(--vscode-tab-activeBackground, #141418);
+    --tab-active-fg: var(--vscode-tab-activeForeground, #ffffff);
+    --input-bg: var(--vscode-input-background, #18181e);
+    --input-fg: var(--vscode-input-foreground, #e0e0e0);
+    --input-border: var(--vscode-input-border, rgba(255, 255, 255, 0.15));
+    --dropdown-bg: var(--vscode-menu-background, #1c1c24);
+    --dropdown-fg: var(--vscode-menu-foreground, #f1f2f6);
+    --dropdown-hover-bg: var(--vscode-menu-selectionBackground, #2d2654);
+    --dropdown-hover-fg: var(--vscode-menu-selectionForeground, #ffffff);
+    --card-bg: rgba(255, 255, 255, 0.035);
+    --card-border: rgba(255, 255, 255, 0.08);
+    --card-hover-bg: rgba(255, 255, 255, 0.07);
+    --table-stripe: rgba(255, 255, 255, 0.02);
+    --editor-textarea-bg: var(--vscode-editor-background, #0d0d11);
+    --editor-textarea-fg: var(--vscode-editor-foreground, #f1f2f6);
+    --commander-strip-bg: var(--vscode-editorGroupHeader-tabsBackground, #101014);
+    --status-bar-bg: var(--vscode-statusBar-background, #0e0e11);
+    --code-bg: var(--vscode-editor-background, #0f0f13);
+    --shadow-color: rgba(0, 0, 0, 0.65);
+    --folder-color: #74b9ff;
 }
+
+/* ══════════════════════════════════════════════════════════ */
+/* ☀️ LIGHT THEME (VS Code Light, System Light, User Option)  */
+/* ══════════════════════════════════════════════════════════ */
+body.vscode-light,
+body[data-theme="light"],
+body.theme-light {
+    --bg-color: var(--vscode-editor-background, #fdfdfd);
+    --sidebar-bg: var(--vscode-sideBar-background, #f5f6f8);
+    --panel-bg: var(--vscode-editorWidget-background, rgba(0, 0, 0, 0.02));
+    --border-color: var(--vscode-sideBar-border, var(--vscode-editorWidget-border, rgba(0, 0, 0, 0.12)));
+    --text-main: var(--vscode-editor-foreground, #22252a);
+    --text-muted: var(--vscode-descriptionForeground, #636e72);
+    --accent: var(--vscode-focusBorder, #5843db);
+    --accent-hover: #4834d4;
+    --accent-gradient: linear-gradient(135deg, #6c5ce7 0%, #0984e3 100%);
+    --danger: #d63031;
+    --danger-hover: #e17055;
+    --hover-bg: var(--vscode-list-hoverBackground, rgba(0, 0, 0, 0.05));
+    --active-bg: var(--vscode-list-activeSelectionBackground, rgba(108, 92, 231, 0.12));
+    --active-border: var(--vscode-focusBorder, #6c5ce7);
+    --modal-bg: var(--vscode-editorWidget-background, #ffffff);
+
+    --header-bg: var(--vscode-sideBar-background, #f1f2f6);
+    --toolbar-bg: rgba(0, 0, 0, 0.03);
+    --tabs-bar-bg: var(--vscode-editorGroupHeader-tabsBackground, #e9ecef);
+    --tab-active-bg: var(--vscode-tab-activeBackground, #ffffff);
+    --tab-active-fg: var(--vscode-tab-activeForeground, #1e272e);
+    --input-bg: var(--vscode-input-background, #ffffff);
+    --input-fg: var(--vscode-input-foreground, #22252a);
+    --input-border: var(--vscode-input-border, rgba(0, 0, 0, 0.18));
+    --dropdown-bg: var(--vscode-menu-background, #ffffff);
+    --dropdown-fg: var(--vscode-menu-foreground, #22252a);
+    --dropdown-hover-bg: var(--vscode-menu-selectionBackground, #eef1f6);
+    --dropdown-hover-fg: var(--vscode-menu-selectionForeground, #5843db);
+    --card-bg: #ffffff;
+    --card-border: rgba(0, 0, 0, 0.08);
+    --card-hover-bg: #f8f9fa;
+    --table-stripe: rgba(0, 0, 0, 0.02);
+    --editor-textarea-bg: var(--vscode-editor-background, #f8f9fa);
+    --editor-textarea-fg: var(--vscode-editor-foreground, #2d3436);
+    --commander-strip-bg: var(--vscode-editorGroupHeader-tabsBackground, #f1f2f6);
+    --status-bar-bg: var(--vscode-statusBar-background, #e9ecef);
+    --code-bg: var(--vscode-editor-background, #f8f9fa);
+    --shadow-color: rgba(0, 0, 0, 0.14);
+    --folder-color: #0984e3;
+}
+
+/* ══════════════════════════════════════════════════════════ */
+/* 👁️ HIGH CONTRAST THEME (VS Code & Accessibility)           */
+/* ══════════════════════════════════════════════════════════ */
+body.vscode-high-contrast,
+body[data-theme="high-contrast"],
+body.theme-high-contrast {
+    --bg-color: #000000;
+    --sidebar-bg: #000000;
+    --panel-bg: #000000;
+    --border-color: #6fc3df;
+    --text-main: #ffffff;
+    --text-muted: #a6a6a6;
+    --accent: #f38518;
+    --accent-hover: #ff9e3b;
+    --accent-gradient: none;
+    --danger: #f48771;
+    --danger-hover: #ff7675;
+    --hover-bg: rgba(255, 255, 255, 0.12);
+    --active-bg: rgba(111, 195, 223, 0.3);
+    --active-border: #6fc3df;
+    --modal-bg: #000000;
+
+    --header-bg: #000000;
+    --toolbar-bg: #000000;
+    --tabs-bar-bg: #000000;
+    --tab-active-bg: #000000;
+    --tab-active-fg: #ffffff;
+    --input-bg: #000000;
+    --input-fg: #ffffff;
+    --input-border: #6fc3df;
+    --dropdown-bg: #000000;
+    --dropdown-fg: #ffffff;
+    --dropdown-hover-bg: #094771;
+    --dropdown-hover-fg: #ffffff;
+    --card-bg: #000000;
+    --card-border: #6fc3df;
+    --card-hover-bg: rgba(255, 255, 255, 0.12);
+    --table-stripe: rgba(255, 255, 255, 0.05);
+    --editor-textarea-bg: #000000;
+    --editor-textarea-fg: #ffffff;
+    --commander-strip-bg: #000000;
+    --status-bar-bg: #000000;
+    --code-bg: #000000;
+    --shadow-color: rgba(255, 255, 255, 0.3);
+    --folder-color: #6fc3df;
+}
+
+body.vscode-high-contrast-light,
+body[data-theme="high-contrast-light"] {
+    --bg-color: #ffffff;
+    --sidebar-bg: #ffffff;
+    --panel-bg: #ffffff;
+    --border-color: #0f4a85;
+    --text-main: #000000;
+    --text-muted: #292929;
+    --accent: #0066bf;
+    --accent-hover: #005096;
+    --accent-gradient: none;
+    --danger: #b5200d;
+    --danger-hover: #d63031;
+    --hover-bg: rgba(0, 0, 0, 0.08);
+    --active-bg: rgba(15, 74, 133, 0.2);
+    --active-border: #0f4a85;
+    --modal-bg: #ffffff;
+
+    --header-bg: #ffffff;
+    --toolbar-bg: #ffffff;
+    --tabs-bar-bg: #ffffff;
+    --tab-active-bg: #ffffff;
+    --tab-active-fg: #000000;
+    --input-bg: #ffffff;
+    --input-fg: #000000;
+    --input-border: #0f4a85;
+    --dropdown-bg: #ffffff;
+    --dropdown-fg: #000000;
+    --dropdown-hover-bg: #0f4a85;
+    --dropdown-hover-fg: #ffffff;
+    --card-bg: #ffffff;
+    --card-border: #0f4a85;
+    --card-hover-bg: rgba(0, 0, 0, 0.06);
+    --table-stripe: rgba(0, 0, 0, 0.03);
+    --editor-textarea-bg: #ffffff;
+    --editor-textarea-fg: #000000;
+    --commander-strip-bg: #ffffff;
+    --status-bar-bg: #ffffff;
+    --code-bg: #ffffff;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --folder-color: #0f4a85;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -36,8 +198,8 @@ body {
     height: 38px;
     min-height: 38px;
     max-height: 38px;
-    background: #0d0d11;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--tabs-bar-bg);
+    border-bottom: 1px solid var(--border-color);
     padding: 0 10px;
     gap: 4px;
     position: relative;
@@ -89,10 +251,10 @@ body {
     border-color: rgba(255, 255, 255, 0.12);
 }
 .tab-item.active {
-    background: #141418;
-    color: #ffffff;
+    background: var(--tab-active-bg);
+    color: var(--tab-active-fg);
     font-weight: 600;
-    border-color: rgba(255, 255, 255, 0.14);
+    border-color: var(--border-color);
     border-top: 2px solid var(--accent);
     box-shadow: 0 -2px 10px rgba(108, 92, 231, 0.18);
 }
@@ -172,7 +334,7 @@ header {
     max-height: 48px;
     flex-shrink: 0;
     padding: 0 16px;
-    background: #141418;
+    background: var(--header-bg);
     border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
@@ -258,7 +420,7 @@ header {
 }
 .path-bar:focus-within {
     border-color: var(--accent);
-    background: #18181e;
+    background: var(--input-bg);
 }
 .path-breadcrumbs {
     display: flex;
@@ -331,7 +493,7 @@ header {
     max-height: 42px;
     flex-shrink: 0;
     padding: 0 16px;
-    background: rgba(0, 0, 0, 0.22);
+    background: var(--toolbar-bg);
     border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
@@ -400,13 +562,11 @@ header {
     top: calc(100% + 4px);
     left: 0;
     min-width: 220px;
-    background: rgba(24, 24, 30, 0.96);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--dropdown-bg);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 5px;
-    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 16px 36px var(--shadow-color);
     z-index: 10000;
     animation: menuFadeIn 0.12s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
@@ -551,12 +711,12 @@ header {
     top: calc(100% + 6px);
     left: 0;
     right: 0;
-    background-color: #1c1c24 !important;
-    background: #1c1c24 !important;
+    background-color: var(--dropdown-bg) !important;
+    background: var(--dropdown-bg) !important;
     opacity: 1 !important;
-    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    border: 1px solid var(--border-color) !important;
     border-radius: 8px;
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.98), 0 0 0 1px rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 15px 40px var(--shadow-color) !important;
     max-height: 420px;
     overflow-y: auto;
     z-index: 6500 !important;
@@ -572,8 +732,8 @@ header {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.8px;
-    color: #9c9cb2 !important;
-    background-color: #141418 !important;
+    color: var(--text-muted) !important;
+    background-color: var(--header-bg) !important;
     padding: 8px 14px 4px;
 }
 .dropdown-item {
@@ -583,14 +743,14 @@ header {
     padding: 8px 14px;
     cursor: pointer;
     font-size: 13px;
-    color: #f1f2f6 !important;
-    background-color: #1a1a22 !important;
+    color: var(--dropdown-fg) !important;
+    background-color: var(--dropdown-bg) !important;
     transition: background 0.15s, color 0.15s;
     pointer-events: auto !important;
 }
 .dropdown-item:hover {
-    background-color: #2d2654 !important;
-    color: #ffffff !important;
+    background-color: var(--dropdown-hover-bg) !important;
+    color: var(--dropdown-hover-fg) !important;
 }
 .dropdown-item i {
     font-style: normal;
@@ -866,8 +1026,8 @@ header {
 #files.list-view .item-type { color: var(--text-muted); font-size: 11px; }
 #files.list-view .item-size { color: var(--text-muted); font-size: 11px; text-align: right; }
 
-.folder .item-name { color: #74b9ff; font-weight: 600; }
-.file .item-name { color: #dfe6e9; }
+.folder .item-name { color: var(--folder-color); font-weight: 600; }
+.file .item-name { color: var(--text-main); }
 
 /* Right Preview Pane (Dockable Visual Studio Panel) */
 .preview-pane {
@@ -1055,10 +1215,10 @@ body.compact-header #quick-filter-bar {
 /* Context Menu */
 .context-menu {
     position: fixed;
-    background: #1c1c24;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: var(--dropdown-bg);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85);
+    box-shadow: 0 16px 40px var(--shadow-color);
     min-width: 190px;
     z-index: 7000;
     display: none;
@@ -1076,8 +1236,8 @@ body.compact-header #quick-filter-bar {
     transition: background 0.12s;
 }
 .context-item:hover {
-    background: #2d2654;
-    color: #fff;
+    background: var(--dropdown-hover-bg);
+    color: var(--dropdown-hover-fg);
 }
 .context-item.danger:hover {
     background: rgba(235, 77, 75, 0.25);
@@ -1242,8 +1402,8 @@ body.compact-header #quick-filter-bar {
     max-height: 480px;
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    background: #141418;
-    box-shadow: inset 0 2px 8px rgba(0,0,0,0.4);
+    background: var(--code-bg);
+    box-shadow: inset 0 2px 8px var(--shadow-color);
     margin-top: 6px;
 }
 .preview-data-table {
@@ -1256,40 +1416,41 @@ body.compact-header #quick-filter-bar {
 }
 .preview-data-table th, .preview-data-table td {
     padding: 7px 12px;
-    border-right: 1px solid rgba(255, 255, 255, 0.05);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-right: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
     max-width: 280px;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: var(--text-main);
 }
 .preview-data-table th {
     position: sticky;
     top: 0;
-    background: #1d1d26;
-    color: #a29bfe;
+    background: var(--header-bg);
+    color: var(--accent);
     font-weight: 600;
     z-index: 2;
-    border-bottom: 2px solid rgba(108, 92, 231, 0.4);
+    border-bottom: 2px solid var(--border-color);
     user-select: none;
 }
 .preview-data-table th.idx-col, .preview-data-table td.idx-col {
     position: sticky;
     left: 0;
     z-index: 3;
-    background: #171720;
+    background: var(--sidebar-bg);
     color: var(--text-muted);
     width: 42px;
     min-width: 42px;
     text-align: center;
     font-size: 10px;
-    border-right: 2px solid rgba(255, 255, 255, 0.08);
+    border-right: 2px solid var(--border-color);
 }
 .preview-data-table th.idx-col {
     z-index: 4;
-    background: #21212c;
+    background: var(--header-bg);
 }
 .preview-data-table tbody tr:nth-child(even) td {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--table-stripe);
 }
 .preview-data-table tbody tr:hover td {
     background: rgba(108, 92, 231, 0.12);
@@ -2185,7 +2346,7 @@ kbd {
     min-height: 26px;
     max-height: 26px;
     flex-shrink: 0;
-    background: #0e0e11;
+    background: var(--status-bar-bg);
     border-top: 1px solid var(--border-color);
     padding: 0 16px;
     display: flex;
@@ -2242,7 +2403,7 @@ kbd {
     align-items: center;
     gap: 8px;
     padding: 4px 16px;
-    background: rgba(15, 15, 20, 0.95);
+    background: var(--sidebar-bg);
     border-bottom: 1px solid var(--border-color);
     font-size: 11px;
     box-sizing: border-box;
@@ -2341,7 +2502,7 @@ kbd {
     justify-content: space-between;
     gap: 8px;
     padding: 4px 16px;
-    background: rgba(18, 18, 26, 0.96);
+    background: var(--header-bg);
     border-bottom: 1px solid var(--border-color);
     font-size: 11px;
     box-sizing: border-box;
@@ -2953,10 +3114,10 @@ kbd {
     position: absolute;
     top: calc(100% + 6px);
     right: 32px;
-    background: #1c1c24 !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    background: var(--dropdown-bg) !important;
+    border: 1px solid var(--border-color) !important;
     border-radius: 8px;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 16px 40px var(--shadow-color) !important;
     padding: 5px;
     min-width: 220px;
     z-index: 6600 !important;
@@ -4293,7 +4454,7 @@ kbd {
     align-items: center;
     gap: 6px;
     padding: 6px 10px;
-    background: #101014;
+    background: var(--commander-strip-bg);
     border-top: 1px solid var(--border-color);
     flex-shrink: 0;
     overflow-x: auto;
@@ -4305,11 +4466,11 @@ kbd {
     align-items: center;
     gap: 5px;
     padding: 4px 10px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
     border-radius: 4px;
     font-size: 11px;
-    color: #dfe6e9;
+    color: var(--text-main);
     cursor: pointer;
     transition: all 0.15s ease;
     white-space: nowrap;
@@ -4380,7 +4541,7 @@ kbd {
     width: 100%;
     box-sizing: border-box;
     overflow: hidden;
-    background: #0e0e12;
+    background: var(--editor-textarea-bg);
 }
 
 .inline-editor-toolbar {
@@ -4388,7 +4549,7 @@ kbd {
     align-items: center;
     gap: 8px;
     padding: 6px 10px;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--header-bg);
     border-bottom: 1px solid var(--border-color);
     font-size: 11px;
     flex-shrink: 0;
@@ -4420,8 +4581,8 @@ kbd {
     width: 100%;
     height: 100%;
     padding: 10px 12px;
-    background: #0d0d11;
-    color: #f1f2f6;
+    background: var(--editor-textarea-bg);
+    color: var(--editor-textarea-fg);
     border: none;
     outline: none;
     resize: none;

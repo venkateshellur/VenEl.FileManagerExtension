@@ -252,11 +252,71 @@ export class FileManagerPanel {
     ${serverUrl !== 'about:blank' ? `<iframe id="engine-frame" src="${serverUrl}" onload="onFrameLoad()"></iframe>` : ''}
     <script>
         const vscode = acquireVsCodeApi();
+
+        function sendThemeToFrame() {
+            const frame = document.getElementById('engine-frame');
+            if (!frame || !frame.contentWindow) return;
+            const cs = window.getComputedStyle(document.body);
+            const isLight = document.body.classList.contains('vscode-light');
+            const isHcLight = document.body.classList.contains('vscode-high-contrast-light');
+            const isHc = document.body.classList.contains('vscode-high-contrast');
+            let themeKind = 'dark';
+            if (isHcLight) themeKind = 'high-contrast-light';
+            else if (isHc) themeKind = 'high-contrast';
+            else if (isLight) themeKind = 'light';
+
+            const themePayload = {
+                command: 'ide-theme-changed',
+                themeKind: themeKind,
+                isLight: isLight,
+                isHighContrast: isHc || isHcLight,
+                bodyClass: document.body.className,
+                vars: {
+                    '--vscode-editor-background': cs.getPropertyValue('--vscode-editor-background').trim(),
+                    '--vscode-editor-foreground': cs.getPropertyValue('--vscode-editor-foreground').trim(),
+                    '--vscode-sideBar-background': cs.getPropertyValue('--vscode-sideBar-background').trim(),
+                    '--vscode-sideBar-foreground': cs.getPropertyValue('--vscode-sideBar-foreground').trim(),
+                    '--vscode-sideBar-border': cs.getPropertyValue('--vscode-sideBar-border').trim(),
+                    '--vscode-focusBorder': cs.getPropertyValue('--vscode-focusBorder').trim(),
+                    '--vscode-list-hoverBackground': cs.getPropertyValue('--vscode-list-hoverBackground').trim(),
+                    '--vscode-list-activeSelectionBackground': cs.getPropertyValue('--vscode-list-activeSelectionBackground').trim(),
+                    '--vscode-list-activeSelectionForeground': cs.getPropertyValue('--vscode-list-activeSelectionForeground').trim(),
+                    '--vscode-input-background': cs.getPropertyValue('--vscode-input-background').trim(),
+                    '--vscode-input-foreground': cs.getPropertyValue('--vscode-input-foreground').trim(),
+                    '--vscode-input-border': cs.getPropertyValue('--vscode-input-border').trim(),
+                    '--vscode-editorWidget-background': cs.getPropertyValue('--vscode-editorWidget-background').trim(),
+                    '--vscode-editorWidget-border': cs.getPropertyValue('--vscode-editorWidget-border').trim(),
+                    '--vscode-menu-background': cs.getPropertyValue('--vscode-menu-background').trim(),
+                    '--vscode-menu-foreground': cs.getPropertyValue('--vscode-menu-foreground').trim(),
+                    '--vscode-menu-selectionBackground': cs.getPropertyValue('--vscode-menu-selectionBackground').trim(),
+                    '--vscode-menu-selectionForeground': cs.getPropertyValue('--vscode-menu-selectionForeground').trim(),
+                    '--vscode-editorGroupHeader-tabsBackground': cs.getPropertyValue('--vscode-editorGroupHeader-tabsBackground').trim(),
+                    '--vscode-tab-activeBackground': cs.getPropertyValue('--vscode-tab-activeBackground').trim(),
+                    '--vscode-tab-activeForeground': cs.getPropertyValue('--vscode-tab-activeForeground').trim(),
+                    '--vscode-panel-background': cs.getPropertyValue('--vscode-panel-background').trim(),
+                    '--vscode-descriptionForeground': cs.getPropertyValue('--vscode-descriptionForeground').trim()
+                }
+            };
+            try {
+                frame.contentWindow.postMessage(themePayload, '*');
+            } catch (e) {}
+        }
+
         window.addEventListener('message', function(event) {
+            if (event.data && event.data.command === 'request-ide-theme') {
+                sendThemeToFrame();
+                return;
+            }
             if (event.data && event.data.command) {
                 vscode.postMessage(event.data);
             }
         });
+
+        const themeObserver = new MutationObserver(function() {
+            sendThemeToFrame();
+        });
+        themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class', 'style'] });
+
         function onFrameLoad() {
             const overlay = document.getElementById('loading-overlay');
             const frame = document.getElementById('engine-frame');
@@ -265,6 +325,7 @@ export class FileManagerPanel {
                 overlay.style.opacity = '0';
                 overlay.style.visibility = 'hidden';
             }
+            sendThemeToFrame();
         }
         setTimeout(onFrameLoad, 3500);
     </script>

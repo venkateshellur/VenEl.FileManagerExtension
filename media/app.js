@@ -158,7 +158,166 @@ function updateViewMenuChecks() {
             }
         });
     }
+
+    const currentTheme = getThemeMode();
+    ['auto', 'dark', 'light', 'high-contrast'].forEach(function(m) {
+        const chk = document.getElementById('menu-chk-theme-' + m);
+        if (chk) chk.textContent = currentTheme === m ? '✓' : '';
+    });
 }
+
+// ══════════════════════════════════════════════════════════
+// 🎨 DYNAMIC IDE & SYSTEM THEME ENGINE
+// ══════════════════════════════════════════════════════════
+let currentThemeMode = (function() {
+    try {
+        return localStorage.getItem('venel_theme_mode') || 'auto';
+    } catch (e) {
+        return 'auto';
+    }
+})();
+let cachedIdeTheme = null;
+
+function getThemeMode() {
+    return currentThemeMode;
+}
+
+function setThemeMode(mode) {
+    if (!['auto', 'dark', 'light', 'high-contrast'].includes(mode)) mode = 'auto';
+    currentThemeMode = mode;
+    try {
+        localStorage.setItem('venel_theme_mode', mode);
+    } catch (e) {}
+    applyTheme();
+    updateViewMenuChecks();
+    
+    const labelMap = {
+        'auto': 'Auto (Follow IDE / System)',
+        'dark': 'Dark Theme',
+        'light': 'Light Theme',
+        'high-contrast': 'High Contrast'
+    };
+    const iconMap = {
+        'auto': '🎨',
+        'dark': '🌙',
+        'light': '☀️',
+        'high-contrast': '👁️'
+    };
+    if (typeof showToast === 'function') {
+        showToast('Theme set to: ' + (labelMap[mode] || mode), iconMap[mode] || '🎨');
+    }
+}
+
+function cycleThemeMode() {
+    const modes = ['auto', 'light', 'dark', 'high-contrast'];
+    const idx = modes.indexOf(currentThemeMode);
+    const nextMode = modes[(idx + 1) % modes.length];
+    setThemeMode(nextMode);
+}
+
+function applyTheme() {
+    const body = document.body;
+    if (!body) return;
+
+    let effectiveTheme = 'dark';
+    if (currentThemeMode === 'auto') {
+        if (cachedIdeTheme && cachedIdeTheme.themeKind) {
+            effectiveTheme = cachedIdeTheme.themeKind;
+        } else if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+            effectiveTheme = 'light';
+        } else {
+            effectiveTheme = 'dark';
+        }
+    } else {
+        effectiveTheme = currentThemeMode;
+    }
+
+    body.classList.remove('vscode-light', 'vscode-dark', 'vscode-high-contrast', 'vscode-high-contrast-light', 'theme-light', 'theme-dark', 'theme-high-contrast');
+
+    if (effectiveTheme === 'light') {
+        body.setAttribute('data-theme', 'light');
+        body.classList.add('vscode-light', 'theme-light');
+    } else if (effectiveTheme === 'high-contrast' || effectiveTheme === 'high-contrast-light') {
+        body.setAttribute('data-theme', 'high-contrast');
+        body.classList.add(effectiveTheme === 'high-contrast-light' ? 'vscode-high-contrast-light' : 'vscode-high-contrast', 'theme-high-contrast');
+    } else {
+        body.setAttribute('data-theme', 'dark');
+        body.classList.add('vscode-dark', 'theme-dark');
+    }
+
+    if (currentThemeMode === 'auto' && cachedIdeTheme && cachedIdeTheme.vars) {
+        for (const [k, v] of Object.entries(cachedIdeTheme.vars)) {
+            if (v) {
+                document.documentElement.style.setProperty(k, v);
+            }
+        }
+    } else if (currentThemeMode !== 'auto') {
+        const knownVars = [
+            '--vscode-editor-background', '--vscode-editor-foreground',
+            '--vscode-sideBar-background', '--vscode-sideBar-foreground',
+            '--vscode-sideBar-border', '--vscode-focusBorder',
+            '--vscode-list-hoverBackground', '--vscode-list-activeSelectionBackground',
+            '--vscode-input-background', '--vscode-input-foreground',
+            '--vscode-editorWidget-background', '--vscode-editorWidget-border',
+            '--vscode-menu-background', '--vscode-menu-foreground',
+            '--vscode-menu-selectionBackground', '--vscode-editorGroupHeader-tabsBackground',
+            '--vscode-tab-activeBackground', '--vscode-tab-activeForeground',
+            '--vscode-descriptionForeground'
+        ];
+        knownVars.forEach(v => document.documentElement.style.removeProperty(v));
+    }
+
+    const themeBtnIcon = document.getElementById('theme-btn-icon');
+    const themeBtn = document.getElementById('btn-toggle-theme');
+    if (themeBtnIcon) {
+        if (currentThemeMode === 'auto') {
+            themeBtnIcon.textContent = effectiveTheme === 'light' ? '☀️' : (effectiveTheme.startsWith('high-contrast') ? '👁️' : '🌓');
+            if (themeBtn) themeBtn.title = 'Theme: Auto (' + effectiveTheme + ') - Click to cycle';
+        } else if (currentThemeMode === 'light') {
+            themeBtnIcon.textContent = '☀️';
+            if (themeBtn) themeBtn.title = 'Theme: Light - Click to cycle';
+        } else if (currentThemeMode === 'high-contrast') {
+            themeBtnIcon.textContent = '👁️';
+            if (themeBtn) themeBtn.title = 'Theme: High Contrast - Click to cycle';
+        } else {
+            themeBtnIcon.textContent = '🌙';
+            if (themeBtn) themeBtn.title = 'Theme: Dark - Click to cycle';
+        }
+    }
+}
+
+function initTheme() {
+    applyTheme();
+
+    window.addEventListener('message', function(event) {
+        if (event.data && event.data.command === 'ide-theme-changed') {
+            cachedIdeTheme = event.data;
+            if (currentThemeMode === 'auto') {
+                applyTheme();
+                updateViewMenuChecks();
+            }
+        }
+    });
+
+    try {
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ command: 'request-ide-theme' }, '*');
+        }
+    } catch (e) {}
+
+    if (typeof window !== 'undefined' && window.matchMedia) {
+        const mediaDark = window.matchMedia('(prefers-color-scheme: dark)');
+        if (mediaDark.addEventListener) {
+            mediaDark.addEventListener('change', function() {
+                if (currentThemeMode === 'auto' && !cachedIdeTheme) {
+                    applyTheme();
+                    updateViewMenuChecks();
+                }
+            });
+        }
+    }
+}
+initTheme();
 
 function toggleBookmarksBar() {
     const bar = document.getElementById('bookmarks-bar');
