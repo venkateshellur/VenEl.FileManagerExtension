@@ -274,7 +274,10 @@ function applyTheme() {
             '--vscode-menu-background', '--vscode-menu-foreground',
             '--vscode-menu-selectionBackground', '--vscode-editorGroupHeader-tabsBackground',
             '--vscode-tab-activeBackground', '--vscode-tab-activeForeground',
-            '--vscode-descriptionForeground'
+            '--vscode-descriptionForeground',
+            '--vscode-scrollbarSlider-background',
+            '--vscode-scrollbarSlider-hoverBackground',
+            '--vscode-scrollbarSlider-activeBackground'
         ];
         knownVars.forEach(v => document.documentElement.style.removeProperty(v));
     }

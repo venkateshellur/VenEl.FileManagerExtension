@@ -328,7 +328,10 @@ export class FileManagerPanel {
                     '--vscode-tab-activeBackground': cs.getPropertyValue('--vscode-tab-activeBackground').trim(),
                     '--vscode-tab-activeForeground': cs.getPropertyValue('--vscode-tab-activeForeground').trim(),
                     '--vscode-panel-background': cs.getPropertyValue('--vscode-panel-background').trim(),
-                    '--vscode-descriptionForeground': cs.getPropertyValue('--vscode-descriptionForeground').trim()
+                    '--vscode-descriptionForeground': cs.getPropertyValue('--vscode-descriptionForeground').trim(),
+                    '--vscode-scrollbarSlider-background': cs.getPropertyValue('--vscode-scrollbarSlider-background').trim(),
+                    '--vscode-scrollbarSlider-hoverBackground': cs.getPropertyValue('--vscode-scrollbarSlider-hoverBackground').trim(),
+                    '--vscode-scrollbarSlider-activeBackground': cs.getPropertyValue('--vscode-scrollbarSlider-activeBackground').trim()
                 }
             };
             try {

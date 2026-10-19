@@ -43,6 +43,11 @@
     --git-a-color: var(--vscode-gitDecoration-addedResourceForeground, #3498db);
     --git-d-color: var(--vscode-gitDecoration-deletedResourceForeground, #e74c3c);
     --git-r-color: var(--vscode-gitDecoration-renamedResourceForeground, #9b59b6);
+    color-scheme: dark;
+    --scrollbar-thumb: var(--vscode-scrollbarSlider-background, rgba(255, 255, 255, 0.18));
+    --scrollbar-thumb-hover: var(--vscode-scrollbarSlider-hoverBackground, rgba(255, 255, 255, 0.35));
+    --scrollbar-thumb-active: var(--vscode-scrollbarSlider-activeBackground, rgba(255, 255, 255, 0.52));
+    --scrollbar-track: transparent;
 }
 
 /* ══════════════════════════════════════════════════════════ */
@@ -95,6 +100,11 @@ body.theme-light {
     --git-a-color: var(--vscode-gitDecoration-addedResourceForeground, #2980b9);
     --git-d-color: var(--vscode-gitDecoration-deletedResourceForeground, #c0392b);
     --git-r-color: var(--vscode-gitDecoration-renamedResourceForeground, #8e44ad);
+    color-scheme: light;
+    --scrollbar-thumb: var(--vscode-scrollbarSlider-background, rgba(0, 0, 0, 0.22));
+    --scrollbar-thumb-hover: var(--vscode-scrollbarSlider-hoverBackground, rgba(0, 0, 0, 0.38));
+    --scrollbar-thumb-active: var(--vscode-scrollbarSlider-activeBackground, rgba(0, 0, 0, 0.55));
+    --scrollbar-track: transparent;
 }
 
 /* ☀️ High-Contrast Legibility for Places, Drives, & Sidebar Items in Light Mode */
@@ -263,6 +273,11 @@ body.theme-high-contrast {
     --git-a-color: #64b5f6;
     --git-d-color: #e57373;
     --git-r-color: #ba68c8;
+    color-scheme: dark;
+    --scrollbar-thumb: #6fc3df;
+    --scrollbar-thumb-hover: #ff9e3b;
+    --scrollbar-thumb-active: #f38518;
+    --scrollbar-track: rgba(255, 255, 255, 0.05);
 }
 
 body.vscode-high-contrast-light,
@@ -311,9 +326,61 @@ body[data-theme="high-contrast-light"] {
     --git-a-color: #0056b3;
     --git-d-color: #bd2130;
     --git-r-color: #6f42c1;
+    color-scheme: light;
+    --scrollbar-thumb: #0f4a85;
+    --scrollbar-thumb-hover: #0066bf;
+    --scrollbar-thumb-active: #004578;
+    --scrollbar-track: rgba(0, 0, 0, 0.05);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* ══════════════════════════════════════════════════════════ */
+/* 🎚️ POLISHED DESKTOP IDE-STYLE SCROLLBARS                  */
+/* ══════════════════════════════════════════════════════════ */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 6px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    transition: background 0.15s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+    border: 1px solid transparent;
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:active {
+    background: var(--scrollbar-thumb-active);
+    border: 1px solid transparent;
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+.quick-access-sidebar::-webkit-scrollbar,
+.preview-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background-color: var(--bg-color);
@@ -355,11 +422,11 @@ body {
     scrollbar-width: thin;
 }
 .tabs-container::-webkit-scrollbar {
-    height: 3px;
+    height: 4px;
 }
 .tabs-container::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 2px;
+    background: var(--scrollbar-thumb);
+    border-radius: 3px;
 }
 .tab-item {
     display: flex;
