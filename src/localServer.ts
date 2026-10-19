@@ -140,6 +140,13 @@ export class LocalServer {
                         return;
                     }
 
+                    // 2c. SFTP Remote Operations Proxy to Kestrel
+                    if (pathname.startsWith('/api/sftp/')) {
+                        try { await KestrelLauncher.ensureRunning(); } catch {}
+                        await LocalServer.forwardToKestrel(req, res, reqUrl);
+                        return;
+                    }
+
                     // 3. Directory Listing
                     if (pathname === '/api/files/list') {
                         let targetPath = reqUrl.searchParams.get('path');
@@ -808,16 +815,32 @@ export class LocalServer {
                         return;
                     }
 
-                    // 11. Copy File or Folder (Supports single or multi-item drag & drop)
+                    // 11. Copy File or Folder (Supports single or multi-item drag & drop and SFTP)
                     if (pathname === '/api/files/copy' && req.method === 'POST') {
                         const body = await LocalServer.parseJsonBody(req);
                         const { destinationDir } = body;
                         const items: string[] = Array.isArray(body.items) ? body.items : (body.source ? [body.source] : []);
-                        if (items.length === 0 || !destinationDir || !fs.existsSync(destinationDir)) {
+                        if (items.length === 0 || !destinationDir) {
                             res.writeHead(400, { 'Content-Type': 'application/json' });
                             res.end(JSON.stringify({ error: 'Valid source/items and destinationDir are required' }));
                             return;
                         }
+
+                        // Check if SFTP transfer
+                        const isSftp = destinationDir.startsWith('sftp://') || items.some(i => i && i.startsWith('sftp://'));
+                        if (isSftp) {
+                            const result = await LocalServer.handleSftpTransfer(items, destinationDir, false);
+                            res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify(result));
+                            return;
+                        }
+
+                        if (!fs.existsSync(destinationDir)) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Destination directory does not exist' }));
+                            return;
+                        }
+
                         const copied: string[] = [];
                         for (const source of items) {
                             if (!source || !fs.existsSync(source)) continue;
@@ -836,16 +859,32 @@ export class LocalServer {
                         return;
                     }
 
-                    // 12. Move / Cut File or Folder (Supports single or multi-item drag & drop)
+                    // 12. Move / Cut File or Folder (Supports single or multi-item drag & drop and SFTP)
                     if (pathname === '/api/files/move' && req.method === 'POST') {
                         const body = await LocalServer.parseJsonBody(req);
                         const { destinationDir } = body;
                         const items: string[] = Array.isArray(body.items) ? body.items : (body.source ? [body.source] : []);
-                        if (items.length === 0 || !destinationDir || !fs.existsSync(destinationDir)) {
+                        if (items.length === 0 || !destinationDir) {
                             res.writeHead(400, { 'Content-Type': 'application/json' });
                             res.end(JSON.stringify({ error: 'Valid source/items and destinationDir are required' }));
                             return;
                         }
+
+                        // Check if SFTP transfer
+                        const isSftp = destinationDir.startsWith('sftp://') || items.some(i => i && i.startsWith('sftp://'));
+                        if (isSftp) {
+                            const result = await LocalServer.handleSftpTransfer(items, destinationDir, true);
+                            res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify(result));
+                            return;
+                        }
+
+                        if (!fs.existsSync(destinationDir)) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Destination directory does not exist' }));
+                            return;
+                        }
+
                         const moved: string[] = [];
                         for (const source of items) {
                             if (!source || !fs.existsSync(source)) continue;
@@ -863,9 +902,22 @@ export class LocalServer {
                     if (pathname === '/api/files/upload' && req.method === 'POST') {
                         const body = await LocalServer.parseJsonBody(req);
                         const { destinationDir, files } = body;
-                        if (!destinationDir || !fs.existsSync(destinationDir) || !Array.isArray(files) || files.length === 0) {
+                        if (!destinationDir || !Array.isArray(files) || files.length === 0) {
                             res.writeHead(400, { 'Content-Type': 'application/json' });
                             res.end(JSON.stringify({ error: 'Valid destinationDir and files array required' }));
+                            return;
+                        }
+
+                        if (destinationDir.startsWith('sftp://')) {
+                            const result = await LocalServer.handleSftpExternalUpload(destinationDir, files);
+                            res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify(result));
+                            return;
+                        }
+
+                        if (!fs.existsSync(destinationDir)) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Destination directory does not exist' }));
                             return;
                         }
                         const created: string[] = [];
@@ -1557,6 +1609,261 @@ export class LocalServer {
             stats: { added, removed, unchanged },
             lines: out
         };
+    }
+
+    private static async forwardToKestrel(req: http.IncomingMessage, res: http.ServerResponse, reqUrl: URL): Promise<void> {
+        const kestrelHost = '127.0.0.1';
+        const kestrelPort = 5050;
+
+        const options: http.RequestOptions = {
+            hostname: kestrelHost,
+            port: kestrelPort,
+            path: reqUrl.pathname + reqUrl.search,
+            method: req.method,
+            headers: {
+                ...req.headers,
+                host: `${kestrelHost}:${kestrelPort}`
+            },
+            timeout: 30000
+        };
+
+        const kReq = http.request(options, (kRes) => {
+            res.writeHead(kRes.statusCode || 500, kRes.headers);
+            kRes.pipe(res);
+        });
+
+        kReq.on('error', (err) => {
+            if (!res.headersSent) {
+                res.writeHead(502, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: `Could not reach VenEl Kestrel backend engine: ${err.message}` }));
+            }
+        });
+
+        kReq.on('timeout', () => {
+            kReq.destroy();
+            if (!res.headersSent) {
+                res.writeHead(504, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Gateway timeout contacting VenEl Kestrel backend engine.' }));
+            }
+        });
+
+        req.pipe(kReq);
+    }
+
+    private static parseSftpUrl(url: string): { connectionId: string; remotePath: string } | null {
+        if (!url || typeof url !== 'string' || !url.startsWith('sftp://')) return null;
+        const withoutPrefix = url.substring(7);
+        const slashIdx = withoutPrefix.indexOf('/');
+        if (slashIdx === -1) {
+            return { connectionId: withoutPrefix, remotePath: '/' };
+        }
+        return {
+            connectionId: withoutPrefix.substring(0, slashIdx),
+            remotePath: withoutPrefix.substring(slashIdx) || '/'
+        };
+    }
+
+    private static async handleSftpTransfer(
+        items: string[],
+        destinationDir: string,
+        isMove: boolean
+    ): Promise<{ success: boolean; count: number; paths: string[]; error?: string }> {
+        try {
+            await KestrelLauncher.ensureRunning();
+            const destSftp = this.parseSftpUrl(destinationDir);
+            const transferred: string[] = [];
+
+            for (const item of items) {
+                if (!item) continue;
+                const srcSftp = this.parseSftpUrl(item);
+
+                // Case 1: SFTP -> Local
+                if (srcSftp && !destSftp) {
+                    if (!fs.existsSync(destinationDir)) continue;
+                    const fileName = path.posix.basename(srcSftp.remotePath);
+                    const localDest = path.join(destinationDir, fileName);
+
+                    const fileBytes = await new Promise<Buffer>((resolve, reject) => {
+                        const reqUrl = `http://127.0.0.1:5050/api/sftp/download?connectionId=${encodeURIComponent(srcSftp.connectionId)}&path=${encodeURIComponent(srcSftp.remotePath)}`;
+                        http.get(reqUrl, (res) => {
+                            if (res.statusCode !== 200) {
+                                return reject(new Error(`Failed to download remote file (Status: ${res.statusCode})`));
+                            }
+                            const chunks: Buffer[] = [];
+                            res.on('data', chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+                            res.on('end', () => resolve(Buffer.concat(chunks)));
+                        }).on('error', reject);
+                    });
+
+                    await fs.promises.writeFile(localDest, fileBytes);
+                    transferred.push(localDest);
+
+                    if (isMove) {
+                        await this.sftpJsonRequest('POST', '/api/sftp/delete', {
+                            connectionId: srcSftp.connectionId,
+                            targetPath: srcSftp.remotePath,
+                            isDirectory: false
+                        });
+                    }
+                }
+                // Case 2: Local -> SFTP
+                else if (!srcSftp && destSftp) {
+                    if (!fs.existsSync(item)) continue;
+                    const fileName = path.basename(item);
+                    const remoteDest = destSftp.remotePath === '/' ? '/' + fileName : destSftp.remotePath + '/' + fileName;
+                    const fileBuffer = await fs.promises.readFile(item);
+
+                    await new Promise<void>((resolve, reject) => {
+                        const uploadUrl = `http://127.0.0.1:5050/api/sftp/upload?connectionId=${encodeURIComponent(destSftp.connectionId)}&remotePath=${encodeURIComponent(remoteDest)}`;
+                        const req = http.request(uploadUrl, { method: 'POST' }, (res) => {
+                            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+                                resolve();
+                            } else {
+                                reject(new Error(`Failed to upload to SFTP (Status: ${res.statusCode})`));
+                            }
+                        });
+                        req.on('error', reject);
+                        req.end(fileBuffer);
+                    });
+
+                    const remoteUrl = `sftp://${destSftp.connectionId}${remoteDest}`;
+                    transferred.push(remoteUrl);
+
+                    if (isMove) {
+                        await fs.promises.unlink(item);
+                    }
+                }
+                // Case 3: SFTP -> SFTP (Cross-session or internal)
+                else if (srcSftp && destSftp) {
+                    const fileName = path.posix.basename(srcSftp.remotePath);
+                    const remoteDest = destSftp.remotePath === '/' ? '/' + fileName : destSftp.remotePath + '/' + fileName;
+
+                    const fileBytes = await new Promise<Buffer>((resolve, reject) => {
+                        const reqUrl = `http://127.0.0.1:5050/api/sftp/download?connectionId=${encodeURIComponent(srcSftp.connectionId)}&path=${encodeURIComponent(srcSftp.remotePath)}`;
+                        http.get(reqUrl, (res) => {
+                            if (res.statusCode !== 200) {
+                                return reject(new Error(`Failed to download remote file (Status: ${res.statusCode})`));
+                            }
+                            const chunks: Buffer[] = [];
+                            res.on('data', chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+                            res.on('end', () => resolve(Buffer.concat(chunks)));
+                        }).on('error', reject);
+                    });
+
+                    await new Promise<void>((resolve, reject) => {
+                        const uploadUrl = `http://127.0.0.1:5050/api/sftp/upload?connectionId=${encodeURIComponent(destSftp.connectionId)}&remotePath=${encodeURIComponent(remoteDest)}`;
+                        const req = http.request(uploadUrl, { method: 'POST' }, (res) => {
+                            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+                                resolve();
+                            } else {
+                                reject(new Error(`Failed to upload to remote SFTP (Status: ${res.statusCode})`));
+                            }
+                        });
+                        req.on('error', reject);
+                        req.end(fileBytes);
+                    });
+
+                    const remoteUrl = `sftp://${destSftp.connectionId}${remoteDest}`;
+                    transferred.push(remoteUrl);
+
+                    if (isMove) {
+                        await this.sftpJsonRequest('POST', '/api/sftp/delete', {
+                            connectionId: srcSftp.connectionId,
+                            targetPath: srcSftp.remotePath,
+                            isDirectory: false
+                        });
+                    }
+                }
+            }
+
+            return {
+                success: transferred.length > 0,
+                count: transferred.length,
+                paths: transferred
+            };
+        } catch (err: any) {
+            return {
+                success: false,
+                count: 0,
+                paths: [],
+                error: err.message
+            };
+        }
+    }
+
+    private static async handleSftpExternalUpload(
+        destinationDir: string,
+        files: { name: string; content?: string; contentBase64?: string }[]
+    ): Promise<{ success: boolean; count: number; paths: string[]; error?: string }> {
+        try {
+            await KestrelLauncher.ensureRunning();
+            const destSftp = this.parseSftpUrl(destinationDir);
+            if (!destSftp) throw new Error('Invalid destination SFTP directory.');
+
+            const uploaded: string[] = [];
+            for (const f of files) {
+                if (!f.name) continue;
+                const fileName = path.posix.basename(f.name);
+                const remoteDest = destSftp.remotePath === '/' ? '/' + fileName : destSftp.remotePath + '/' + fileName;
+                const buf = f.contentBase64 ? Buffer.from(f.contentBase64, 'base64') : Buffer.from(f.content || '', 'utf8');
+
+                await new Promise<void>((resolve, reject) => {
+                    const uploadUrl = `http://127.0.0.1:5050/api/sftp/upload?connectionId=${encodeURIComponent(destSftp.connectionId)}&remotePath=${encodeURIComponent(remoteDest)}`;
+                    const req = http.request(uploadUrl, { method: 'POST' }, (res) => {
+                        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+                            resolve();
+                        } else {
+                            reject(new Error(`Failed to upload ${fileName} to SFTP (Status: ${res.statusCode})`));
+                        }
+                    });
+                    req.on('error', reject);
+                    req.end(buf);
+                });
+
+                uploaded.push(`sftp://${destSftp.connectionId}${remoteDest}`);
+            }
+
+            return {
+                success: uploaded.length > 0,
+                count: uploaded.length,
+                paths: uploaded
+            };
+        } catch (err: any) {
+            return {
+                success: false,
+                count: 0,
+                paths: [],
+                error: err.message
+            };
+        }
+    }
+
+    private static sftpJsonRequest(method: string, endpoint: string, body: any): Promise<any> {
+        return new Promise((resolve, reject) => {
+            const data = JSON.stringify(body);
+            const req = http.request({
+                hostname: '127.0.0.1',
+                port: 5050,
+                path: endpoint,
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(data)
+                }
+            }, (res) => {
+                const chunks: Buffer[] = [];
+                res.on('data', chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+                res.on('end', () => {
+                    try {
+                        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+                    } catch {
+                        resolve({ success: res.statusCode === 200 });
+                    }
+                });
+            });
+            req.on('error', reject);
+            req.end(data);
+        });
     }
 
     private static getIndexHtml(): string {

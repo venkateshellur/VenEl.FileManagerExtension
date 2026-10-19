@@ -5049,3 +5049,230 @@ kbd {
     box-shadow: inset 0 0 6px rgba(108, 92, 231, 0.2);
 }
 
+/* ══════════════════════════════════════════════════════════ */
+/* 🌐 SFTP REMOTE INTEGRATION STYLES                          */
+/* ══════════════════════════════════════════════════════════ */
+
+.sftp-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 8px;
+    background: rgba(108, 92, 231, 0.15);
+    border: 1px solid rgba(108, 92, 231, 0.4);
+    border-radius: 6px;
+    color: var(--text-main);
+    transition: all 0.15s ease;
+}
+
+.sftp-toolbar-btn:hover {
+    background: rgba(108, 92, 231, 0.3);
+    border-color: rgba(108, 92, 231, 0.6);
+    transform: translateY(-1px);
+}
+
+/* Sidebar Connections List */
+.sftp-connections-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.sftp-conn-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: var(--card-bg, rgba(255, 255, 255, 0.03));
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.sftp-conn-item:hover {
+    background: var(--hover-bg);
+    border-color: var(--active-border);
+    transform: translateX(2px);
+}
+
+.sftp-conn-item.active {
+    background: rgba(46, 204, 113, 0.1);
+    border-color: rgba(46, 204, 113, 0.4);
+}
+
+.sftp-conn-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+    flex: 1;
+}
+
+.sftp-conn-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sftp-conn-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #2ecc71;
+    box-shadow: 0 0 5px #2ecc71;
+    flex-shrink: 0;
+}
+
+.sftp-conn-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sftp-conn-sub {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-left: 13px;
+}
+
+.sftp-conn-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    opacity: 0.8;
+}
+
+.sftp-conn-item:hover .sftp-conn-actions {
+    opacity: 1;
+}
+
+.sftp-icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 3px 5px;
+    border-radius: 4px;
+    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.sftp-icon-btn:hover {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.sftp-icon-btn.danger:hover {
+    color: #e74c3c;
+    background: rgba(231, 76, 60, 0.15);
+}
+
+/* SFTP Modal Styling */
+.sftp-modal-box {
+    max-width: 480px;
+    width: 92%;
+    border-radius: 10px;
+    background: var(--modal-bg, var(--panel-bg));
+    border: 1px solid var(--border-color);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    padding: 18px 20px;
+    box-sizing: border-box;
+}
+
+.sftp-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sftp-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.sftp-required {
+    color: #ff7675;
+}
+
+.sftp-optional {
+    font-size: 10.5px;
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.sftp-auth-tabs {
+    display: flex;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 3px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.sftp-auth-tab {
+    flex: 1;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.sftp-auth-tab.active {
+    background: var(--active-bg, rgba(108, 92, 231, 0.3));
+    color: var(--text-main);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.sftp-browse-btn {
+    font-size: 11px;
+    padding: 2px 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-main);
+    cursor: pointer;
+}
+
+.sftp-browse-btn:hover {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.sftp-alert-success {
+    background: rgba(46, 204, 113, 0.15);
+    border: 1px solid rgba(46, 204, 113, 0.4);
+    color: #2ecc71;
+}
+
+.sftp-alert-error {
+    background: rgba(231, 76, 60, 0.15);
+    border: 1px solid rgba(231, 76, 60, 0.4);
+    color: #ff7675;
+}
+
+.sftp-alert-info {
+    background: rgba(52, 152, 219, 0.15);
+    border: 1px solid rgba(52, 152, 219, 0.4);
+    color: #74b9ff;
+}
+
+

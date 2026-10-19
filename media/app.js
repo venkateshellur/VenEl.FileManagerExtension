@@ -811,8 +811,22 @@ function updateNavButtons() {
 }
 
 function goUp() {
-    const sep = isWindows ? '\\' : '/';
     if (!currentPath || currentPath === '.') return;
+
+    const sftpInfo = parseSftpUrl(currentPath);
+    if (sftpInfo) {
+        if (sftpInfo.remotePath === '/' || !sftpInfo.remotePath) return;
+        const parts = sftpInfo.remotePath.split('/').filter(function(p) { return p !== ''; });
+        if (parts.length <= 1) {
+            navigateTo(`sftp://${sftpInfo.connectionId}/`);
+            return;
+        }
+        parts.pop();
+        navigateTo(`sftp://${sftpInfo.connectionId}/` + parts.join('/'));
+        return;
+    }
+
+    const sep = isWindows ? '\\' : '/';
     const parts = currentPath.split(sep).filter(function(p) { return p !== ''; });
     if (parts.length <= 1) {
         navigateTo(isWindows ? parts[0] + '\\' : '/');
@@ -843,12 +857,36 @@ function quickNav(name) {
 function renderBreadcrumbs() {
     const container = document.getElementById('path-breadcrumbs');
     if (!container) return;
-    const sep = isWindows ? '\\' : '/';
     if (!currentPath || currentPath === '.') {
         container.innerHTML = '<span class="crumb current">Loading...</span>';
         return;
     }
 
+    const sftpInfo = parseSftpUrl(currentPath);
+    if (sftpInfo) {
+        let html = '';
+        const session = sftpActiveSessions.find(s => s.connectionId === sftpInfo.connectionId);
+        const serverLabel = session ? (session.name || `${session.username}@${session.host}`) : 'SFTP Remote';
+        const rootPath = `sftp://${sftpInfo.connectionId}/`;
+        const isAtRoot = sftpInfo.remotePath === '/' || !sftpInfo.remotePath;
+        html += '<span class="crumb' + (isAtRoot ? ' current' : '') + '" onclick="event.stopPropagation(); navigateTo(\'' + escapePath(rootPath) + '\')">' +
+                '<i>🌐</i> ' + escapeHtml(serverLabel) + '</span>';
+
+        const parts = sftpInfo.remotePath.split('/').filter(function(p) { return p !== ''; });
+        let accum = `sftp://${sftpInfo.connectionId}`;
+        for (let i = 0; i < parts.length; i++) {
+            accum += '/' + parts[i];
+            const isCurrent = (i === parts.length - 1);
+            html += '<span class="crumb-sep">›</span>';
+            html += '<span class="crumb' + (isCurrent ? ' current' : '') + '" onclick="event.stopPropagation(); navigateTo(\'' + escapePath(accum) + '\')">' +
+                    escapeHtml(parts[i]) + '</span>';
+        }
+        container.innerHTML = html;
+        updateCompactWindowTitle();
+        return;
+    }
+
+    const sep = isWindows ? '\\' : '/';
     const parts = currentPath.split(sep).filter(function(p) { return p !== ''; });
     let html = '';
 
@@ -1887,6 +1925,42 @@ function ensureItemRendered(name) {
 
 async function loadFiles(targetPath) {
     try {
+        const sftpInfo = parseSftpUrl(targetPath);
+        if (sftpInfo) {
+            const res = await fetch(`/api/sftp/list?connectionId=${encodeURIComponent(sftpInfo.connectionId)}&path=${encodeURIComponent(sftpInfo.remotePath)}`);
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                showToast(errData.error || 'SFTP: Access denied or folder not found', '⚠️');
+                return;
+            }
+            const sftpData = await res.json();
+            currentPath = `sftp://${sftpInfo.connectionId}${sftpData.currentPath.startsWith('/') ? sftpData.currentPath : '/' + sftpData.currentPath}`;
+            isWindows = false;
+            document.getElementById('path').value = currentPath;
+            renderBreadcrumbs();
+            updateActiveTabAfterLoad(currentPath);
+
+            currentItems = (sftpData.items || []).map(item => ({
+                ...item,
+                isSftp: true,
+                connectionId: sftpInfo.connectionId,
+                path: `sftp://${sftpInfo.connectionId}${item.remotePath || (sftpData.currentPath === '/' ? '/' + item.name : sftpData.currentPath + '/' + item.name)}`
+            }));
+            selectedItem = null;
+            selectedItems = [];
+            lastSelectedName = null;
+
+            document.getElementById('search').value = '';
+            applySortAndRender();
+
+            document.getElementById('preview-content').innerHTML = 'Select a remote file to preview.<br><br>💡 Tap <strong>Spacebar</strong> for Quick Look or double-click to edit in-line!';
+            document.querySelector('#preview-pane h2').innerText = 'Remote Preview';
+
+            renderBookmarks();
+            renderSftpSidebar();
+            return;
+        }
+
         const res = await fetch('/api/files/list?path=' + encodeURIComponent(targetPath));
         if (!res.ok) {
             showToast('Access denied or folder not found', '⚠️');
@@ -2163,7 +2237,13 @@ function handleDoubleClick(name, isDir) {
     if (isDir) {
         navigateTo(nextPath);
     } else {
-        openSelectedItemInEditor(nextPath);
+        if (nextPath.startsWith('sftp://')) {
+            activePreviewPath = nextPath;
+            activePreviewIsDir = false;
+            loadInlineEditor();
+        } else {
+            openSelectedItemInEditor(nextPath);
+        }
     }
 }
 
@@ -3226,7 +3306,13 @@ async function renderFilePreview(targetElem, fullPath, name, isDir, isQuickLook 
     const mdExts = ['md', 'markdown'];
 
     const uniqueId = 'preview-' + Math.random().toString(36).substring(2, 9);
-    const rawUrl = '/api/files/raw?path=' + encodeURIComponent(fullPath);
+    const sftpInfo = parseSftpUrl(fullPath);
+    const rawUrl = sftpInfo
+        ? `/api/sftp/download?connectionId=${encodeURIComponent(sftpInfo.connectionId)}&path=${encodeURIComponent(sftpInfo.remotePath)}`
+        : ('/api/files/raw?path=' + encodeURIComponent(fullPath));
+    const readUrl = sftpInfo
+        ? `/api/sftp/read?connectionId=${encodeURIComponent(sftpInfo.connectionId)}&path=${encodeURIComponent(sftpInfo.remotePath)}`
+        : ('/api/files/read?path=' + encodeURIComponent(fullPath));
 
     // 1. IMAGES
     if (imgExts.includes(ext)) {
@@ -3241,7 +3327,7 @@ async function renderFilePreview(targetElem, fullPath, name, isDir, isQuickLook 
     if (csvExts.includes(ext)) {
         targetElem.innerHTML = '<div style="padding: 20px; text-align: center;"><div class="spinner" style="margin: 0 auto 10px;"></div>Loading spreadsheet...</div>';
         try {
-            const res = await fetch('/api/files/read?path=' + encodeURIComponent(fullPath));
+            const res = await fetch(readUrl);
             if (!res.ok) throw new Error('File read failed');
             let text = await res.text();
             text = text.replace(/\uFEFF/g, '');
@@ -3436,7 +3522,7 @@ async function renderFilePreview(targetElem, fullPath, name, isDir, isQuickLook 
     if (mdExts.includes(ext)) {
         targetElem.innerHTML = '<div style="padding: 16px; text-align: center;"><div class="spinner" style="margin: 0 auto 10px;"></div>Loading Markdown...</div>';
         try {
-            const res = await fetch('/api/files/read?path=' + encodeURIComponent(fullPath));
+            const res = await fetch(readUrl);
             if (!res.ok) throw new Error('File read failed');
             const text = await res.text();
             const renderedHtml = renderSimpleMarkdown(text);
@@ -3481,7 +3567,7 @@ async function renderFilePreview(targetElem, fullPath, name, isDir, isQuickLook 
     // 10. CODE & TEXT FALLBACK
     targetElem.innerHTML = '<div style="padding: 16px; opacity: 0.6;">Loading preview...</div>';
     try {
-        const res = await fetch('/api/files/read?path=' + encodeURIComponent(fullPath));
+        const res = await fetch(readUrl);
         if (res.ok) {
             const text = await res.text();
             // Catch-all: check if text contains null bytes or binary control characters
@@ -4266,7 +4352,7 @@ function toggleSidebarSection(sectionName) {
 }
 
 function initSidebarSections() {
-    ['favorites', 'places'].forEach(function(sec) {
+    ['favorites', 'places', 'sftp'].forEach(function(sec) {
         try {
             const stored = localStorage.getItem('venel_sec_collapsed_' + sec);
             if (stored === '1') {
@@ -4277,6 +4363,471 @@ function initSidebarSections() {
             }
         } catch {}
     });
+}
+
+// ══════════════════════════════════════════════════════════
+// 🌐 SFTP REMOTE MANAGER (Sessions, Quick Connect, Saved Profiles)
+// ══════════════════════════════════════════════════════════
+
+let sftpActiveSessions = [];
+let sftpSavedProfiles = [];
+let sftpCurrentAuthMode = 'password';
+
+function parseSftpUrl(url) {
+    if (!url || typeof url !== 'string' || !url.startsWith('sftp://')) return null;
+    const withoutPrefix = url.substring(7);
+    const slashIdx = withoutPrefix.indexOf('/');
+    if (slashIdx === -1) {
+        return { connectionId: withoutPrefix, remotePath: '/' };
+    }
+    return {
+        connectionId: withoutPrefix.substring(0, slashIdx),
+        remotePath: withoutPrefix.substring(slashIdx) || '/'
+    };
+}
+
+function loadSftpSavedProfiles() {
+    try {
+        const raw = localStorage.getItem('venel_sftp_profiles');
+        sftpSavedProfiles = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(sftpSavedProfiles)) sftpSavedProfiles = [];
+    } catch {
+        sftpSavedProfiles = [];
+    }
+}
+
+function saveSftpProfilesToStorage() {
+    try {
+        localStorage.setItem('venel_sftp_profiles', JSON.stringify(sftpSavedProfiles));
+    } catch {}
+}
+
+async function refreshSftpSessionsList() {
+    loadSftpSavedProfiles();
+    try {
+        const res = await fetch('/api/sftp/sessions').catch(() => null);
+        if (res && res.ok) {
+            sftpActiveSessions = await res.json();
+            if (!Array.isArray(sftpActiveSessions)) sftpActiveSessions = [];
+        } else {
+            sftpActiveSessions = [];
+        }
+    } catch {
+        sftpActiveSessions = [];
+    }
+
+    renderSftpSidebar();
+}
+
+function renderSftpSidebar() {
+    const listEl = document.getElementById('sftp-connections-list');
+    const badgeEl = document.getElementById('sftp-active-count-badge');
+    if (!listEl) return;
+
+    if (badgeEl) {
+        const count = sftpActiveSessions.length;
+        badgeEl.textContent = count;
+        badgeEl.style.display = count > 0 ? 'inline-block' : 'none';
+    }
+
+    let html = '';
+
+    // 1. Active Connected Sessions
+    if (sftpActiveSessions.length > 0) {
+        sftpActiveSessions.forEach(session => {
+            const isCurrent = currentPath.startsWith('sftp://' + session.connectionId);
+            const targetUrl = `sftp://${session.connectionId}${session.initialPath || '/'}`;
+            html += `<div class="sftp-conn-item active ${isCurrent ? 'selected' : ''}" onclick="navigateTo('${escapePath(targetUrl)}')">` +
+                '<div class="sftp-conn-info">' +
+                    '<div class="sftp-conn-title-row">' +
+                        '<span class="sftp-conn-dot" title="Active SSH Session"></span>' +
+                        `<span class="sftp-conn-name" title="${escapeHtml(session.name)}">${escapeHtml(session.name)}</span>` +
+                    '</div>' +
+                    `<div class="sftp-conn-sub">${escapeHtml(session.username)}@${escapeHtml(session.host)}:${session.port}</div>` +
+                '</div>' +
+                '<div class="sftp-conn-actions">' +
+                    `<button class="sftp-icon-btn danger" onclick="disconnectSftpSession('${session.connectionId}', event)" title="Disconnect SSH Tunnel">⏏️</button>` +
+                '</div>' +
+            '</div>';
+        });
+    }
+
+    // 2. Saved Connection Profiles (not currently connected)
+    const activeHosts = new Set(sftpActiveSessions.map(s => `${s.username}@${s.host}:${s.port}`));
+    const inactiveProfiles = sftpSavedProfiles.filter(p => !activeHosts.has(`${p.username}@${p.host}:${p.port || 22}`));
+
+    if (inactiveProfiles.length > 0) {
+        inactiveProfiles.forEach(prof => {
+            html += `<div class="sftp-conn-item" onclick="connectSavedProfile('${prof.id}')" title="Click to Connect">` +
+                '<div class="sftp-conn-info">' +
+                    '<div class="sftp-conn-title-row">' +
+                        '<span style="font-size: 13px;">⚡</span>' +
+                        `<span class="sftp-conn-name" title="${escapeHtml(prof.name || prof.host)}">${escapeHtml(prof.name || prof.host)}</span>` +
+                    '</div>' +
+                    `<div class="sftp-conn-sub">${escapeHtml(prof.username)}@${escapeHtml(prof.host)}:${prof.port || 22}</div>` +
+                '</div>' +
+                '<div class="sftp-conn-actions">' +
+                    `<button class="sftp-icon-btn" onclick="openSftpModal(getSavedProfileById('${prof.id}'), event)" title="Edit Profile">✏️</button>` +
+                    `<button class="sftp-icon-btn danger" onclick="deleteSavedSftpProfile('${prof.id}', event)" title="Delete Profile">✕</button>` +
+                '</div>' +
+            '</div>';
+        });
+    }
+
+    if (sftpActiveSessions.length === 0 && sftpSavedProfiles.length === 0) {
+        html = '<div style="padding: 10px 8px; font-size: 11px; color: var(--text-muted); text-align: center; line-height: 1.4;">' +
+            'No remote connections.<br><button class="sftp-browse-btn" onclick="openSftpModal()" style="margin-top: 6px;">+ Connect to SFTP</button>' +
+        '</div>';
+    }
+
+    listEl.innerHTML = html;
+}
+
+function getSavedProfileById(id) {
+    return sftpSavedProfiles.find(p => p.id === id);
+}
+
+function openSftpModal(profileToEdit = null, event = null) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    const modal = document.getElementById('modal-sftp');
+    if (!modal) return;
+
+    const alertEl = document.getElementById('sftp-status-alert');
+    if (alertEl) alertEl.style.display = 'none';
+
+    // Populate or reset form fields
+    const nameInput = document.getElementById('sftp-input-name');
+    const hostInput = document.getElementById('sftp-input-host');
+    const portInput = document.getElementById('sftp-input-port');
+    const userInput = document.getElementById('sftp-input-user');
+    const pwdInput = document.getElementById('sftp-input-password');
+    const keyInput = document.getElementById('sftp-input-key');
+    const passInput = document.getElementById('sftp-input-passphrase');
+    const pathInput = document.getElementById('sftp-input-path');
+    const saveChk = document.getElementById('sftp-chk-save-profile');
+    const rememberChk = document.getElementById('sftp-chk-remember-creds');
+    const titleEl = document.getElementById('sftp-modal-title');
+
+    if (profileToEdit) {
+        if (titleEl) titleEl.textContent = 'Edit SFTP Connection';
+        modal.setAttribute('data-edit-id', profileToEdit.id);
+        if (nameInput) nameInput.value = profileToEdit.name || '';
+        if (hostInput) hostInput.value = profileToEdit.host || '';
+        if (portInput) portInput.value = profileToEdit.port || 22;
+        if (userInput) userInput.value = profileToEdit.username || '';
+        if (pathInput) pathInput.value = profileToEdit.initialPath || '';
+        if (pwdInput) pwdInput.value = profileToEdit.password || '';
+        if (keyInput) keyInput.value = profileToEdit.privateKeyContent || '';
+        if (passInput) passInput.value = profileToEdit.privateKeyPassphrase || '';
+        switchSftpAuthMode(profileToEdit.authType || 'password');
+        if (saveChk) saveChk.checked = true;
+        if (rememberChk) rememberChk.checked = Boolean(profileToEdit.password || profileToEdit.privateKeyContent);
+    } else {
+        if (titleEl) titleEl.textContent = 'Connect to SFTP Server';
+        modal.removeAttribute('data-edit-id');
+        if (nameInput) nameInput.value = '';
+        if (hostInput) hostInput.value = '';
+        if (portInput) portInput.value = 22;
+        if (userInput) userInput.value = '';
+        if (pathInput) pathInput.value = '/';
+        if (pwdInput) pwdInput.value = '';
+        if (keyInput) keyInput.value = '';
+        if (passInput) passInput.value = '';
+        switchSftpAuthMode('password');
+        if (saveChk) saveChk.checked = true;
+        if (rememberChk) rememberChk.checked = true;
+    }
+
+    modal.style.display = 'flex';
+    setTimeout(() => {
+        if (hostInput && !hostInput.value) hostInput.focus();
+    }, 50);
+}
+
+function closeSftpModal(e = null) {
+    if (e && e.target && e.target.id !== 'modal-sftp' && !e.target.classList.contains('modal-close-x')) return;
+    const modal = document.getElementById('modal-sftp');
+    if (modal) modal.style.display = 'none';
+}
+
+function switchSftpAuthMode(mode) {
+    sftpCurrentAuthMode = mode;
+    const tabPwd = document.getElementById('btn-auth-tab-password');
+    const tabKey = document.getElementById('btn-auth-tab-key');
+    const panelPwd = document.getElementById('sftp-auth-panel-password');
+    const panelKey = document.getElementById('sftp-auth-panel-key');
+
+    if (tabPwd) tabPwd.classList.toggle('active', mode === 'password');
+    if (tabKey) tabKey.classList.toggle('active', mode === 'key');
+
+    if (panelPwd) panelPwd.style.display = mode === 'password' ? 'block' : 'none';
+    if (panelKey) panelKey.style.display = mode === 'key' ? 'block' : 'none';
+}
+
+function toggleSftpPasswordVisibility() {
+    const pwd = document.getElementById('sftp-input-password');
+    const btn = document.getElementById('btn-toggle-sftp-pwd');
+    if (!pwd) return;
+    if (pwd.type === 'password') {
+        pwd.type = 'text';
+        if (btn) btn.textContent = '🔒';
+    } else {
+        pwd.type = 'password';
+        if (btn) btn.textContent = '👁️';
+    }
+}
+
+function handleSftpKeyFileSelected(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        const text = evt.target.result;
+        const keyInput = document.getElementById('sftp-input-key');
+        if (keyInput) keyInput.value = text;
+        showToast('Loaded private key: ' + file.name, '🔑');
+    };
+    reader.readAsText(file);
+}
+
+function handleSftpSaveCheckboxChange() {
+    const saveChk = document.getElementById('sftp-chk-save-profile');
+    const remLabel = document.getElementById('sftp-lbl-remember-creds');
+    if (remLabel && saveChk) {
+        remLabel.style.display = saveChk.checked ? 'flex' : 'none';
+    }
+}
+
+function getSftpFormData() {
+    const name = (document.getElementById('sftp-input-name')?.value || '').trim();
+    const host = (document.getElementById('sftp-input-host')?.value || '').trim();
+    const port = parseInt(document.getElementById('sftp-input-port')?.value || '22', 10);
+    const username = (document.getElementById('sftp-input-user')?.value || '').trim();
+    const password = document.getElementById('sftp-input-password')?.value || '';
+    const privateKeyContent = (document.getElementById('sftp-input-key')?.value || '').trim();
+    const privateKeyPassphrase = document.getElementById('sftp-input-passphrase')?.value || '';
+    const initialPath = (document.getElementById('sftp-input-path')?.value || '').trim();
+
+    return {
+        connectionName: name,
+        host,
+        port: isNaN(port) || port <= 0 ? 22 : port,
+        username,
+        authType: sftpCurrentAuthMode,
+        password: sftpCurrentAuthMode === 'password' ? password : null,
+        privateKeyContent: sftpCurrentAuthMode === 'key' ? privateKeyContent : null,
+        privateKeyPassphrase: sftpCurrentAuthMode === 'key' ? privateKeyPassphrase : null,
+        initialPath: initialPath || '/'
+    };
+}
+
+function showSftpAlert(message, type = 'info') {
+    const alertEl = document.getElementById('sftp-status-alert');
+    if (!alertEl) return;
+    alertEl.className = 'sftp-alert-' + type;
+    alertEl.textContent = message;
+    alertEl.style.display = 'block';
+}
+
+async function testSftpConnection() {
+    const data = getSftpFormData();
+    if (!data.host) {
+        showSftpAlert('Please enter a server host / IP address.', 'error');
+        return;
+    }
+    if (!data.username) {
+        showSftpAlert('Please enter a username.', 'error');
+        return;
+    }
+
+    const testBtn = document.getElementById('btn-sftp-test');
+    const spinner = document.getElementById('sftp-test-btn-spinner');
+    const btnText = document.getElementById('sftp-test-btn-text');
+
+    if (testBtn) testBtn.disabled = true;
+    if (spinner) spinner.style.display = 'inline-block';
+    if (btnText) btnText.textContent = 'Testing...';
+    showSftpAlert('Initiating SSH handshake and testing credentials...', 'info');
+
+    try {
+        const res = await fetch('/api/sftp/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (result.success) {
+            showSftpAlert(`✅ Connected successfully! (Latency: ${result.latencyMs}ms, Server: ${result.serverVersion || 'SSH-2.0'})`, 'success');
+        } else {
+            showSftpAlert(`❌ Connection failed: ${result.errorMessage || 'Unknown error'}`, 'error');
+        }
+    } catch (err) {
+        showSftpAlert(`❌ Connection test error: ${err.message}`, 'error');
+    } finally {
+        if (testBtn) testBtn.disabled = false;
+        if (spinner) spinner.style.display = 'none';
+        if (btnText) btnText.textContent = '⚡ Test Connection';
+    }
+}
+
+async function submitSftpConnect() {
+    const data = getSftpFormData();
+    if (!data.host) {
+        showSftpAlert('Please enter a server host / IP address.', 'error');
+        return;
+    }
+    if (!data.username) {
+        showSftpAlert('Please enter a username.', 'error');
+        return;
+    }
+
+    const connectBtn = document.getElementById('btn-sftp-connect');
+    const spinner = document.getElementById('sftp-connect-btn-spinner');
+    const btnText = document.getElementById('sftp-connect-btn-text');
+
+    if (connectBtn) connectBtn.disabled = true;
+    if (spinner) spinner.style.display = 'inline-block';
+    if (btnText) btnText.textContent = 'Connecting...';
+    showSftpAlert('Connecting to SFTP server...', 'info');
+
+    try {
+        const res = await fetch('/api/sftp/connect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (!result.success) {
+            showSftpAlert(`❌ Connect failed: ${result.errorMessage || 'Check credentials and host.'}`, 'error');
+            return;
+        }
+
+        // Save connection profile if requested
+        const saveChk = document.getElementById('sftp-chk-save-profile');
+        const rememberChk = document.getElementById('sftp-chk-remember-creds');
+        const modal = document.getElementById('modal-sftp');
+        const editId = modal ? modal.getAttribute('data-edit-id') : null;
+
+        if (saveChk && saveChk.checked) {
+            const shouldRemember = rememberChk && rememberChk.checked;
+            const profile = {
+                id: editId || `prof_${Date.now()}`,
+                name: data.connectionName || `${data.username}@${data.host}`,
+                host: data.host,
+                port: data.port,
+                username: data.username,
+                authType: data.authType,
+                initialPath: data.initialPath,
+                password: shouldRemember ? data.password : null,
+                privateKeyContent: shouldRemember ? data.privateKeyContent : null,
+                privateKeyPassphrase: shouldRemember ? data.privateKeyPassphrase : null
+            };
+
+            const existingIdx = sftpSavedProfiles.findIndex(p => p.id === profile.id);
+            if (existingIdx >= 0) {
+                sftpSavedProfiles[existingIdx] = profile;
+            } else {
+                sftpSavedProfiles.push(profile);
+            }
+            saveSftpProfilesToStorage();
+        }
+
+        closeSftpModal();
+        await refreshSftpSessionsList();
+
+        // Navigate to the remote directory
+        const sftpPath = `sftp://${result.connectionId}${result.currentPath || '/'}`;
+        navigateTo(sftpPath);
+        showToast(`Connected to ${result.name || data.host} 🌐`, '✅');
+    } catch (err) {
+        showSftpAlert(`❌ Connect error: ${err.message}`, 'error');
+    } finally {
+        if (connectBtn) connectBtn.disabled = false;
+        if (spinner) spinner.style.display = 'none';
+        if (btnText) btnText.textContent = 'Connect';
+    }
+}
+
+async function connectSavedProfile(profileId) {
+    const prof = getSavedProfileById(profileId);
+    if (!prof) return;
+
+    // If credentials are saved, connect directly
+    const hasCreds = (prof.authType === 'password' && prof.password) ||
+                     (prof.authType === 'key' && prof.privateKeyContent);
+
+    if (hasCreds) {
+        showToast(`Connecting to ${prof.name}... ⏳`, '🌐');
+        try {
+            const res = await fetch('/api/sftp/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    connectionName: prof.name,
+                    host: prof.host,
+                    port: prof.port,
+                    username: prof.username,
+                    authType: prof.authType,
+                    password: prof.password,
+                    privateKeyContent: prof.privateKeyContent,
+                    privateKeyPassphrase: prof.privateKeyPassphrase,
+                    initialPath: prof.initialPath
+                })
+            });
+            const result = await res.json();
+            if (result.success) {
+                await refreshSftpSessionsList();
+                const sftpPath = `sftp://${result.connectionId}${result.currentPath || '/'}`;
+                navigateTo(sftpPath);
+                showToast(`Connected to ${prof.name} 🌐`, '✅');
+                return;
+            } else {
+                showToast(`Connect failed: ${result.errorMessage}`, '⚠️');
+            }
+        } catch (err) {
+            showToast(`Connection failed: ${err.message}`, '❌');
+        }
+    }
+
+    // Prompt user for credentials by opening pre-filled modal
+    openSftpModal(prof);
+}
+
+async function disconnectSftpSession(connectionId, e) {
+    if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+    }
+    try {
+        await fetch('/api/sftp/disconnect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ connectionId })
+        });
+        showToast('SFTP session disconnected ⏏️', 'ℹ️');
+        await refreshSftpSessionsList();
+
+        // If active view is on this session, go back home
+        if (currentPath.startsWith('sftp://' + connectionId)) {
+            goHome();
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+function deleteSavedSftpProfile(profileId, e) {
+    if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+    }
+    sftpSavedProfiles = sftpSavedProfiles.filter(p => p.id !== profileId);
+    saveSftpProfilesToStorage();
+    renderSftpSidebar();
+    showToast('Saved SFTP connection removed', '🗑️');
 }
 
 function handleFavoritesDragOver(e) {
@@ -4690,6 +5241,27 @@ async function createFolder() {
     const name = document.getElementById('input-new-folder').value.trim();
     if (!name) return;
     hideModals();
+
+    const sftpInfo = parseSftpUrl(currentPath);
+    if (sftpInfo) {
+        try {
+            const res = await fetch('/api/sftp/newFolder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ connectionId: sftpInfo.connectionId, currentPath: sftpInfo.remotePath, folderName: name })
+            });
+            if (res.ok) {
+                showToast('Created remote folder "' + name + '"', '📁');
+                loadFiles(currentPath);
+            } else {
+                showToast('Could not create folder on SFTP', '❌');
+            }
+        } catch {
+            showToast('Error creating folder on SFTP', '❌');
+        }
+        return;
+    }
+
     try {
         const res = await fetch('/api/files/newFolder', {
             method: 'POST',
@@ -4711,6 +5283,27 @@ async function createFile() {
     const name = document.getElementById('input-new-file').value.trim();
     if (!name) return;
     hideModals();
+
+    const sftpInfo = parseSftpUrl(currentPath);
+    if (sftpInfo) {
+        try {
+            const res = await fetch('/api/sftp/newFile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ connectionId: sftpInfo.connectionId, currentPath: sftpInfo.remotePath, fileName: name, content: '' })
+            });
+            if (res.ok) {
+                showToast('Created remote file "' + name + '"', '📄');
+                loadFiles(currentPath);
+            } else {
+                showToast('Could not create file on SFTP', '❌');
+            }
+        } catch {
+            showToast('Error creating file on SFTP', '❌');
+        }
+        return;
+    }
+
     try {
         const res = await fetch('/api/files/newFile', {
             method: 'POST',
@@ -4735,6 +5328,28 @@ async function submitRename() {
         return;
     }
     hideModals();
+
+    const sftpInfo = parseSftpUrl(currentPath);
+    if (sftpInfo) {
+        try {
+            const oldRemote = sftpInfo.remotePath === '/' ? '/' + selectedItem.name : sftpInfo.remotePath + '/' + selectedItem.name;
+            const res = await fetch('/api/sftp/rename', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ connectionId: sftpInfo.connectionId, oldPath: oldRemote, newName: newName })
+            });
+            if (res.ok) {
+                showToast('Renamed remote item to "' + newName + '"', '✏️');
+                loadFiles(currentPath);
+            } else {
+                showToast('SFTP rename failed', '❌');
+            }
+        } catch {
+            showToast('Error renaming item on SFTP', '❌');
+        }
+        return;
+    }
+
     const sep = isWindows ? '\\' : '/';
     const oldPath = currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name;
     try {
@@ -4758,6 +5373,38 @@ async function submitDelete() {
     hideModals();
     const itemsToDelete = selectedItems.length > 0 ? selectedItems.slice() : (selectedItem ? [selectedItem] : []);
     if (itemsToDelete.length === 0) return;
+
+    const sftpInfo = parseSftpUrl(currentPath);
+    if (sftpInfo) {
+        showToast('Deleting ' + itemsToDelete.length + ' remote item(s)...', '⏳');
+        let successCount = 0;
+        for (const item of itemsToDelete) {
+            try {
+                const remoteTarget = sftpInfo.remotePath === '/' ? '/' + item.name : sftpInfo.remotePath + '/' + item.name;
+                const res = await fetch('/api/sftp/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        connectionId: sftpInfo.connectionId,
+                        targetPath: remoteTarget,
+                        isDirectory: item.type === 'Directory'
+                    })
+                });
+                if (res.ok) successCount++;
+            } catch {}
+        }
+        if (successCount > 0) {
+            showToast('Deleted ' + successCount + ' remote item(s)', '🗑️');
+            selectedItem = null;
+            selectedItems = [];
+            lastSelectedName = null;
+            loadFiles(currentPath);
+        } else {
+            showToast('Failed to delete remote item(s)', '❌');
+        }
+        return;
+    }
+
     const sep = isWindows ? '\\' : '/';
     const trashTerm = isWindows ? 'Recycle Bin' : 'Trash';
     const paths = itemsToDelete.map(function(item) {
@@ -5101,15 +5748,27 @@ async function toggleInlineEditor() {
 
     try {
         container.innerHTML = '<div style="padding: 30px; text-align: center;"><div class="spinner" style="margin: 0 auto 10px;"></div>Opening in-line editor...</div>';
-        let res = await fetch('/api/files/download?path=' + encodeURIComponent(activePreviewPath)).catch(function() { return null; });
-        if (!res || !res.ok) res = await fetch('/api/files/read?path=' + encodeURIComponent(activePreviewPath)).catch(function() { return null; });
-        if (!res || !res.ok) res = await fetch('/api/files/raw?path=' + encodeURIComponent(activePreviewPath)).catch(function() { return null; });
-        if (!res || !res.ok) {
-            showToast('Unable to open file for editing', '⚠️');
-            handlePreview(selectedItem ? selectedItem.name : activePreviewPath, false);
-            return;
+        let text = '';
+        const sftpInfo = parseSftpUrl(activePreviewPath);
+        if (sftpInfo) {
+            let res = await fetch(`/api/sftp/read?connectionId=${encodeURIComponent(sftpInfo.connectionId)}&path=${encodeURIComponent(sftpInfo.remotePath)}`).catch(() => null);
+            if (!res || !res.ok) {
+                showToast('Unable to open remote file for editing', '⚠️');
+                handlePreview(selectedItem ? selectedItem.name : activePreviewPath, false);
+                return;
+            }
+            text = await res.text();
+        } else {
+            let res = await fetch('/api/files/download?path=' + encodeURIComponent(activePreviewPath)).catch(function() { return null; });
+            if (!res || !res.ok) res = await fetch('/api/files/read?path=' + encodeURIComponent(activePreviewPath)).catch(function() { return null; });
+            if (!res || !res.ok) res = await fetch('/api/files/raw?path=' + encodeURIComponent(activePreviewPath)).catch(function() { return null; });
+            if (!res || !res.ok) {
+                showToast('Unable to open file for editing', '⚠️');
+                handlePreview(selectedItem ? selectedItem.name : activePreviewPath, false);
+                return;
+            }
+            text = await res.text();
         }
-        const text = await res.text();
         inlineOriginalContent = text;
         isInlineEditorActive = true;
 
@@ -5169,6 +5828,40 @@ async function saveInlineEditor() {
     const sep = isWindows ? '\\' : '/';
     const fileName = activePreviewPath.split(sep).pop() || activePreviewPath;
 
+    const sftpInfo = parseSftpUrl(activePreviewPath);
+    if (sftpInfo) {
+        try {
+            const payload = JSON.stringify({
+                connectionId: sftpInfo.connectionId,
+                remotePath: sftpInfo.remotePath,
+                content: newContent
+            });
+            const res = await fetch('/api/sftp/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: payload
+            });
+            if (res.ok) {
+                const lines = newContent.split('\n').length;
+                showToast('Saved "' + fileName + '" to SFTP (' + lines + ' lines) 💾', '✅');
+                isInlineEditorActive = false;
+                inlineOriginalContent = newContent;
+                if (selectedItem) {
+                    handlePreview(selectedItem.name, false);
+                } else {
+                    renderFilePreview(document.getElementById('preview-content'), activePreviewPath, fileName, false, false);
+                }
+                updatePreviewActionButtons(activePreviewPath, false);
+            } else {
+                showToast('Failed to save file to SFTP', '❌');
+            }
+        } catch (err) {
+            console.error(err);
+            showToast('Error saving file: ' + err.message, '❌');
+        }
+        return;
+    }
+
     try {
         const payload = JSON.stringify({ path: activePreviewPath, content: newContent });
         const res = await fetch('/api/files/saveFile', {
@@ -5225,7 +5918,13 @@ async function toggleQuickLookEditor() {
     if (!qlBody) return;
 
     const sep = isWindows ? '\\' : '/';
-    const fullPath = currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name;
+    const sftpInfo = parseSftpUrl(currentPath);
+    let fullPath;
+    if (sftpInfo) {
+        fullPath = `sftp://${sftpInfo.connectionId}${sftpInfo.remotePath === '/' ? '/' + selectedItem.name : sftpInfo.remotePath + '/' + selectedItem.name}`;
+    } else {
+        fullPath = (selectedItem && selectedItem.path) ? selectedItem.path : (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name);
+    }
 
     if (isQlEditorActive) {
         isQlEditorActive = false;
@@ -5237,15 +5936,27 @@ async function toggleQuickLookEditor() {
 
     try {
         qlBody.innerHTML = '<div style="padding: 30px; text-align: center;"><div class="spinner" style="margin: 0 auto 10px;"></div>Loading editor...</div>';
-        let res = await fetch('/api/files/download?path=' + encodeURIComponent(fullPath)).catch(function() { return null; });
-        if (!res || !res.ok) res = await fetch('/api/files/read?path=' + encodeURIComponent(fullPath)).catch(function() { return null; });
-        if (!res || !res.ok) res = await fetch('/api/files/raw?path=' + encodeURIComponent(fullPath)).catch(function() { return null; });
-        if (!res || !res.ok) {
-            showToast('Unable to open file for editing', '⚠️');
-            renderFilePreview(qlBody, fullPath, selectedItem.name, false, true);
-            return;
+        let text = '';
+        const fileSftp = parseSftpUrl(fullPath);
+        if (fileSftp) {
+            let res = await fetch(`/api/sftp/read?connectionId=${encodeURIComponent(fileSftp.connectionId)}&path=${encodeURIComponent(fileSftp.remotePath)}`).catch(() => null);
+            if (!res || !res.ok) {
+                showToast('Unable to open remote file for editing', '⚠️');
+                renderFilePreview(qlBody, fullPath, selectedItem.name, false, true);
+                return;
+            }
+            text = await res.text();
+        } else {
+            let res = await fetch('/api/files/download?path=' + encodeURIComponent(fullPath)).catch(function() { return null; });
+            if (!res || !res.ok) res = await fetch('/api/files/read?path=' + encodeURIComponent(fullPath)).catch(function() { return null; });
+            if (!res || !res.ok) res = await fetch('/api/files/raw?path=' + encodeURIComponent(fullPath)).catch(function() { return null; });
+            if (!res || !res.ok) {
+                showToast('Unable to open file for editing', '⚠️');
+                renderFilePreview(qlBody, fullPath, selectedItem.name, false, true);
+                return;
+            }
+            text = await res.text();
         }
-        const text = await res.text();
         qlOriginalContent = text;
         isQlEditorActive = true;
         if (qlEditBtn) qlEditBtn.textContent = '✕ Discard';
@@ -5275,7 +5986,45 @@ async function saveQuickLookEditor() {
     if (!textarea) return;
     const newContent = textarea.value;
     const sep = isWindows ? '\\' : '/';
-    const fullPath = currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name;
+    const sftpInfo = parseSftpUrl(currentPath);
+    let fullPath;
+    if (sftpInfo) {
+        fullPath = `sftp://${sftpInfo.connectionId}${sftpInfo.remotePath === '/' ? '/' + selectedItem.name : sftpInfo.remotePath + '/' + selectedItem.name}`;
+    } else {
+        fullPath = (selectedItem && selectedItem.path) ? selectedItem.path : (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name);
+    }
+
+    const fileSftp = parseSftpUrl(fullPath);
+    if (fileSftp) {
+        try {
+            const payload = JSON.stringify({
+                connectionId: fileSftp.connectionId,
+                remotePath: fileSftp.remotePath,
+                content: newContent
+            });
+            const res = await fetch('/api/sftp/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: payload
+            });
+            if (res.ok) {
+                const lines = newContent.split('\n').length;
+                showToast('Saved "' + selectedItem.name + '" to SFTP (' + lines + ' lines) 💾', '✅');
+                isQlEditorActive = false;
+                const qlEditBtn = document.getElementById('ql-edit-btn');
+                const qlSaveBtn = document.getElementById('ql-save-btn');
+                if (qlEditBtn) qlEditBtn.textContent = '✏️ Edit';
+                if (qlSaveBtn) qlSaveBtn.style.display = 'none';
+                renderFilePreview(document.getElementById('ql-body'), fullPath, selectedItem.name, false, true);
+            } else {
+                showToast('Failed to save file to SFTP', '❌');
+            }
+        } catch (err) {
+            console.error(err);
+            showToast('Error saving: ' + err.message, '❌');
+        }
+        return;
+    }
 
     try {
         const payload = JSON.stringify({ path: fullPath, content: newContent });
@@ -5371,6 +6120,33 @@ async function loadCommanderPane(paneId, targetPath) {
     bodyEl.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);"><div class="spinner" style="margin: 0 auto 8px;"></div>Loading...</div>';
 
     try {
+        const sftpInfo = parseSftpUrl(targetPath);
+        if (sftpInfo) {
+            const res = await fetch(`/api/sftp/list?connectionId=${encodeURIComponent(sftpInfo.connectionId)}&path=${encodeURIComponent(sftpInfo.remotePath)}`);
+            if (!res.ok) {
+                bodyEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #ff7675;">SFTP Access Denied or Disconnected</div>';
+                return;
+            }
+            const data = await res.json();
+            state.path = `sftp://${sftpInfo.connectionId}${data.currentPath.startsWith('/') ? data.currentPath : '/' + data.currentPath}`;
+            state.items = (data.items || []).map(item => ({
+                ...item,
+                isSftp: true,
+                connectionId: sftpInfo.connectionId,
+                path: `sftp://${sftpInfo.connectionId}${item.remotePath || (data.currentPath === '/' ? '/' + item.name : data.currentPath + '/' + item.name)}`
+            }));
+            state.selected = null;
+            state.selectedItems = [];
+
+            if (pathEl) {
+                pathEl.textContent = state.path;
+                pathEl.title = state.path;
+            }
+
+            renderCommanderPaneItems(paneId);
+            return;
+        }
+
         const res = await fetch('/api/files/list?path=' + encodeURIComponent(targetPath));
         if (!res.ok) {
             bodyEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #ff7675;">Access Denied or Not Found</div>';
@@ -5510,6 +6286,19 @@ function openCommanderItem(paneId, itemIndex) {
 
 function navigateCommanderParent(paneId) {
     const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    const sftpInfo = parseSftpUrl(state.path);
+    if (sftpInfo) {
+        if (sftpInfo.remotePath === '/' || !sftpInfo.remotePath) return;
+        const parts = sftpInfo.remotePath.split('/').filter(Boolean);
+        if (parts.length <= 1) {
+            loadCommanderPane(paneId, `sftp://${sftpInfo.connectionId}/`);
+            return;
+        }
+        parts.pop();
+        loadCommanderPane(paneId, `sftp://${sftpInfo.connectionId}/` + parts.join('/'));
+        return;
+    }
+
     const sep = isWindows ? '\\' : '/';
     const parts = state.path.split(sep).filter(Boolean);
     if (parts.length > 1) {
@@ -5733,6 +6522,7 @@ document.addEventListener('keydown', function(e) {
             cancelInlineEditor();
             return;
         }
+        closeSftpModal();
         closeAiAssistantModal();
         closeAllMenus();
         clearTypeAhead();
@@ -5743,6 +6533,13 @@ document.addEventListener('keydown', function(e) {
         closeQuickLook();
         exitPathEditMode();
         clearSearch();
+        return;
+    }
+
+    // Cmd+K / Ctrl+K: Quick Connect to SFTP Server
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        openSftpModal();
         return;
     }
 
@@ -7431,4 +8228,9 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
 try {
     const savedDualPane = localStorage.getItem('venel_dual_pane') === 'true';
     if (savedDualPane) toggleDualPaneMode(true);
+} catch {}
+
+// Initialize SFTP Remote Sessions & Saved Profiles
+try {
+    refreshSftpSessionsList();
 } catch {}
