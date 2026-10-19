@@ -4,6 +4,8 @@ let displayedItems = [];
 let selectedItem = null;
 let selectedItems = [];
 let lastSelectedName = null;
+let activePreviewPath = null;
+let activePreviewIsDir = false;
 let typeAheadBuffer = '';
 let typeAheadTimer = null;
 let activeBatchTab = 'replace';
@@ -3318,6 +3320,9 @@ async function handlePreview(name, isDir) {
 
     const sep = isWindows ? '\\' : '/';
     const fullPath = (selectedItem && selectedItem.path) ? selectedItem.path : (currentPath.endsWith(sep) ? currentPath + name : currentPath + sep + name);
+    activePreviewPath = fullPath;
+    activePreviewIsDir = isDir;
+    updatePreviewActionButtons(fullPath, isDir);
 
     await renderFilePreview(previewContent, fullPath, name, isDir, false);
 }
@@ -3412,17 +3417,57 @@ function openSelectedItemInEditor(targetPath) {
     }
 }
 
+function openTerminal(targetPath) {
+    hideContextMenu();
+    const sep = isWindows ? '\\' : '/';
+    let p = targetPath || currentPath;
+    // If target is a file or selected item is a file, use its parent folder
+    if (selectedItem && selectedItem.type !== 'Directory' && p.endsWith(sep + selectedItem.name)) {
+        p = currentPath;
+    } else {
+        const lastSep = p.lastIndexOf(sep);
+        const lastDot = p.lastIndexOf('.');
+        if (lastDot > lastSep && lastSep > 0) {
+            p = p.substring(0, lastSep);
+        }
+    }
+
+    // 1. VS Code Webview IPC
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ command: 'openTerminal', path: p }, '*');
+    }
+    if (window.vscode) {
+        window.vscode.postMessage({ command: 'openTerminal', path: p });
+    }
+    // 2. HTTP Server Fallback (Standalone / C# Kestrel / Node)
+    fetch('/api/files/openInTerminal?path=' + encodeURIComponent(p)).catch(() => {});
+    const folderName = p.split(sep).filter(Boolean).pop() || p;
+    showToast('Opening Integrated Terminal in "' + folderName + '" 💻', '💻');
+}
+
 function openTerminalAtCurrent() {
-    fetch('/api/files/openInTerminal?path=' + encodeURIComponent(currentPath));
-    showToast('Opening terminal at ' + currentPath, '💻');
+    openTerminal(currentPath);
 }
 
 function openTerminalAtSelection() {
     hideContextMenu();
     const sep = isWindows ? '\\' : '/';
-    const p = selectedItem ? (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name) : currentPath;
-    fetch('/api/files/openInTerminal?path=' + encodeURIComponent(p));
-    showToast('Opening terminal...', '💻');
+    const p = selectedItem ? (selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name)) : currentPath;
+    openTerminal(p);
+}
+
+function openTerminalAtPreview() {
+    const p = activePreviewPath || currentPath;
+    openTerminal(p);
+}
+
+function openTerminalFromHover(e) {
+    if (e) e.stopPropagation();
+    hideHoverCard();
+    const sep = isWindows ? '\\' : '/';
+    const name = document.getElementById('hover-card-name') ? document.getElementById('hover-card-name').textContent : '';
+    const p = name ? (currentPath.endsWith(sep) ? currentPath + name : currentPath + sep + name) : currentPath;
+    openTerminal(p);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -3642,20 +3687,166 @@ function diffSelectedPair() {
     openVisualDiff(pA, pB);
 }
 
+function computeRelativePath(fromDir, toPath) {
+    if (!toPath) return '.';
+    if (!fromDir || fromDir === '.') {
+        const sep = isWindows ? '\\' : '/';
+        const parts = toPath.split(sep).filter(Boolean);
+        return './' + (parts.pop() || toPath);
+    }
+    const cleanFrom = fromDir.replace(/\\/g, '/').replace(/\/+$/, '');
+    const cleanTo = toPath.replace(/\\/g, '/');
+    if (cleanTo === cleanFrom) return '.';
+    if (cleanTo.startsWith(cleanFrom + '/')) {
+        return './' + cleanTo.substring(cleanFrom.length + 1);
+    }
+    // Cross-folder relative calculation
+    const fromParts = cleanFrom.split('/').filter(Boolean);
+    const toParts = cleanTo.split('/').filter(Boolean);
+    let common = 0;
+    while (common < fromParts.length && common < toParts.length && fromParts[common] === toParts[common]) {
+        common++;
+    }
+    const upHops = fromParts.length - common;
+    const downPath = toParts.slice(common).join('/');
+    const rel = (upHops > 0 ? '../'.repeat(upHops) : './') + downPath;
+    return rel;
+}
+
+function generateSmartImportSnippet(fullPath, fromDir) {
+    if (!fullPath) return '';
+    const sep = isWindows ? '\\' : '/';
+    const parts = fullPath.split(sep).filter(Boolean);
+    const fileName = parts.pop() || '';
+    const dotIdx = fileName.lastIndexOf('.');
+    const baseName = dotIdx > 0 ? fileName.substring(0, dotIdx) : fileName;
+    const ext = dotIdx > 0 ? fileName.substring(dotIdx).toLowerCase() : '';
+    const relPath = computeRelativePath(fromDir || currentPath, fullPath);
+    const relNoExt = relPath.replace(/\.(tsx?|jsx?|mjs)$/i, '');
+
+    // Form clean PascalCase / CamelCase identifier
+    let symbol = baseName.replace(/[-_.]+(.)?/g, function(_, c) { return c ? c.toUpperCase() : ''; });
+    if (symbol && /^[a-z]/.test(symbol)) symbol = symbol.charAt(0).toUpperCase() + symbol.slice(1);
+    if (!symbol || !/^[A-Za-z_$]/.test(symbol)) symbol = 'Component';
+
+    if (['.tsx', '.ts', '.jsx', '.js', '.mjs'].includes(ext)) {
+        return "import { " + symbol + " } from '" + relNoExt + "';";
+    } else if (['.vue', '.svelte'].includes(ext)) {
+        return "import " + symbol + " from '" + relPath + "';";
+    } else if (['.css', '.scss', '.sass', '.less'].includes(ext)) {
+        return "@import '" + relPath + "';";
+    } else if (ext === '.json') {
+        return "import " + (baseName.replace(/[^a-zA-Z0-9_$]/g, '_') || 'data') + " from '" + relPath + "';";
+    } else if (ext === '.py') {
+        const mod = relNoExt.replace(/^\.\//, '').replace(/\//g, '.');
+        return "from ." + mod + " import " + baseName;
+    } else if (ext === '.cs') {
+        return "using " + symbol + ";";
+    } else if (['.png', '.jpg', '.jpeg', '.svg', '.gif', '.webp', '.ico'].includes(ext)) {
+        return "![" + baseName + "](" + relPath + ")";
+    } else if (ext === '.md' || ext === '.txt') {
+        return "[" + baseName + "](" + relPath + ")";
+    }
+    return relPath;
+}
+
 function copyPathToClipboard(isRelative) {
     hideContextMenu();
     const sep = isWindows ? '\\' : '/';
-    let p = selectedItem ? (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name) : currentPath;
+    let full = selectedItem ? (selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name)) : currentPath;
+    let textToCopy = full;
     if (isRelative) {
-        p = selectedItem ? selectedItem.name : '.';
+        textToCopy = computeRelativePath(currentPath, full);
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(p);
+        navigator.clipboard.writeText(textToCopy);
     }
     if (window.parent && window.parent !== window) {
-        window.parent.postMessage({ command: 'copyToClipboard', text: p }, '*');
+        window.parent.postMessage({ command: 'copyToClipboard', text: textToCopy }, '*');
     }
-    showToast(isRelative ? 'Copied relative path' : 'Copied absolute path', '📋');
+    if (window.vscode) {
+        window.vscode.postMessage({ command: 'copyToClipboard', text: textToCopy });
+    }
+    showToast(isRelative ? 'Copied relative path: ' + textToCopy : 'Copied absolute path', '📋');
+}
+
+function copySmartImportAtSelection() {
+    hideContextMenu();
+    const sep = isWindows ? '\\' : '/';
+    const target = selectedItem ? (selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name)) : currentPath;
+    const snippet = generateSmartImportSnippet(target, currentPath);
+    if (!snippet) return;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(snippet);
+    }
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ command: 'copyToClipboard', text: snippet }, '*');
+    }
+    if (window.vscode) {
+        window.vscode.postMessage({ command: 'copyToClipboard', text: snippet });
+    }
+    showToast('Copied: ' + snippet, '📦');
+}
+
+function copySmartImportAtPreview() {
+    const target = activePreviewPath || currentPath;
+    const snippet = generateSmartImportSnippet(target, currentPath);
+    if (!snippet) return;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(snippet);
+    }
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ command: 'copyToClipboard', text: snippet }, '*');
+    }
+    if (window.vscode) {
+        window.vscode.postMessage({ command: 'copyToClipboard', text: snippet });
+    }
+    showToast('Copied import: ' + snippet, '📦');
+}
+
+function copySmartImportFromHover(e) {
+    if (e) e.stopPropagation();
+    hideHoverCard();
+    const sep = isWindows ? '\\' : '/';
+    const name = document.getElementById('hover-card-name') ? document.getElementById('hover-card-name').textContent : '';
+    const target = name ? (currentPath.endsWith(sep) ? currentPath + name : currentPath + sep + name) : currentPath;
+    const snippet = generateSmartImportSnippet(target, currentPath);
+    if (!snippet) return;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(snippet);
+    }
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ command: 'copyToClipboard', text: snippet }, '*');
+    }
+    if (window.vscode) {
+        window.vscode.postMessage({ command: 'copyToClipboard', text: snippet });
+    }
+    showToast('Copied import: ' + snippet, '📦');
+}
+
+function copyMarkdownRefAtSelection() {
+    hideContextMenu();
+    const sep = isWindows ? '\\' : '/';
+    const target = selectedItem ? (selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name)) : currentPath;
+    const parts = target.split(sep).filter(Boolean);
+    const name = parts.pop() || target;
+    const rel = computeRelativePath(currentPath, target);
+    const isImg = /\.(png|jpe?g|svg|gif|webp)$/i.test(name);
+    const md = (isImg ? '![' : '[') + name + '](' + rel + ')';
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(md);
+    }
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ command: 'copyToClipboard', text: md }, '*');
+    }
+    if (window.vscode) {
+        window.vscode.postMessage({ command: 'copyToClipboard', text: md });
+    }
+    showToast('Copied Markdown reference: ' + md, '🔗');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -3717,7 +3908,7 @@ function initBookmarks() {
         } else {
             // Default starting bookmark
             userBookmarks = [
-                { name: 'Home', path: defaultHomePath || '.', icon: '🏠', isDefault: true }
+                { name: 'Home', path: defaultHomePath || '.', icon: '🏠', isDir: true, isDefault: true }
             ];
             saveBookmarks();
         }
@@ -3735,10 +3926,12 @@ function saveBookmarks() {
 
 function renderBookmarks() {
     const container = document.getElementById('bookmarks-chips');
+    const favList = document.getElementById('favorites-list');
+    const favCountBadge = document.getElementById('favorites-count-badge');
     const pinBtn = document.getElementById('btn-pin-current');
     const starIcon = document.getElementById('pin-star-icon');
     const starLabel = document.getElementById('pin-star-label');
-    if (!container) return;
+    const previewPinBtn = document.getElementById('preview-pin-btn');
 
     const isCurrentPinned = userBookmarks.some(function(b) { return b.path === currentPath; });
     if (pinBtn) {
@@ -3753,16 +3946,190 @@ function renderBookmarks() {
         }
     }
 
-    let html = '';
-    userBookmarks.forEach(function(b) {
-        const isActive = b.path === currentPath;
-        html += '<div class="bookmark-chip ' + (isActive ? 'active' : '') + '" onclick="navigateTo(\'' + escapePath(b.path) + '\')" ondragover="handleBookmarkDragOver(event, \'' + escapePath(b.path) + '\')" ondragleave="handleBookmarkDragLeave(event)" ondrop="handleBookmarkDrop(event, \'' + escapePath(b.path) + '\')" title="' + escapeHtml(b.path) + '">' +
-            '<span>' + (b.icon || '📁') + '</span>' +
-            '<span class="chip-name">' + escapeHtml(b.name) + '</span>' +
-            (!b.isDefault ? '<span class="remove-pin" onclick="event.stopPropagation(); removeBookmark(\'' + escapePath(b.path) + '\')" title="Unpin">✕</span>' : '') +
-            '</div>';
+    if (previewPinBtn && activePreviewPath) {
+        const isPrevPinned = userBookmarks.some(function(b) { return b.path === activePreviewPath; });
+        if (isPrevPinned) {
+            previewPinBtn.classList.add('pinned');
+            previewPinBtn.textContent = '★';
+            previewPinBtn.title = 'Unpin this item from Favorites';
+        } else {
+            previewPinBtn.classList.remove('pinned');
+            previewPinBtn.textContent = '☆';
+            previewPinBtn.title = 'Pin this item to Favorites';
+        }
+    }
+
+    if (favCountBadge) {
+        favCountBadge.textContent = userBookmarks.length;
+    }
+
+    // 1. Render Top Bookmarks Bar Chips
+    if (container) {
+        let html = '';
+        userBookmarks.forEach(function(b) {
+            const isActive = b.path === currentPath;
+            html += '<div class="bookmark-chip ' + (isActive ? 'active' : '') + '" onclick="navigateToBookmark(\'' + escapePath(b.path) + '\', ' + (b.isDir !== false) + ')" ondragover="handleBookmarkDragOver(event, \'' + escapePath(b.path) + '\')" ondragleave="handleBookmarkDragLeave(event)" ondrop="handleBookmarkDrop(event, \'' + escapePath(b.path) + '\')" title="' + escapeHtml(b.path) + '">' +
+                '<span>' + (b.icon || '📁') + '</span>' +
+                '<span class="chip-name">' + escapeHtml(b.name) + '</span>' +
+                (!b.isDefault ? '<span class="remove-pin" onclick="event.stopPropagation(); removeBookmark(\'' + escapePath(b.path) + '\')" title="Unpin">✕</span>' : '') +
+                '</div>';
+        });
+        container.innerHTML = html;
+    }
+
+    // 2. Render Left Places Sidebar Pinned Favorites List
+    if (favList) {
+        if (userBookmarks.length === 0) {
+            favList.innerHTML = '<div class="favorites-empty-guide">⭐ Drag folders or files here to pin for quick access</div>';
+        } else {
+            let favHtml = '';
+            userBookmarks.forEach(function(b) {
+                const isActive = b.path === currentPath || (activePreviewPath && b.path === activePreviewPath);
+                const isDir = b.isDir !== false;
+                const visual = typeof getFileVisual === 'function' ? getFileVisual(b.name, isDir) : { icon: isDir ? '📁' : '📄' };
+                const icon = b.icon || visual.icon || (isDir ? '📁' : '📄');
+                const badge = isDir ? 'DIR' : (b.ext || b.name.split('.').pop() || 'FILE').toUpperCase();
+
+                favHtml += '<div class="fav-pinned-item ' + (isActive ? 'active' : '') + '" onclick="navigateToBookmark(\'' + escapePath(b.path) + '\', ' + isDir + ')" title="' + escapeHtml(b.path) + '">' +
+                    '<div class="fav-item-main">' +
+                        '<i class="fav-item-icon">' + icon + '</i>' +
+                        '<span class="fav-item-name">' + escapeHtml(b.name) + '</span>' +
+                    '</div>' +
+                    '<div style="display: flex; align-items: center; gap: 4px;">' +
+                        '<span class="fav-item-badge">' + escapeHtml(badge) + '</span>' +
+                        '<div class="fav-item-actions">' +
+                            '<button class="fav-action-btn" onclick="event.stopPropagation(); openTerminal(\'' + escapePath(b.path) + '\')" title="Open Integrated Terminal (⌥T)">💻</button>' +
+                            (!b.isDefault ? '<button class="fav-action-btn fav-unpin-btn" onclick="event.stopPropagation(); removeBookmark(\'' + escapePath(b.path) + '\')" title="Unpin from Favorites">✕</button>' : '') +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            });
+            favList.innerHTML = favHtml;
+        }
+    }
+}
+
+function navigateToBookmark(targetPath, isDir) {
+    if (isDir !== false) {
+        navigateTo(targetPath);
+    } else {
+        const sep = isWindows ? '\\' : '/';
+        const parts = targetPath.split(sep).filter(Boolean);
+        const fileName = parts.pop();
+        const parentDir = targetPath.substring(0, targetPath.lastIndexOf(sep)) || (isWindows ? 'C:\\' : '/');
+        if (currentPath !== parentDir) {
+            navigateTo(parentDir, function() {
+                const found = currentItems.find(function(it) { return it.name === fileName; });
+                if (found) {
+                    selectItem(found, null);
+                    handlePreview(found.name, found.type === 'Directory');
+                }
+            });
+        } else {
+            const found = currentItems.find(function(it) { return it.name === fileName; });
+            if (found) {
+                selectItem(found, null);
+                handlePreview(found.name, found.type === 'Directory');
+            }
+        }
+    }
+}
+
+function toggleSidebarSection(sectionName) {
+    const body = document.getElementById(sectionName + '-section-body');
+    const chevron = document.getElementById('chevron-' + sectionName);
+    if (!body) return;
+    const isCollapsed = !body.classList.contains('collapsed');
+    if (isCollapsed) {
+        body.classList.add('collapsed');
+        if (chevron) chevron.classList.add('collapsed');
+    } else {
+        body.classList.remove('collapsed');
+        if (chevron) chevron.classList.remove('collapsed');
+    }
+    try {
+        localStorage.setItem('venel_sec_collapsed_' + sectionName, isCollapsed ? '1' : '0');
+    } catch {}
+}
+
+function initSidebarSections() {
+    ['favorites', 'places'].forEach(function(sec) {
+        try {
+            const stored = localStorage.getItem('venel_sec_collapsed_' + sec);
+            if (stored === '1') {
+                const body = document.getElementById(sec + '-section-body');
+                const chevron = document.getElementById('chevron-' + sec);
+                if (body) body.classList.add('collapsed');
+                if (chevron) chevron.classList.add('collapsed');
+            }
+        } catch {}
     });
-    container.innerHTML = html;
+}
+
+function handleFavoritesDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const zone = document.getElementById('favorites-list');
+    if (zone) zone.classList.add('drag-over');
+    if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'copy';
+    }
+}
+
+function handleFavoritesDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const zone = document.getElementById('favorites-list');
+    if (zone) zone.classList.remove('drag-over');
+}
+
+function handleFavoritesDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const zone = document.getElementById('favorites-list');
+    if (zone) zone.classList.remove('drag-over');
+
+    const sep = isWindows ? '\\' : '/';
+    let pathsToPin = [];
+
+    if (draggedVenElItems && draggedVenElItems.length > 0) {
+        pathsToPin = draggedVenElItems.slice();
+    } else if (selectedItems && selectedItems.length > 0) {
+        pathsToPin = selectedItems.map(function(i) {
+            return i.path || (currentPath.endsWith(sep) ? currentPath + i.name : currentPath + sep + i.name);
+        });
+    } else if (selectedItem) {
+        pathsToPin = [selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name)];
+    }
+
+    let addedCount = 0;
+    pathsToPin.forEach(function(targetPath) {
+        if (!targetPath) return;
+        if (userBookmarks.some(function(b) { return b.path === targetPath; })) return;
+
+        const name = targetPath.split(sep).filter(Boolean).pop() || targetPath;
+        const dotIdx = name.lastIndexOf('.');
+        const ext = dotIdx > 0 ? name.substring(dotIdx).toUpperCase() : '';
+        const matchingItem = currentItems.find(function(it) { return it.name === name; });
+        const isDir = matchingItem ? matchingItem.type === 'Directory' : (!ext || ext.length > 6);
+        const visual = typeof getFileVisual === 'function' ? getFileVisual(name, isDir) : { icon: isDir ? '📁' : '📄' };
+
+        userBookmarks.push({
+            name: name,
+            path: targetPath,
+            icon: visual.icon || (isDir ? '📁' : '📄'),
+            isDir: isDir,
+            ext: ext,
+            isDefault: false
+        });
+        addedCount++;
+    });
+
+    if (addedCount > 0) {
+        saveBookmarks();
+        renderBookmarks();
+        showToast('Pinned ' + addedCount + ' item' + (addedCount > 1 ? 's' : '') + ' to Favorites ⭐', '⭐');
+    }
 }
 
 function togglePinCurrentFolder() {
@@ -3777,9 +4144,10 @@ function togglePinCurrentFolder() {
             name: folderName,
             path: currentPath,
             icon: '📁',
+            isDir: true,
             isDefault: false
         });
-        showToast('Pinned "' + folderName + '" to Favorites', '⭐');
+        showToast('Pinned "' + folderName + '" to Favorites ⭐', '⭐');
     }
     saveBookmarks();
     renderBookmarks();
@@ -3797,25 +4165,97 @@ function togglePinSelectedItem() {
     const sep = isWindows ? '\\' : '/';
     let target = currentPath;
     let name = currentPath.split(sep).filter(Boolean).pop() || currentPath;
-    if (selectedItem && selectedItem.type === 'Directory') {
-        target = currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name;
+    let isDir = true;
+    let ext = '';
+
+    if (selectedItem) {
+        target = selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name);
         name = selectedItem.name;
+        isDir = selectedItem.type === 'Directory';
+        const dotIdx = name.lastIndexOf('.');
+        ext = dotIdx > 0 ? name.substring(dotIdx).toUpperCase() : '';
     }
+
     const idx = userBookmarks.findIndex(function(b) { return b.path === target; });
     if (idx >= 0) {
         userBookmarks.splice(idx, 1);
         showToast('Unpinned "' + name + '"', '☆');
     } else {
+        const visual = typeof getFileVisual === 'function' ? getFileVisual(name, isDir) : { icon: isDir ? '📁' : '📄' };
         userBookmarks.push({
             name: name,
             path: target,
-            icon: '📁',
+            icon: visual.icon || (isDir ? '📁' : '📄'),
+            isDir: isDir,
+            ext: ext,
             isDefault: false
         });
-        showToast('Pinned "' + name + '" to Favorites', '⭐');
+        showToast('Pinned "' + name + '" to Favorites ⭐', '⭐');
     }
     saveBookmarks();
     renderBookmarks();
+}
+
+function togglePinPreviewItem() {
+    if (!activePreviewPath) return;
+    const sep = isWindows ? '\\' : '/';
+    const target = activePreviewPath;
+    const name = target.split(sep).filter(Boolean).pop() || target;
+    const isDir = activePreviewIsDir;
+    const dotIdx = name.lastIndexOf('.');
+    const ext = dotIdx > 0 ? name.substring(dotIdx).toUpperCase() : '';
+
+    const idx = userBookmarks.findIndex(function(b) { return b.path === target; });
+    if (idx >= 0) {
+        userBookmarks.splice(idx, 1);
+        showToast('Unpinned "' + name + '"', '☆');
+    } else {
+        const visual = typeof getFileVisual === 'function' ? getFileVisual(name, isDir) : { icon: isDir ? '📁' : '📄' };
+        userBookmarks.push({
+            name: name,
+            path: target,
+            icon: visual.icon || (isDir ? '📁' : '📄'),
+            isDir: isDir,
+            ext: ext,
+            isDefault: false
+        });
+        showToast('Pinned "' + name + '" to Favorites ⭐', '⭐');
+    }
+    saveBookmarks();
+    renderBookmarks();
+}
+
+function updatePreviewActionButtons(fullPath, isDir) {
+    const pinBtn = document.getElementById('preview-pin-btn');
+    const copyImportBtn = document.getElementById('preview-copy-import-btn');
+    const terminalBtn = document.getElementById('preview-terminal-btn');
+
+    if (fullPath) {
+        if (pinBtn) {
+            const isPinned = userBookmarks.some(function(b) { return b.path === fullPath; });
+            pinBtn.style.display = 'inline-flex';
+            if (isPinned) {
+                pinBtn.classList.add('pinned');
+                pinBtn.textContent = '★';
+                pinBtn.title = 'Unpin this item from Favorites';
+            } else {
+                pinBtn.classList.remove('pinned');
+                pinBtn.textContent = '☆';
+                pinBtn.title = 'Pin this item to Favorites';
+            }
+        }
+        if (copyImportBtn) {
+            copyImportBtn.style.display = 'inline-flex';
+            copyImportBtn.title = isDir ? 'Copy Relative Path (⌥⇧C)' : 'Copy Smart Import Statement (⌥⇧I)';
+        }
+        if (terminalBtn) {
+            terminalBtn.style.display = 'inline-flex';
+        }
+    } else {
+        if (pinBtn) pinBtn.style.display = 'none';
+        if (copyImportBtn) copyImportBtn.style.display = 'none';
+        if (terminalBtn) terminalBtn.style.display = 'none';
+    }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -4475,6 +4915,29 @@ document.addEventListener('keydown', function(e) {
     if (isCompactShortcutMac || isCompactShortcutWin) {
         e.preventDefault();
         toggleCompactBars();
+        return;
+    }
+
+    // Alt+T / Option+T or Ctrl+` : Open Integrated Terminal
+    const isTerminalShortcut = (e.altKey && (e.key === 't' || e.key === 'T') && !e.metaKey && !e.ctrlKey) ||
+                               ((e.ctrlKey || e.metaKey) && (e.key === '`' || e.code === 'Backquote'));
+    if (isTerminalShortcut) {
+        e.preventDefault();
+        openTerminalAtSelection();
+        return;
+    }
+
+    // Option+Shift+C (Mac) or Alt+Shift+C (Win): Copy Relative Path
+    if (e.altKey && e.shiftKey && (e.key === 'C' || e.key === 'c')) {
+        e.preventDefault();
+        copyPathToClipboard(true);
+        return;
+    }
+
+    // Option+Shift+I (Mac) or Alt+Shift+I (Win): Copy Smart Import Statement
+    if (e.altKey && e.shiftKey && (e.key === 'I' || e.key === 'i')) {
+        e.preventDefault();
+        copySmartImportAtSelection();
         return;
     }
 
@@ -5222,6 +5685,17 @@ function handleItemDragStart(e, name, isDir) {
             items: draggedVenElItems
         }));
         e.dataTransfer.effectAllowed = 'copyMove';
+
+        // Developer Productivity: Drag-and-drop into VS Code editor for smart import statement or relative path insertion
+        if (draggedVenElItems.length > 0) {
+            const firstItemPath = draggedVenElItems[0];
+            const importSnippet = generateSmartImportSnippet(firstItemPath, currentPath);
+            e.dataTransfer.setData('text/plain', importSnippet);
+            e.dataTransfer.setData('text/uri-list', 'file://' + firstItemPath);
+            try {
+                e.dataTransfer.setData('application/vnd.code.uri-list', JSON.stringify(['file://' + firstItemPath]));
+            } catch {}
+        }
     }
 
     const elem = e.currentTarget;
@@ -5995,6 +6469,7 @@ async function sendToMcpAssistant() {
 // Initialize
 fetchRoots();
 initBookmarks();
+initSidebarSections();
 initQuickFilterAndHiddenFiles();
 initHoverCard();
 const initialTab = tabs.find(function(t) { return t.id === activeTabId; }) || tabs[0];

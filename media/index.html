@@ -508,28 +508,49 @@
                 <span class="sidebar-group-title" style="margin: 0; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; color: var(--text-main); padding: 0 4px;">🧭 Places</span>
                 <button class="sidebar-collapse-chevron" onclick="toggleSidebarRail()" title="Auto-Hide / Collapse Places to Left Margin (❮)">❮</button>
             </div>
-            <div class="sidebar-group-title" style="margin-top: 2px;">
-                <span>Favorites</span>
-            </div>
-            <div id="quick-favorites">
-                <div class="quick-item" onclick="goHome()">
-                    <i>🏠</i> <span>Home</span>
+            <!-- Collapsible Pinned Favorites Section -->
+            <div class="sidebar-collapsible-section" id="sidebar-section-favorites">
+                <div class="sidebar-section-header" onclick="toggleSidebarSection('favorites')">
+                    <div class="sidebar-section-title-wrap">
+                        <span class="sidebar-section-chevron" id="chevron-favorites">▼</span>
+                        <span class="sidebar-section-title">⭐ Pinned Favorites</span>
+                        <span class="sidebar-section-count" id="favorites-count-badge">0</span>
+                    </div>
+                    <button class="sidebar-action-btn" id="btn-pin-sidebar" onclick="event.stopPropagation(); togglePinCurrentFolder()" title="Pin/Unpin current folder to Favorites">+</button>
                 </div>
-                <div class="quick-item" id="fav-desktop" onclick="quickNav('Desktop')">
-                    <i>🖥️</i> <span>Desktop</span>
-                </div>
-                <div class="quick-item" id="fav-documents" onclick="quickNav('Documents')">
-                    <i>📁</i> <span>Documents</span>
-                </div>
-                <div class="quick-item" id="fav-downloads" onclick="quickNav('Downloads')">
-                    <i>📥</i> <span>Downloads</span>
+                <div class="sidebar-section-body" id="favorites-section-body">
+                    <div id="favorites-list" class="favorites-dropzone" ondragover="handleFavoritesDragOver(event)" ondragleave="handleFavoritesDragLeave(event)" ondrop="handleFavoritesDrop(event)">
+                        <!-- Dynamically populated pinned bookmarks -->
+                    </div>
                 </div>
             </div>
 
-            <div class="sidebar-group-title" style="margin-top: 10px;">
-                <span>Drives & Volumes</span>
+            <!-- Collapsible Standard Places & Drives Section -->
+            <div class="sidebar-collapsible-section" id="sidebar-section-places" style="margin-top: 8px;">
+                <div class="sidebar-section-header" onclick="toggleSidebarSection('places')">
+                    <div class="sidebar-section-title-wrap">
+                        <span class="sidebar-section-chevron" id="chevron-places">▼</span>
+                        <span class="sidebar-section-title">🖥️ Places & Drives</span>
+                    </div>
+                </div>
+                <div class="sidebar-section-body" id="places-section-body">
+                    <div id="quick-favorites">
+                        <div class="quick-item" onclick="goHome()">
+                            <i>🏠</i> <span>Home</span>
+                        </div>
+                        <div class="quick-item" id="fav-desktop" onclick="quickNav('Desktop')">
+                            <i>🖥️</i> <span>Desktop</span>
+                        </div>
+                        <div class="quick-item" id="fav-documents" onclick="quickNav('Documents')">
+                            <i>📁</i> <span>Documents</span>
+                        </div>
+                        <div class="quick-item" id="fav-downloads" onclick="quickNav('Downloads')">
+                            <i>📥</i> <span>Downloads</span>
+                        </div>
+                    </div>
+                    <div id="quick-drives" style="margin-top: 4px;"></div>
+                </div>
             </div>
-            <div id="quick-drives"></div>
         </aside>
 
         <!-- Draggable Sidebar Resizer Handle -->
@@ -576,6 +597,9 @@
                 </h2>
                 <div style="display: flex; align-items: center; gap: 6px;">
                     <span id="preview-header-tokens" class="token-pill" style="display: none;" title="Estimated LLM Tokens (GPT-4o / Claude 3.5 Sonnet)">✨ 0 tokens</span>
+                    <button id="preview-pin-btn" class="preview-action-btn preview-pin-btn" onclick="togglePinPreviewItem()" title="Pin/Unpin This Item to Favorites" style="display: none;">★</button>
+                    <button id="preview-copy-import-btn" class="preview-action-btn preview-copy-btn" onclick="copySmartImportAtPreview()" title="Copy Smart Import Statement / Relative Path" style="display: none;">📦 Import</button>
+                    <button id="preview-terminal-btn" class="preview-action-btn preview-terminal-btn" onclick="openTerminalAtPreview()" title="Open in Integrated Terminal (⌥T / Alt+T)" style="display: none;">💻 Terminal</button>
                     <button id="preview-ask-ai-btn" class="ai-glow-btn" onclick="openAiAssistantModal()" title="Ask AI / MCP Assistant About This File (⌘⇧A)" style="display: none;">
                         <span class="ai-sparkle">✨</span> Ask AI
                     </button>
@@ -660,7 +684,9 @@
                 <span class="hover-card-val hover-card-location" id="hover-card-location">/Users/...</span>
             </div>
         </div>
-        <div class="hover-card-footer" style="margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.06); display: flex; justify-content: flex-end;">
+        <div class="hover-card-footer" style="margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.06); display: flex; align-items: center; justify-content: flex-end; gap: 6px;">
+            <button class="hover-card-btn" onclick="copySmartImportFromHover(event)" title="Copy Smart Import Statement">📦 Import</button>
+            <button class="hover-card-btn" onclick="openTerminalFromHover(event)" title="Open in Integrated Terminal (⌥T)">💻 Terminal</button>
             <button class="hover-ai-btn" onclick="openAiAssistantFromHover(event)" title="Ask AI / MCP Assistant About This Item">
                 <span class="ai-sparkle">✨</span> Ask AI
             </button>
@@ -691,7 +717,7 @@
             <i>👁️</i> <span>Quick Look</span> <span class="shortcut">Space</span>
         </div>
         <div class="context-item" id="ctx-terminal-item" onclick="openTerminalAtSelection()">
-            <i>💻</i> <span>Open in Terminal</span>
+            <i>💻</i> <span>Open Integrated Terminal Here</span> <span class="shortcut">⌥T</span>
         </div>
         <div class="context-item" id="ctx-reveal-item" onclick="revealSelectedItemInOS()">
             <i>📂</i> <span id="ctx-reveal-label">Reveal in Finder</span>
@@ -701,7 +727,13 @@
             <i>📋</i> <span>Copy Path</span>
         </div>
         <div class="context-item" id="ctx-copy-rel-path" onclick="copyPathToClipboard(true)">
-            <i>📎</i> <span>Copy Relative Path</span>
+            <i>📎</i> <span>Copy Relative Path</span> <span class="shortcut">⌥⇧C</span>
+        </div>
+        <div class="context-item" id="ctx-copy-import" onclick="copySmartImportAtSelection()">
+            <i>📦</i> <span>Copy Smart Import Statement</span> <span class="shortcut">⌥⇧I</span>
+        </div>
+        <div class="context-item" id="ctx-copy-md-link" onclick="copyMarkdownRefAtSelection()">
+            <i>🔗</i> <span>Copy Markdown Reference</span>
         </div>
         <div class="context-item" id="ctx-pin-folder" onclick="togglePinSelectedItem()">
             <i id="ctx-pin-icon">⭐</i> <span id="ctx-pin-label">Pin to Favorites</span>
@@ -859,6 +891,8 @@
                     <button class="ai-glow-btn" onclick="openAiAssistantFromQuickLook()" title="Ask AI About This File">
                         <span class="ai-sparkle">✨</span> Ask AI
                     </button>
+                    <button class="preview-action-btn" onclick="copySmartImportAtSelection()" title="Copy Smart Import Statement (⌥⇧I)">📦 Import</button>
+                    <button class="preview-action-btn" onclick="openTerminalAtSelection()" title="Open in Integrated Terminal (⌥T)">💻 Terminal</button>
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <button class="modal-btn confirm" onclick="openSelectedItemInEditor()">🚀 Open in Editor</button>
