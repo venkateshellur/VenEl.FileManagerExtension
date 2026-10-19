@@ -81,6 +81,14 @@
                     </div>
                     <span class="view-menu-check">✓</span>
                 </div>
+                <div class="view-menu-item" id="opt-grid-small" onclick="setView('grid-small')">
+                    <span class="view-menu-icon">▦</span>
+                    <div class="view-menu-text">
+                        <span class="view-menu-title">Grid Small Icons</span>
+                        <span class="view-menu-desc">Compact grid cards & small icons</span>
+                    </div>
+                    <span class="view-menu-check">✓</span>
+                </div>
                 <div class="view-menu-item" id="opt-large" onclick="setView('large')">
                     <span class="view-menu-icon">🖼️</span>
                     <div class="view-menu-text">
@@ -229,6 +237,11 @@
                             <span class="menu-icon">⊞</span>
                             <span class="menu-label">Grid / Medium Icons</span>
                         </div>
+                        <div class="menu-entry" onclick="menuAction(function() { setView('grid-small'); })">
+                            <span class="menu-check" id="menu-chk-grid-small"></span>
+                            <span class="menu-icon">▦</span>
+                            <span class="menu-label">Grid Small Icons</span>
+                        </div>
                         <div class="menu-entry" onclick="menuAction(function() { setView('details'); })">
                             <span class="menu-check" id="menu-chk-details"></span>
                             <span class="menu-icon">📑</span>
@@ -247,7 +260,7 @@
                         <div class="menu-entry" onclick="menuAction(function() { setView('compact'); })">
                             <span class="menu-check" id="menu-chk-compact"></span>
                             <span class="menu-icon">🗂️</span>
-                            <span class="menu-label">Small Icons / Compact</span>
+                            <span class="menu-label">Compact Rows</span>
                         </div>
                         <div class="menu-divider"></div>
                         <div class="menu-entry" onclick="menuAction(toggleDualPaneMode)">

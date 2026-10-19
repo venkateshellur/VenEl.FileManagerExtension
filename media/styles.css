@@ -38,6 +38,11 @@
     --code-bg: var(--vscode-editor-background, #0f0f13);
     --shadow-color: rgba(0, 0, 0, 0.65);
     --folder-color: #74b9ff;
+    --git-m-color: var(--vscode-gitDecoration-modifiedResourceForeground, #f39c12);
+    --git-u-color: var(--vscode-gitDecoration-untrackedResourceForeground, #2ecc71);
+    --git-a-color: var(--vscode-gitDecoration-addedResourceForeground, #3498db);
+    --git-d-color: var(--vscode-gitDecoration-deletedResourceForeground, #e74c3c);
+    --git-r-color: var(--vscode-gitDecoration-renamedResourceForeground, #9b59b6);
 }
 
 /* ══════════════════════════════════════════════════════════ */
@@ -85,6 +90,11 @@ body.theme-light {
     --code-bg: var(--vscode-editor-background, #f8f9fa);
     --shadow-color: rgba(0, 0, 0, 0.14);
     --folder-color: #0984e3;
+    --git-m-color: var(--vscode-gitDecoration-modifiedResourceForeground, #d35400);
+    --git-u-color: var(--vscode-gitDecoration-untrackedResourceForeground, #27ae60);
+    --git-a-color: var(--vscode-gitDecoration-addedResourceForeground, #2980b9);
+    --git-d-color: var(--vscode-gitDecoration-deletedResourceForeground, #c0392b);
+    --git-r-color: var(--vscode-gitDecoration-renamedResourceForeground, #8e44ad);
 }
 
 /* ══════════════════════════════════════════════════════════ */
@@ -132,6 +142,11 @@ body.theme-high-contrast {
     --code-bg: #000000;
     --shadow-color: rgba(255, 255, 255, 0.3);
     --folder-color: #6fc3df;
+    --git-m-color: #ffb74d;
+    --git-u-color: #81c784;
+    --git-a-color: #64b5f6;
+    --git-d-color: #e57373;
+    --git-r-color: #ba68c8;
 }
 
 body.vscode-high-contrast-light,
@@ -175,6 +190,11 @@ body[data-theme="high-contrast-light"] {
     --code-bg: #ffffff;
     --shadow-color: rgba(0, 0, 0, 0.3);
     --folder-color: #0f4a85;
+    --git-m-color: #b7791f;
+    --git-u-color: #1e7e34;
+    --git-a-color: #0056b3;
+    --git-d-color: #bd2130;
+    --git-r-color: #6f42c1;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -977,6 +997,93 @@ header {
     font-weight: 500;
     line-height: 1.3;
     max-width: 100%;
+}
+
+/* Items in Grid Small Icons View */
+#files.grid-small-view {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+    gap: 8px;
+    padding: 4px;
+}
+#files.grid-small-view .item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: center;
+    padding: 6px 4px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+    background: var(--panel-bg);
+    border: 1px solid transparent;
+    min-height: 72px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+#files.grid-small-view .item.is-search-result {
+    min-height: 94px;
+}
+#files.grid-small-view .item:hover {
+    background: var(--hover-bg);
+    border-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+}
+#files.grid-small-view .item.selected {
+    background: var(--active-bg);
+    border-color: var(--active-border);
+    box-shadow: 0 0 8px rgba(108, 92, 231, 0.25);
+}
+#files.grid-small-view .item.cut-item {
+    opacity: 0.5;
+    filter: grayscale(0.5);
+}
+#files.grid-small-view .item-icon-wrapper {
+    position: relative;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    width: 32px;
+}
+#files.grid-small-view .item i {
+    font-style: normal;
+    font-size: 24px;
+}
+#files.grid-small-view .item-thumb {
+    width: 28px;
+    height: 28px;
+    object-fit: cover;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+#files.grid-small-view .item-badge { display: none; }
+#files.grid-small-view .item-size { display: none; }
+#files.grid-small-view .item-modified { display: none; }
+#files.grid-small-view .item-type { display: none; }
+#files.grid-small-view .item-name { 
+    word-break: break-word;
+    overflow-wrap: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.25;
+    max-width: 100%;
+}
+#files.grid-small-view .item-info-col {
+    align-items: center;
+    text-align: center;
+    width: 100%;
+}
+#files.grid-small-view .item-name-row {
+    justify-content: center;
 }
 
 /* Items in List View */
@@ -2378,6 +2485,156 @@ kbd {
     border-color: #6c5ce7;
     color: #fff;
 }
+/* 🌿 Git Status Badges & Card Indicators */
+.git-card-pill {
+    display: none;
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 8.5px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 2px 4.5px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    z-index: 2;
+    pointer-events: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+#files.grid-view .git-card-pill,
+#files.grid-small-view .git-card-pill,
+#files.large-view .git-card-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+#files.grid-small-view .git-card-pill {
+    top: 3px;
+    right: 3px;
+    font-size: 7.5px;
+    padding: 1.5px 3.5px;
+}
+.git-card-pill.git-pill-m {
+    background: rgba(243, 156, 18, 0.22);
+    color: var(--git-m-color, #f39c12);
+    border: 1px solid rgba(243, 156, 18, 0.55);
+}
+.git-card-pill.git-pill-u {
+    background: rgba(46, 204, 113, 0.22);
+    color: var(--git-u-color, #2ecc71);
+    border: 1px solid rgba(46, 204, 113, 0.55);
+}
+.git-card-pill.git-pill-a {
+    background: rgba(52, 152, 219, 0.22);
+    color: var(--git-a-color, #3498db);
+    border: 1px solid rgba(52, 152, 219, 0.55);
+}
+.git-card-pill.git-pill-d {
+    background: rgba(231, 76, 60, 0.22);
+    color: var(--git-d-color, #e74c3c);
+    border: 1px solid rgba(231, 76, 60, 0.55);
+}
+.git-card-pill.git-pill-r {
+    background: rgba(155, 89, 182, 0.22);
+    color: var(--git-r-color, #9b59b6);
+    border: 1px solid rgba(155, 89, 182, 0.55);
+}
+
+/* File name colors based on Git status */
+.item.git-status-m .item-name,
+.commander-item.git-status-m .commander-item-name {
+    color: var(--git-m-color, #f39c12) !important;
+    font-weight: 500;
+}
+.item.git-status-u .item-name,
+.commander-item.git-status-u .commander-item-name {
+    color: var(--git-u-color, #2ecc71) !important;
+    font-weight: 500;
+}
+.item.git-status-a .item-name,
+.commander-item.git-status-a .commander-item-name {
+    color: var(--git-a-color, #3498db) !important;
+    font-weight: 500;
+}
+.item.git-status-d .item-name,
+.commander-item.git-status-d .commander-item-name {
+    color: var(--git-d-color, #e74c3c) !important;
+    text-decoration: line-through;
+    opacity: 0.8;
+}
+.item.git-status-r .item-name,
+.commander-item.git-status-r .commander-item-name {
+    color: var(--git-r-color, #9b59b6) !important;
+}
+
+/* Subtle card border & glow in Grid / Large / Small Grid views */
+#files.grid-view .item.git-status-m,
+#files.grid-small-view .item.git-status-m,
+#files.large-view .item.git-status-m {
+    border-color: rgba(243, 156, 18, 0.38);
+}
+#files.grid-view .item.git-status-m:hover,
+#files.grid-small-view .item.git-status-m:hover,
+#files.large-view .item.git-status-m:hover {
+    border-color: rgba(243, 156, 18, 0.7);
+    box-shadow: 0 2px 10px rgba(243, 156, 18, 0.18);
+}
+#files.grid-view .item.git-status-u,
+#files.grid-small-view .item.git-status-u,
+#files.large-view .item.git-status-u {
+    border-color: rgba(46, 204, 113, 0.38);
+}
+#files.grid-view .item.git-status-u:hover,
+#files.grid-small-view .item.git-status-u:hover,
+#files.large-view .item.git-status-u:hover {
+    border-color: rgba(46, 204, 113, 0.7);
+    box-shadow: 0 2px 10px rgba(46, 204, 113, 0.18);
+}
+#files.grid-view .item.git-status-a,
+#files.grid-small-view .item.git-status-a,
+#files.large-view .item.git-status-a {
+    border-color: rgba(52, 152, 219, 0.38);
+}
+#files.grid-view .item.git-status-a:hover,
+#files.grid-small-view .item.git-status-a:hover,
+#files.large-view .item.git-status-a:hover {
+    border-color: rgba(52, 152, 219, 0.7);
+    box-shadow: 0 2px 10px rgba(52, 152, 219, 0.18);
+}
+#files.grid-view .item.git-status-d,
+#files.grid-small-view .item.git-status-d,
+#files.large-view .item.git-status-d {
+    border-color: rgba(231, 76, 60, 0.38);
+}
+
+/* Subtle left border stripe in List / Details / Compact / Commander views */
+#files.list-view .item.git-status-m,
+#files.details-view .item.git-status-m,
+#files.compact-view .item.git-status-m,
+.commander-item.git-status-m {
+    border-left: 3px solid var(--git-m-color, #f39c12) !important;
+}
+#files.list-view .item.git-status-u,
+#files.details-view .item.git-status-u,
+#files.compact-view .item.git-status-u,
+.commander-item.git-status-u {
+    border-left: 3px solid var(--git-u-color, #2ecc71) !important;
+}
+#files.list-view .item.git-status-a,
+#files.details-view .item.git-status-a,
+#files.compact-view .item.git-status-a,
+.commander-item.git-status-a {
+    border-left: 3px solid var(--git-a-color, #3498db) !important;
+}
+#files.list-view .item.git-status-d,
+#files.details-view .item.git-status-d,
+#files.compact-view .item.git-status-d,
+.commander-item.git-status-d {
+    border-left: 3px solid var(--git-d-color, #e74c3c) !important;
+}
+
+/* Inline badges inside item-name-row (used in List, Details, Compact, and Commander views) */
 .git-badge {
     font-size: 9px;
     font-weight: 700;
@@ -2390,12 +2647,20 @@ kbd {
     align-items: center;
     justify-content: center;
     letter-spacing: 0.5px;
+    flex-shrink: 0;
 }
-.git-badge.git-m { background: rgba(243, 156, 18, 0.2); color: #f39c12; border: 1px solid rgba(243, 156, 18, 0.4); }
-.git-badge.git-u { background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.4); }
-.git-badge.git-a { background: rgba(52, 152, 219, 0.2); color: #3498db; border: 1px solid rgba(52, 152, 219, 0.4); }
-.git-badge.git-d { background: rgba(231, 76, 60, 0.2); color: #e74c3c; border: 1px solid rgba(231, 76, 60, 0.4); }
-.git-badge.git-r { background: rgba(155, 89, 182, 0.2); color: #9b59b6; border: 1px solid rgba(155, 89, 182, 0.4); }
+.git-badge.git-m { background: rgba(243, 156, 18, 0.2); color: var(--git-m-color, #f39c12); border: 1px solid rgba(243, 156, 18, 0.4); }
+.git-badge.git-u { background: rgba(46, 204, 113, 0.2); color: var(--git-u-color, #2ecc71); border: 1px solid rgba(46, 204, 113, 0.4); }
+.git-badge.git-a { background: rgba(52, 152, 219, 0.2); color: var(--git-a-color, #3498db); border: 1px solid rgba(52, 152, 219, 0.4); }
+.git-badge.git-d { background: rgba(231, 76, 60, 0.2); color: var(--git-d-color, #e74c3c); border: 1px solid rgba(231, 76, 60, 0.4); }
+.git-badge.git-r { background: rgba(155, 89, 182, 0.2); color: var(--git-r-color, #9b59b6); border: 1px solid rgba(155, 89, 182, 0.4); }
+
+/* Hide inline badge in grid views because card pill is shown */
+#files.grid-view .item-name-row .git-badge,
+#files.grid-small-view .item-name-row .git-badge,
+#files.large-view .item-name-row .git-badge {
+    display: none;
+}
 
 /* Bookmarks Quick-Access Bar */
 .bookmarks-bar {
@@ -2877,6 +3142,7 @@ kbd {
     flex: 1;
 }
 #files.grid-view .item-info-col,
+#files.grid-small-view .item-info-col,
 #files.large-view .item-info-col {
     align-items: center;
     text-align: center;
@@ -2897,6 +3163,7 @@ kbd {
     box-sizing: border-box;
 }
 #files.grid-view .item-name-row,
+#files.grid-small-view .item-name-row,
 #files.large-view .item-name-row {
     justify-content: center;
 }

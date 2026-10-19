@@ -98,7 +98,7 @@ function syncMenuShortcuts() {
 
 function updateViewMenuChecks() {
     const currentV = typeof currentViewMode !== 'undefined' ? currentViewMode : 'grid';
-    ['grid', 'details', 'list', 'large', 'compact'].forEach(function(v) {
+    ['grid', 'grid-small', 'details', 'list', 'large', 'compact'].forEach(function(v) {
         const chk = document.getElementById('menu-chk-' + v);
         if (chk) chk.textContent = currentV === v ? '✓' : '';
     });
@@ -1368,7 +1368,7 @@ function setView(mode) {
     if (!filesContainer) return;
 
     // Reset view class names
-    filesContainer.classList.remove('details-view', 'list-view', 'grid-view', 'large-view', 'compact-view');
+    filesContainer.classList.remove('details-view', 'list-view', 'grid-view', 'grid-small-view', 'large-view', 'compact-view');
 
     // Update menu checkmarks
     document.querySelectorAll('.view-menu-item').forEach(function(el) {
@@ -1382,8 +1382,9 @@ function setView(mode) {
         'details': { cls: 'details-view', showHeader: true, icon: '📑', label: 'Details' },
         'list': { cls: 'list-view', showHeader: false, icon: '☰', label: 'List' },
         'grid': { cls: 'grid-view', showHeader: false, icon: '⊞', label: 'Grid' },
+        'grid-small': { cls: 'grid-small-view', showHeader: false, icon: '▦', label: 'Small Grid' },
         'large': { cls: 'large-view', showHeader: false, icon: '🖼️', label: 'Large' },
-        'compact': { cls: 'compact-view', showHeader: false, icon: '🗂️', label: 'Small' }
+        'compact': { cls: 'compact-view', showHeader: false, icon: '🗂️', label: 'Compact' }
     };
 
     const cfg = viewConfigs[mode] || viewConfigs['grid'];
@@ -1695,11 +1696,17 @@ function renderItemHtml(item) {
     }
 
     let gitBadgeHtml = '';
+    let gitCardBadgeHtml = '';
+    let gitClass = '';
+    let gitCode = null;
     if (currentGitStatuses && currentGitStatuses[item.name]) {
-        const code = currentGitStatuses[item.name];
-        const badgeClass = 'git-' + code.toLowerCase();
-        const title = code === 'M' ? 'Modified in Git' : (code === 'U' || code === '?' ? 'Untracked in Git' : (code === 'A' ? 'Added / Staged in Git' : (code === 'D' ? 'Deleted in Git' : 'Changed in Git')));
-        gitBadgeHtml = '<span class="git-badge ' + badgeClass + '" title="' + title + '">' + (code === '?' ? 'U' : code) + '</span>';
+        gitCode = currentGitStatuses[item.name];
+        const codeLower = gitCode.toLowerCase();
+        const displayCode = gitCode === '?' ? 'U' : gitCode;
+        const title = gitCode === 'M' ? 'Modified in Git' : (gitCode === 'U' || gitCode === '?' ? 'Untracked in Git' : (gitCode === 'A' ? 'Added / Staged in Git' : (gitCode === 'D' ? 'Deleted in Git' : (gitCode === 'R' ? 'Renamed in Git' : 'Changed in Git'))));
+        gitClass = ' git-item git-status-' + codeLower;
+        gitBadgeHtml = '<span class="git-badge git-' + codeLower + '" title="' + title + '">' + displayCode + '</span>';
+        gitCardBadgeHtml = '<span class="git-card-pill git-pill-' + codeLower + '" title="' + title + '">' + displayCode + '</span>';
     }
 
     let dragAttr = 'draggable="true" ondragstart="handleItemDragStart(event, \'' + escapePath(item.name) + '\', ' + isDir + ')" ondragend="handleItemDragEnd(event)"';
@@ -1711,10 +1718,11 @@ function renderItemHtml(item) {
         className += ' is-search-result';
     }
 
-    return '<div class="item ' + className + (isSelected ? ' selected' : '') + (isCut ? ' cut-item' : '') + (isHidden ? ' is-hidden' : '') + '" ' +
+    return '<div class="item ' + className + gitClass + (isSelected ? ' selected' : '') + (isCut ? ' cut-item' : '') + (isHidden ? ' is-hidden' : '') + '" ' +
             dragAttr + ' ' +
             'data-name="' + escapeHtml(item.name) + '" ' +
             'data-path="' + escapeHtml(fullItemPath) + '" ' +
+            (gitCode ? 'data-git-status="' + escapeHtml(gitCode) + '" ' : '') +
             'onmouseenter="handleItemHoverEnter(event, this)" ' +
             'onmouseleave="handleItemHoverLeave(event, this)" ' +
             'onmousemove="handleItemHoverMove(event, this)" ' +
@@ -1722,10 +1730,11 @@ function renderItemHtml(item) {
             'onauxclick="handleItemAuxClick(event, \'' + escapePath(item.name) + '\', ' + isDir + ')" ' +
             'ondblclick="handleDoubleClick(\'' + escapePath(item.name) + '\', ' + isDir + ')" ' +
             'oncontextmenu="handleItemContextMenu(event, \'' + escapePath(item.name) + '\', ' + isDir + ')">' +
+            gitCardBadgeHtml +
             '<div class="item-icon-wrapper">' + iconHtml + (visual.badge ? '<span class="item-badge">' + visual.badge + '</span>' : '') + '</div>' +
             '<div class="item-info-col">' +
             '<div class="item-name-row">' +
-            '<span class="item-name">' + escapeHtml(item.name) + '</span>' +
+            '<span class="item-name" title="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</span>' +
             gitBadgeHtml +
             '</div>' +
             locationHtml +
@@ -5159,6 +5168,7 @@ async function saveInlineEditor() {
             showToast('Saved "' + fileName + '" (' + lines + ' lines) 💾', '✅');
             isInlineEditorActive = false;
             inlineOriginalContent = newContent;
+            fetchGitStatus(currentPath);
             if (selectedItem) {
                 handlePreview(selectedItem.name, false);
             } else {
@@ -5260,6 +5270,7 @@ async function saveQuickLookEditor() {
             const lines = newContent.split('\n').length;
             showToast('Saved "' + selectedItem.name + '" (' + lines + ' lines) 💾', '✅');
             isQlEditorActive = false;
+            fetchGitStatus(currentPath);
             const qlEditBtn = document.getElementById('ql-edit-btn');
             const qlSaveBtn = document.getElementById('ql-save-btn');
             if (qlEditBtn) qlEditBtn.textContent = '✏️ Edit';
@@ -5356,6 +5367,16 @@ async function loadCommanderPane(paneId, targetPath) {
         }
 
         renderCommanderPaneItems(paneId);
+
+        // Asynchronously fetch Git status for Commander pane
+        fetch('/api/files/gitStatus?path=' + encodeURIComponent(state.path))
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .then(function(gData) {
+                if (gData && gData.isRepo && gData.statuses) {
+                    state.gitStatuses = gData.statuses;
+                    renderCommanderPaneItems(paneId);
+                }
+            }).catch(function() {});
     } catch (err) {
         console.error(err);
         bodyEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #ff7675;">Failed to load folder</div>';
@@ -5386,13 +5407,26 @@ function renderCommanderPaneItems(paneId) {
         const isSelected = state.selected && state.selected.name === item.name;
         const isInMulti = state.selectedItems.some(function(i) { return i.name === item.name; });
 
-        html += '<div class="commander-item ' + (isSelected || isInMulti ? 'selected' : '') + '" ' +
+        const gitCode = (state.gitStatuses && state.gitStatuses[item.name]) || (currentGitStatuses && currentGitStatuses[item.name]);
+        let gitBadgeHtml = '';
+        let gitClass = '';
+        if (gitCode) {
+            const codeLower = gitCode.toLowerCase();
+            const displayCode = gitCode === '?' ? 'U' : gitCode;
+            const title = gitCode === 'M' ? 'Modified in Git' : (gitCode === 'U' || gitCode === '?' ? 'Untracked in Git' : (gitCode === 'A' ? 'Added / Staged in Git' : (gitCode === 'D' ? 'Deleted in Git' : (gitCode === 'R' ? 'Renamed in Git' : 'Changed in Git'))));
+            gitClass = ' git-item git-status-' + codeLower;
+            gitBadgeHtml = '<span class="git-badge git-' + codeLower + '" title="' + title + '">' + displayCode + '</span>';
+        }
+
+        html += '<div class="commander-item ' + (isSelected || isInMulti ? 'selected' : '') + gitClass + '" ' +
                     'data-name="' + escapeHtml(item.name) + '" ' +
+                    (gitCode ? 'data-git-status="' + escapeHtml(gitCode) + '" ' : '') +
                     'onclick="selectCommanderItem(\'' + paneId + '\', ' + idx + ', event)" ' +
                     'ondblclick="openCommanderItem(\'' + paneId + '\', ' + idx + ')" ' +
                     'draggable="true" ondragstart="handleCommanderDragStart(\'' + paneId + '\', ' + idx + ', event)">' +
                     '<span class="commander-item-icon">' + visual.icon + '</span>' +
                     '<span class="commander-item-name" title="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</span>' +
+                    gitBadgeHtml +
                     '<span class="commander-item-size">' + (isDir ? '&lt;DIR&gt;' : formatBytes(item.size)) + '</span>' +
                     '<span class="commander-item-date">' + (item.modified ? formatDate(item.modified) : '') + '</span>' +
                 '</div>';
