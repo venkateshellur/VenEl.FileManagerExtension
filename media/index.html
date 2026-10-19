@@ -571,10 +571,16 @@
         <!-- Right Preview Pane (Dockable Visual Studio Panel) -->
         <aside class="preview-pane" id="preview-pane">
             <div class="sidebar-header-row preview-header-row" style="display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 6px; border-bottom: 1px solid var(--border-color); margin-bottom: 8px;">
-                <h2 style="margin: 0; padding: 0; border: none; font-size: 13px; display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px;">
+                <h2 style="margin: 0; padding: 0; border: none; font-size: 13px; display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px;">
                     <span id="preview-header-title">Preview</span>
                 </h2>
-                <button class="sidebar-collapse-chevron" onclick="togglePreview()" title="Auto-Hide / Collapse Preview to Right Margin (❯)">❯</button>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span id="preview-header-tokens" class="token-pill" style="display: none;" title="Estimated LLM Tokens (GPT-4o / Claude 3.5 Sonnet)">✨ 0 tokens</span>
+                    <button id="preview-ask-ai-btn" class="ai-glow-btn" onclick="openAiAssistantModal()" title="Ask AI / MCP Assistant About This File (⌘⇧A)" style="display: none;">
+                        <span class="ai-sparkle">✨</span> Ask AI
+                    </button>
+                    <button class="sidebar-collapse-chevron" onclick="togglePreview()" title="Auto-Hide / Collapse Preview to Right Margin (❯)">❯</button>
+                </div>
             </div>
             <div class="preview-content" id="preview-content">
                 Select a file to preview.<br><br>💡 Tap <strong>Spacebar</strong> for Quick Look or double-click to open in VS Code!
@@ -643,10 +649,21 @@
                     <span id="hover-card-git-text">Modified</span>
                 </span>
             </div>
+            <div class="hover-card-row" id="hover-card-tokens-row" style="display: none;">
+                <span class="hover-card-label">AI Tokens</span>
+                <span class="hover-card-val" id="hover-card-tokens">
+                    <span class="hover-token-pill" id="hover-card-token-text">✨ ~0 tokens</span>
+                </span>
+            </div>
             <div class="hover-card-row" id="hover-card-location-row">
                 <span class="hover-card-label">Location</span>
                 <span class="hover-card-val hover-card-location" id="hover-card-location">/Users/...</span>
             </div>
+        </div>
+        <div class="hover-card-footer" style="margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.06); display: flex; justify-content: flex-end;">
+            <button class="hover-ai-btn" onclick="openAiAssistantFromHover(event)" title="Ask AI / MCP Assistant About This Item">
+                <span class="ai-sparkle">✨</span> Ask AI
+            </button>
         </div>
     </div>
 
@@ -657,6 +674,9 @@
         </div>
         <div class="context-item" id="ctx-open" onclick="openSelectedItemInEditor()">
             <i>🚀</i> <span>Open in Editor</span> <span class="shortcut">Enter</span>
+        </div>
+        <div class="context-item" id="ctx-ai-assistant" onclick="openAiAssistantModal()">
+            <i>✨</i> <span>Ask AI / MCP Assistant</span> <span class="shortcut">⌘⇧A</span>
         </div>
         <div class="context-item" id="ctx-open-new-tab" onclick="openSelectedItemInNewTab()" style="display: none;">
             <i>🗂️</i> <span>Open in New Tab</span>
@@ -833,9 +853,116 @@
                 <span style="font-size: 11px; color: var(--text-muted); font-weight: normal;">Spacebar to close</span>
             </div>
             <div class="quick-look-body" id="ql-body"></div>
-            <div class="modal-actions">
-                <button class="modal-btn confirm" onclick="openSelectedItemInEditor()">🚀 Open in Editor</button>
-                <button class="modal-btn cancel" onclick="closeQuickLook()">Close</button>
+            <div class="modal-actions" style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span id="ql-token-pill" class="token-pill" style="display: none;">✨ ~0 tokens</span>
+                    <button class="ai-glow-btn" onclick="openAiAssistantFromQuickLook()" title="Ask AI About This File">
+                        <span class="ai-sparkle">✨</span> Ask AI
+                    </button>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="modal-btn confirm" onclick="openSelectedItemInEditor()">🚀 Open in Editor</button>
+                    <button class="modal-btn cancel" onclick="closeQuickLook()">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <!-- ✨ VENEL AI ASSISTANT & CONTEXT MODAL -->
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <div class="modal-overlay" id="modal-ai-assistant" style="display: none;" onclick="closeAiAssistantModal(event)">
+        <div class="modal-box ai-assistant-modal" onclick="event.stopPropagation()">
+            <div class="ai-modal-header">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="ai-header-badge">✨</div>
+                    <div>
+                        <div class="ai-modal-title">VenEl AI Context & Assistant</div>
+                        <div class="ai-modal-subtitle">Inject file context directly into MCP Assistant or your AI workflow</div>
+                    </div>
+                </div>
+                <button class="modal-close-btn" onclick="closeAiAssistantModal()">✕</button>
+            </div>
+
+            <!-- Target File Context Banner -->
+            <div class="ai-target-card">
+                <div class="ai-target-icon" id="ai-target-icon">📄</div>
+                <div class="ai-target-info">
+                    <div class="ai-target-name" id="ai-target-name">filename.ext</div>
+                    <div class="ai-target-meta" id="ai-target-meta">0 lines • 0 KB</div>
+                </div>
+                <div class="ai-target-token-box">
+                    <div class="ai-token-count" id="ai-target-tokens">✨ ~0 tokens</div>
+                    <div class="ai-token-meter-bg" title="Token context usage meter">
+                        <div class="ai-token-meter-bar" id="ai-token-meter-bar" style="width: 2%;"></div>
+                    </div>
+                    <div class="ai-token-subtext" id="ai-token-subtext">&lt;1% of 128k context</div>
+                </div>
+            </div>
+
+            <!-- One-Click Preset Prompt Chips -->
+            <div class="ai-section-title">ONE-CLICK PROMPT PRESETS</div>
+            <div class="ai-presets-grid">
+                <button type="button" class="ai-preset-chip active" onclick="selectAiPreset('explain', this)">
+                    <span class="ai-preset-icon">🔍</span>
+                    <span class="ai-preset-label">Explain Architecture</span>
+                </button>
+                <button type="button" class="ai-preset-chip" onclick="selectAiPreset('tests', this)">
+                    <span class="ai-preset-icon">🧪</span>
+                    <span class="ai-preset-label">Generate Unit Tests</span>
+                </button>
+                <button type="button" class="ai-preset-chip" onclick="selectAiPreset('review', this)">
+                    <span class="ai-preset-icon">⚡</span>
+                    <span class="ai-preset-label">Review & Optimize</span>
+                </button>
+                <button type="button" class="ai-preset-chip" onclick="selectAiPreset('docs', this)">
+                    <span class="ai-preset-icon">📝</span>
+                    <span class="ai-preset-label">Generate Docstrings</span>
+                </button>
+                <button type="button" class="ai-preset-chip" onclick="selectAiPreset('bugs', this)">
+                    <span class="ai-preset-icon">🐛</span>
+                    <span class="ai-preset-label">Find Bugs / Flaws</span>
+                </button>
+                <button type="button" class="ai-preset-chip" onclick="selectAiPreset('refactor', this)">
+                    <span class="ai-preset-icon">🛠️</span>
+                    <span class="ai-preset-label">Modernize / Refactor</span>
+                </button>
+            </div>
+
+            <!-- Prompt Textarea -->
+            <div class="ai-section-title" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>AI PROMPT</span>
+                <span style="font-size: 11px; text-transform: none; color: var(--text-muted); font-weight: normal;">Customizable</span>
+            </div>
+            <textarea id="ai-prompt-input" class="ai-prompt-textarea" rows="3" placeholder="Enter your prompt..."></textarea>
+
+            <!-- Context Options -->
+            <div class="ai-options-row">
+                <label class="ai-checkbox-label">
+                    <input type="checkbox" id="ai-include-content" checked onchange="updateAiPromptPreview()" />
+                    <span>Include full file content block</span>
+                </label>
+                <label class="ai-checkbox-label" id="ai-diff-option-row" style="display: none;">
+                    <input type="checkbox" id="ai-include-diff" onchange="updateAiPromptPreview()" />
+                    <span>Include Git Diff (recent changes)</span>
+                </label>
+            </div>
+
+            <!-- Live Formatted Payload Preview -->
+            <details class="ai-preview-details" id="ai-preview-details">
+                <summary class="ai-preview-summary">Preview Formatted Context Payload</summary>
+                <pre class="ai-payload-pre"><code id="ai-payload-code"></code></pre>
+            </details>
+
+            <!-- Actions -->
+            <div class="ai-modal-footer">
+                <button type="button" class="tool-btn" onclick="closeAiAssistantModal()">Cancel</button>
+                <button type="button" class="tool-btn" onclick="copyAiPromptAndContext()" title="Copy prompt with full formatted code context to clipboard">
+                    📋 Copy Prompt + Code
+                </button>
+                <button type="button" class="tool-btn primary ai-glow-primary-btn" onclick="sendToMcpAssistant()" title="Send directly to MCP Assistant / VS Code Chat">
+                    ✨ Send to MCP Assistant
+                </button>
             </div>
         </div>
     </div>

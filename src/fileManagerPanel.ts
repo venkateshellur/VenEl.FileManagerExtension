@@ -114,6 +114,33 @@ export class FileManagerPanel {
                     if (message.text) {
                         vscode.env.clipboard.writeText(message.text);
                     }
+                } else if (message.command === 'askAi') {
+                    const { prompt, fullText, fileName, filePath, tokenCount } = message;
+                    const textToCopy = fullText || prompt || '';
+                    if (textToCopy) {
+                        await vscode.env.clipboard.writeText(textToCopy);
+                    }
+                    const tokenLabel = tokenCount ? ` (~${tokenCount.toLocaleString()} tokens)` : '';
+                    vscode.window.showInformationMessage(
+                        `VenEl AI Context: Prompt for '${fileName || 'item'}'${tokenLabel} copied to clipboard! Ready to paste into Chat or Cursor.`,
+                        'Open Chat',
+                        'Open File'
+                    ).then(async (action) => {
+                        if (action === 'Open Chat') {
+                            try {
+                                await vscode.commands.executeCommand('workbench.action.chat.open');
+                            } catch {
+                                try {
+                                    await vscode.commands.executeCommand('workbench.action.quickchat.toggle');
+                                } catch {}
+                            }
+                        } else if (action === 'Open File' && filePath) {
+                            try {
+                                const doc = await vscode.workspace.openTextDocument(filePath);
+                                await vscode.window.showTextDocument(doc, { preview: false });
+                            } catch {}
+                        }
+                    });
                 }
             },
             null,

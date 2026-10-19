@@ -579,6 +579,123 @@ export class LocalServer {
                         return;
                     }
 
+                    // 6i. AI Context & LLM Token Intelligence Endpoint
+                    if (pathname === '/api/files/ai/context') {
+                        const targetPath = reqUrl.searchParams.get('path');
+                        if (!targetPath || !fs.existsSync(targetPath)) {
+                            res.writeHead(404, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ ok: false, error: 'Path does not exist.' }));
+                            return;
+                        }
+
+                        try {
+                            const stat = fs.statSync(targetPath);
+                            if (stat.isDirectory()) {
+                                const codeExtensions = new Set([
+                                    '.cs', '.ts', '.js', '.jsx', '.tsx', '.py', '.java', '.go', '.rs', '.cpp', '.c', '.h',
+                                    '.html', '.css', '.scss', '.json', '.xml', '.yaml', '.yml', '.md', '.sql', '.sh'
+                                ]);
+
+                                let totalFiles = 0;
+                                let totalCodeFiles = 0;
+                                let totalBytes = 0;
+                                let totalLines = 0;
+                                const extCounts: Record<string, number> = {};
+
+                                const walkDir = (dir: string, depth: number) => {
+                                    if (depth > 5 || totalFiles >= 500) return;
+                                    let entries: string[] = [];
+                                    try { entries = fs.readdirSync(dir); } catch { return; }
+                                    for (const entry of entries) {
+                                        if (entry === '.git' || entry === 'node_modules' || entry === 'bin' || entry === 'obj') continue;
+                                        const full = path.join(dir, entry);
+                                        try {
+                                            const s = fs.statSync(full);
+                                            if (s.isDirectory()) {
+                                                walkDir(full, depth + 1);
+                                            } else if (s.isFile()) {
+                                                totalFiles++;
+                                                totalBytes += s.size;
+                                                const ext = path.extname(full).toLowerCase();
+                                                if (ext) extCounts[ext] = (extCounts[ext] || 0) + 1;
+                                                if (codeExtensions.has(ext) && s.size < 1024 * 1024) {
+                                                    totalCodeFiles++;
+                                                    try {
+                                                        const text = fs.readFileSync(full, 'utf8');
+                                                        totalLines += (text.match(/\n/g) || []).length + 1;
+                                                    } catch {}
+                                                }
+                                                if (totalFiles >= 500) break;
+                                            }
+                                        } catch {}
+                                    }
+                                };
+
+                                walkDir(targetPath, 0);
+                                const estimatedTokens = Math.max(1, Math.ceil(totalBytes / 3.8));
+
+                                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                                res.end(JSON.stringify({
+                                    ok: true,
+                                    isDirectory: true,
+                                    name: path.basename(targetPath),
+                                    path: targetPath,
+                                    totalFiles,
+                                    totalCodeFiles,
+                                    totalBytes,
+                                    totalLines,
+                                    estimatedTokens,
+                                    extensionBreakdown: extCounts
+                                }));
+                                return;
+                            } else {
+                                const ext = path.extname(targetPath).toLowerCase();
+                                let isText = true;
+                                let content = '';
+                                let lineCount = 0;
+
+                                if (stat.size > 5 * 1024 * 1024) {
+                                    isText = false;
+                                } else {
+                                    try {
+                                        content = fs.readFileSync(targetPath, 'utf8');
+                                        if (content.includes('\0')) {
+                                            isText = false;
+                                            content = '';
+                                        } else {
+                                            lineCount = (content.match(/\n/g) || []).length + 1;
+                                        }
+                                    } catch {
+                                        isText = false;
+                                    }
+                                }
+
+                                const estimatedTokens = isText ? Math.max(1, Math.ceil(content.length / 3.8)) : 0;
+                                const snippet = isText && content.length > 2000 ? content.slice(0, 2000) + '\n... (truncated)' : content;
+
+                                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                                res.end(JSON.stringify({
+                                    ok: true,
+                                    isDirectory: false,
+                                    name: path.basename(targetPath),
+                                    path: targetPath,
+                                    size: stat.size,
+                                    extension: ext,
+                                    isText,
+                                    lineCount,
+                                    estimatedTokens,
+                                    snippet,
+                                    content: isText && stat.size < 500 * 1024 ? content : snippet
+                                }));
+                                return;
+                            }
+                        } catch (err: any) {
+                            res.writeHead(500, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ ok: false, error: err?.message || String(err) }));
+                            return;
+                        }
+                    }
+
                     // ══════════════════════════════════════════════════════════
                     // 🚀 CRUD FILE SYSTEM ENDPOINTS
                     // ══════════════════════════════════════════════════════════
