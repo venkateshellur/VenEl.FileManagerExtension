@@ -137,6 +137,15 @@ function updateViewMenuChecks() {
         chkCompactBars.textContent = (typeof isCompactBars !== 'undefined' && isCompactBars) ? '✓' : '';
     }
 
+    const chkDual = document.getElementById('menu-chk-dualpane');
+    if (chkDual) {
+        chkDual.textContent = (typeof isDualPane !== 'undefined' && isDualPane) ? '✓' : '';
+    }
+    const btnDual = document.getElementById('btn-toggle-dual-pane');
+    if (btnDual) {
+        btnDual.classList.toggle('active', typeof isDualPane !== 'undefined' && isDualPane);
+    }
+
     if (typeof currentSort !== 'undefined' && currentSort.field) {
         ['name', 'size', 'modified', 'type'].forEach(function(s) {
             const chkSort = document.getElementById('menu-chk-sort-' + s);
@@ -828,6 +837,11 @@ function initSplitters() {
                 document.body.style.cursor = '';
             }
         });
+    }
+
+    // C. Dual-Pane Commander Resizer
+    if (typeof initDualPaneResizer === 'function') {
+        initDualPaneResizer();
     }
 }
 
@@ -3351,11 +3365,21 @@ async function toggleQuickLook() {
     modal.style.display = 'flex';
 
     const isDir = selectedItem.type === 'Directory';
+    const qlEditBtn = document.getElementById('ql-edit-btn');
+    const qlSaveBtn = document.getElementById('ql-save-btn');
+    if (qlEditBtn) {
+        qlEditBtn.style.display = (!isDir && isEditableTextFile(fullPath)) ? 'inline-flex' : 'none';
+        qlEditBtn.textContent = '✏️ Edit';
+    }
+    if (qlSaveBtn) qlSaveBtn.style.display = 'none';
+    isQlEditorActive = false;
+
     await renderFilePreview(qlBody, fullPath, selectedItem.name, isDir, true);
 }
 
 function closeQuickLook() {
     document.getElementById('modal-quick-look').style.display = 'none';
+    isQlEditorActive = false;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -4229,8 +4253,16 @@ function updatePreviewActionButtons(fullPath, isDir) {
     const pinBtn = document.getElementById('preview-pin-btn');
     const copyImportBtn = document.getElementById('preview-copy-import-btn');
     const terminalBtn = document.getElementById('preview-terminal-btn');
+    const editBtn = document.getElementById('preview-edit-btn');
+    const saveBtn = document.getElementById('preview-save-btn');
+    const cancelBtn = document.getElementById('preview-cancel-btn');
 
     if (fullPath) {
+        const isText = !isDir && isEditableTextFile(fullPath);
+        if (editBtn) editBtn.style.display = isText && !isInlineEditorActive ? 'inline-flex' : 'none';
+        if (saveBtn) saveBtn.style.display = isInlineEditorActive ? 'inline-flex' : 'none';
+        if (cancelBtn) cancelBtn.style.display = isInlineEditorActive ? 'inline-flex' : 'none';
+
         if (pinBtn) {
             const isPinned = userBookmarks.some(function(b) { return b.path === fullPath; });
             pinBtn.style.display = 'inline-flex';
@@ -4252,6 +4284,9 @@ function updatePreviewActionButtons(fullPath, isDir) {
             terminalBtn.style.display = 'inline-flex';
         }
     } else {
+        if (editBtn) editBtn.style.display = 'none';
+        if (saveBtn) saveBtn.style.display = 'none';
+        if (cancelBtn) cancelBtn.style.display = 'none';
         if (pinBtn) pinBtn.style.display = 'none';
         if (copyImportBtn) copyImportBtn.style.display = 'none';
         if (terminalBtn) terminalBtn.style.display = 'none';
@@ -4842,6 +4877,625 @@ function selectDropdownPath(targetPath, e) {
 }
 
 // ══════════════════════════════════════════════════════════
+// 📝 IN-LINE QUICK CODE / TEXT EDITOR
+// ══════════════════════════════════════════════════════════
+let isInlineEditorActive = false;
+let isQlEditorActive = false;
+let inlineOriginalContent = '';
+let qlOriginalContent = '';
+
+function isEditableTextFile(path) {
+    if (!path) return false;
+    const lower = path.toLowerCase();
+    const exts = [
+        '.txt', '.md', '.markdown', '.json', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx',
+        '.css', '.scss', '.sass', '.less', '.html', '.htm', '.xml', '.svg',
+        '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf', '.env', '.gitignore',
+        '.sh', '.bash', '.zsh', '.bat', '.cmd', '.ps1',
+        '.py', '.cs', '.java', '.cpp', '.c', '.h', '.hpp', '.rs', '.go', '.php', '.rb',
+        '.sql', '.log', '.csv', '.tsv', '.lock', '.properties'
+    ];
+    const dotIdx = lower.lastIndexOf('.');
+    if (dotIdx === -1) return true;
+    const ext = lower.substring(dotIdx);
+    return exts.includes(ext) || lower.endsWith('dockerfile') || lower.endsWith('makefile') || lower.endsWith('license');
+}
+
+async function toggleInlineEditor() {
+    if (!activePreviewPath || activePreviewIsDir) return;
+    if (isInlineEditorActive) {
+        cancelInlineEditor();
+        return;
+    }
+    const container = document.getElementById('preview-content');
+    if (!container) return;
+
+    try {
+        container.innerHTML = '<div style="padding: 30px; text-align: center;"><div class="spinner" style="margin: 0 auto 10px;"></div>Opening in-line editor...</div>';
+        let res = await fetch('/api/files/download?path=' + encodeURIComponent(activePreviewPath)).catch(function() { return null; });
+        if (!res || !res.ok) res = await fetch('/api/files/read?path=' + encodeURIComponent(activePreviewPath)).catch(function() { return null; });
+        if (!res || !res.ok) res = await fetch('/api/files/raw?path=' + encodeURIComponent(activePreviewPath)).catch(function() { return null; });
+        if (!res || !res.ok) {
+            showToast('Unable to open file for editing', '⚠️');
+            handlePreview(selectedItem ? selectedItem.name : activePreviewPath, false);
+            return;
+        }
+        const text = await res.text();
+        inlineOriginalContent = text;
+        isInlineEditorActive = true;
+
+        const lines = text.split('\n').length;
+        const chars = text.length;
+        const estimatedTokens = Math.ceil(chars / 4);
+
+        container.innerHTML = 
+            '<div class="inline-editor-container">' +
+                '<div class="inline-editor-toolbar">' +
+                    '<div class="inline-editor-stats">' +
+                        '<span id="inline-editor-lines">' + lines + ' lines</span>' +
+                        '<span>•</span>' +
+                        '<span id="inline-editor-chars">' + chars + ' chars</span>' +
+                        '<span>•</span>' +
+                        '<span id="inline-editor-tokens" class="token-pill">✨ ~' + estimatedTokens.toLocaleString() + ' tokens</span>' +
+                    '</div>' +
+                    '<div style="display: flex; gap: 6px;">' +
+                        '<button class="preview-action-btn preview-save-btn" onclick="saveInlineEditor()" title="Save changes (⌘S / Ctrl+S)">💾 Save</button>' +
+                        '<button class="preview-action-btn preview-cancel-btn" onclick="cancelInlineEditor()" title="Cancel editing (Esc)">✕ Cancel</button>' +
+                    '</div>' +
+                '</div>' +
+                '<textarea id="inline-editor-textarea" class="inline-editor-textarea" spellcheck="false" placeholder="Enter file content..."></textarea>' +
+            '</div>';
+
+        const textarea = document.getElementById('inline-editor-textarea');
+        if (textarea) {
+            textarea.value = text;
+            textarea.addEventListener('input', function() {
+                const val = textarea.value;
+                const lineCount = val.split('\n').length;
+                const charCount = val.length;
+                const tokenCount = Math.ceil(charCount / 4);
+                const linesEl = document.getElementById('inline-editor-lines');
+                const charsEl = document.getElementById('inline-editor-chars');
+                const tokensEl = document.getElementById('inline-editor-tokens');
+                if (linesEl) linesEl.textContent = lineCount + ' lines';
+                if (charsEl) charsEl.textContent = charCount + ' chars';
+                if (tokensEl) tokensEl.textContent = '✨ ~' + tokenCount.toLocaleString() + ' tokens';
+            });
+            textarea.focus();
+        }
+        updatePreviewActionButtons(activePreviewPath, false);
+    } catch (err) {
+        console.error(err);
+        showToast('Failed to load file for editing', '❌');
+        isInlineEditorActive = false;
+        if (selectedItem) handlePreview(selectedItem.name, false);
+    }
+}
+
+async function saveInlineEditor() {
+    if (!activePreviewPath) return;
+    const textarea = document.getElementById('inline-editor-textarea');
+    if (!textarea) return;
+    const newContent = textarea.value;
+    const sep = isWindows ? '\\' : '/';
+    const fileName = activePreviewPath.split(sep).pop() || activePreviewPath;
+
+    try {
+        const payload = JSON.stringify({ path: activePreviewPath, content: newContent });
+        const res = await fetch('/api/files/saveFile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload
+        });
+
+        if (typeof window.vscode !== 'undefined' && window.vscode.postMessage) {
+            window.vscode.postMessage({ command: 'saveFile', path: activePreviewPath, content: newContent });
+        }
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ command: 'saveFile', path: activePreviewPath, content: newContent }, '*');
+        }
+
+        if (res.ok) {
+            const lines = newContent.split('\n').length;
+            showToast('Saved "' + fileName + '" (' + lines + ' lines) 💾', '✅');
+            isInlineEditorActive = false;
+            inlineOriginalContent = newContent;
+            if (selectedItem) {
+                handlePreview(selectedItem.name, false);
+            } else {
+                renderFilePreview(document.getElementById('preview-content'), activePreviewPath, fileName, false, false);
+            }
+            updatePreviewActionButtons(activePreviewPath, false);
+        } else {
+            showToast('Failed to save file', '❌');
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Error saving file: ' + err.message, '❌');
+    }
+}
+
+function cancelInlineEditor() {
+    isInlineEditorActive = false;
+    updatePreviewActionButtons(activePreviewPath, false);
+    const sep = isWindows ? '\\' : '/';
+    const fileName = activePreviewPath ? (activePreviewPath.split(sep).pop() || activePreviewPath) : '';
+    if (selectedItem) {
+        handlePreview(selectedItem.name, false);
+    } else if (activePreviewPath) {
+        renderFilePreview(document.getElementById('preview-content'), activePreviewPath, fileName, false, false);
+    }
+}
+
+async function toggleQuickLookEditor() {
+    if (!selectedItem || selectedItem.type === 'Directory') return;
+    const qlBody = document.getElementById('ql-body');
+    const qlEditBtn = document.getElementById('ql-edit-btn');
+    const qlSaveBtn = document.getElementById('ql-save-btn');
+    if (!qlBody) return;
+
+    const sep = isWindows ? '\\' : '/';
+    const fullPath = currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name;
+
+    if (isQlEditorActive) {
+        isQlEditorActive = false;
+        if (qlEditBtn) qlEditBtn.textContent = '✏️ Edit';
+        if (qlSaveBtn) qlSaveBtn.style.display = 'none';
+        renderFilePreview(qlBody, fullPath, selectedItem.name, false, true);
+        return;
+    }
+
+    try {
+        qlBody.innerHTML = '<div style="padding: 30px; text-align: center;"><div class="spinner" style="margin: 0 auto 10px;"></div>Loading editor...</div>';
+        let res = await fetch('/api/files/download?path=' + encodeURIComponent(fullPath)).catch(function() { return null; });
+        if (!res || !res.ok) res = await fetch('/api/files/read?path=' + encodeURIComponent(fullPath)).catch(function() { return null; });
+        if (!res || !res.ok) res = await fetch('/api/files/raw?path=' + encodeURIComponent(fullPath)).catch(function() { return null; });
+        if (!res || !res.ok) {
+            showToast('Unable to open file for editing', '⚠️');
+            renderFilePreview(qlBody, fullPath, selectedItem.name, false, true);
+            return;
+        }
+        const text = await res.text();
+        qlOriginalContent = text;
+        isQlEditorActive = true;
+        if (qlEditBtn) qlEditBtn.textContent = '✕ Discard';
+        if (qlSaveBtn) qlSaveBtn.style.display = 'inline-flex';
+
+        qlBody.innerHTML = 
+            '<div class="inline-editor-container" style="height: 100%;">' +
+                '<textarea id="ql-editor-textarea" class="inline-editor-textarea" style="height: calc(100% - 10px); min-height: 380px;" spellcheck="false"></textarea>' +
+            '</div>';
+
+        const textarea = document.getElementById('ql-editor-textarea');
+        if (textarea) {
+            textarea.value = text;
+            textarea.focus();
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Failed to load file for editing', '❌');
+        isQlEditorActive = false;
+        renderFilePreview(qlBody, fullPath, selectedItem.name, false, true);
+    }
+}
+
+async function saveQuickLookEditor() {
+    if (!selectedItem) return;
+    const textarea = document.getElementById('ql-editor-textarea');
+    if (!textarea) return;
+    const newContent = textarea.value;
+    const sep = isWindows ? '\\' : '/';
+    const fullPath = currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name;
+
+    try {
+        const payload = JSON.stringify({ path: fullPath, content: newContent });
+        const res = await fetch('/api/files/saveFile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload
+        });
+        if (typeof window.vscode !== 'undefined' && window.vscode.postMessage) {
+            window.vscode.postMessage({ command: 'saveFile', path: fullPath, content: newContent });
+        }
+        if (res.ok) {
+            const lines = newContent.split('\n').length;
+            showToast('Saved "' + selectedItem.name + '" (' + lines + ' lines) 💾', '✅');
+            isQlEditorActive = false;
+            const qlEditBtn = document.getElementById('ql-edit-btn');
+            const qlSaveBtn = document.getElementById('ql-save-btn');
+            if (qlEditBtn) qlEditBtn.textContent = '✏️ Edit';
+            if (qlSaveBtn) qlSaveBtn.style.display = 'none';
+            renderFilePreview(document.getElementById('ql-body'), fullPath, selectedItem.name, false, true);
+        } else {
+            showToast('Failed to save file', '❌');
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Error saving: ' + err.message, '❌');
+    }
+}
+
+// ══════════════════════════════════════════════════════════
+// ⫴ DUAL-PANE COMMANDER MODE (MIDNIGHT / TOTAL COMMANDER)
+// ══════════════════════════════════════════════════════════
+let isDualPane = false;
+let activePaneId = 'left';
+let commanderLeftState = { path: '', items: [], selected: null, selectedItems: [] };
+let commanderRightState = { path: '', items: [], selected: null, selectedItems: [] };
+
+function toggleDualPaneMode() {
+    isDualPane = !isDualPane;
+    const mainList = document.getElementById('file-list-container');
+    const commanderContainer = document.getElementById('dual-pane-container');
+    const toggleBtn = document.getElementById('btn-toggle-dual-pane');
+
+    if (toggleBtn) toggleBtn.classList.toggle('active', isDualPane);
+    updateViewMenuChecks();
+
+    if (isDualPane) {
+        if (mainList) mainList.style.display = 'none';
+        if (commanderContainer) commanderContainer.style.display = 'flex';
+
+        // Initialize left pane with current directory
+        if (!commanderLeftState.path) {
+            commanderLeftState.path = currentPath || '.';
+        }
+        // Initialize right pane with current directory or parent
+        if (!commanderRightState.path) {
+            const sep = isWindows ? '\\' : '/';
+            const parts = (currentPath || '.').split(sep).filter(Boolean);
+            if (parts.length > 1) {
+                parts.pop();
+                commanderRightState.path = isWindows ? (parts.join('\\') || 'C:\\') : ('/' + parts.join('/'));
+            } else {
+                commanderRightState.path = currentPath || '.';
+            }
+        }
+
+        loadCommanderPane('left', commanderLeftState.path);
+        loadCommanderPane('right', commanderRightState.path);
+        setActivePane(activePaneId);
+        showToast('Dual-Pane Commander Activated (Tab / F5 / F6)', '⫴');
+    } else {
+        if (commanderContainer) commanderContainer.style.display = 'none';
+        if (mainList) mainList.style.display = 'flex';
+
+        // Sync back currentPath from active pane
+        const activeState = activePaneId === 'left' ? commanderLeftState : commanderRightState;
+        if (activeState.path && activeState.path !== currentPath) {
+            navigateTo(activeState.path);
+        } else {
+            loadFiles(currentPath);
+        }
+        showToast('Exited Dual-Pane Commander', '✕');
+    }
+}
+
+async function loadCommanderPane(paneId, targetPath) {
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    const bodyEl = document.getElementById('commander-files-' + paneId);
+    const pathEl = document.getElementById('pane-' + paneId + '-path');
+    if (!bodyEl) return;
+
+    bodyEl.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);"><div class="spinner" style="margin: 0 auto 8px;"></div>Loading...</div>';
+
+    try {
+        const res = await fetch('/api/files/list?path=' + encodeURIComponent(targetPath));
+        if (!res.ok) {
+            bodyEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #ff7675;">Access Denied or Not Found</div>';
+            return;
+        }
+        const data = await res.json();
+        state.path = data.currentPath;
+        state.items = data.items || [];
+        state.selected = null;
+        state.selectedItems = [];
+
+        if (pathEl) {
+            pathEl.textContent = state.path;
+            pathEl.title = state.path;
+        }
+
+        renderCommanderPaneItems(paneId);
+    } catch (err) {
+        console.error(err);
+        bodyEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #ff7675;">Failed to load folder</div>';
+    }
+}
+
+function renderCommanderPaneItems(paneId) {
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    const bodyEl = document.getElementById('commander-files-' + paneId);
+    const countEl = document.getElementById('pane-' + paneId + '-count');
+    const selectedEl = document.getElementById('pane-' + paneId + '-selected');
+    if (!bodyEl) return;
+
+    const items = state.items || [];
+    let html = '';
+
+    // Up row
+    html += '<div class="commander-item commander-item-parent" ondblclick="navigateCommanderParent(\'' + paneId + '\')">' +
+                '<span class="commander-item-icon">⬆️</span>' +
+                '<span class="commander-item-name">..</span>' +
+                '<span class="commander-item-size">&lt;UP&gt;</span>' +
+                '<span class="commander-item-date">Parent Folder</span>' +
+            '</div>';
+
+    items.forEach(function(item, idx) {
+        const isDir = item.type === 'Directory';
+        const visual = getFileVisual(item.name, isDir);
+        const isSelected = state.selected && state.selected.name === item.name;
+        const isInMulti = state.selectedItems.some(function(i) { return i.name === item.name; });
+
+        html += '<div class="commander-item ' + (isSelected || isInMulti ? 'selected' : '') + '" ' +
+                    'data-name="' + escapeHtml(item.name) + '" ' +
+                    'onclick="selectCommanderItem(\'' + paneId + '\', ' + idx + ', event)" ' +
+                    'ondblclick="openCommanderItem(\'' + paneId + '\', ' + idx + ')" ' +
+                    'draggable="true" ondragstart="handleCommanderDragStart(\'' + paneId + '\', ' + idx + ', event)">' +
+                    '<span class="commander-item-icon">' + visual.icon + '</span>' +
+                    '<span class="commander-item-name" title="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</span>' +
+                    '<span class="commander-item-size">' + (isDir ? '&lt;DIR&gt;' : formatBytes(item.size)) + '</span>' +
+                    '<span class="commander-item-date">' + (item.modified ? formatDate(item.modified) : '') + '</span>' +
+                '</div>';
+    });
+
+    bodyEl.innerHTML = html;
+
+    if (countEl) countEl.textContent = items.length + ' items';
+    if (selectedEl) {
+        const selCount = state.selectedItems.length || (state.selected ? 1 : 0);
+        selectedEl.textContent = selCount > 0 ? (selCount + ' selected') : 'No selection';
+    }
+}
+
+function selectCommanderItem(paneId, itemIndex, event) {
+    if (event && event.stopPropagation) event.stopPropagation();
+    setActivePane(paneId);
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    const item = state.items[itemIndex];
+    if (!item) return;
+
+    if (event && (event.metaKey || event.ctrlKey)) {
+        const existingIdx = state.selectedItems.findIndex(function(i) { return i.name === item.name; });
+        if (existingIdx >= 0) {
+            state.selectedItems.splice(existingIdx, 1);
+            state.selected = state.selectedItems[state.selectedItems.length - 1] || null;
+        } else {
+            state.selectedItems.push(item);
+            state.selected = item;
+        }
+    } else {
+        state.selected = item;
+        state.selectedItems = [item];
+    }
+
+    renderCommanderPaneItems(paneId);
+
+    // Also update preview pane for selected item!
+    const sep = isWindows ? '\\' : '/';
+    const fullPath = state.path.endsWith(sep) ? state.path + item.name : state.path + sep + item.name;
+    activePreviewPath = fullPath;
+    activePreviewIsDir = (item.type === 'Directory');
+    handlePreview(item.name, activePreviewIsDir);
+}
+
+function openCommanderItem(paneId, itemIndex) {
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    const item = state.items[itemIndex];
+    if (!item) return;
+
+    const sep = isWindows ? '\\' : '/';
+    const targetPath = state.path.endsWith(sep) ? state.path + item.name : state.path + sep + item.name;
+
+    if (item.type === 'Directory') {
+        loadCommanderPane(paneId, targetPath);
+    } else {
+        openFileInEditor(targetPath);
+    }
+}
+
+function navigateCommanderParent(paneId) {
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    const sep = isWindows ? '\\' : '/';
+    const parts = state.path.split(sep).filter(Boolean);
+    if (parts.length > 1) {
+        parts.pop();
+        const parent = isWindows ? (parts.join('\\') || 'C:\\') : ('/' + parts.join('/'));
+        loadCommanderPane(paneId, parent);
+    } else if (parts.length === 1 && !isWindows) {
+        loadCommanderPane(paneId, '/');
+    }
+}
+
+function refreshCommanderPane(paneId) {
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    loadCommanderPane(paneId, state.path);
+    showToast('Pane ' + (paneId === 'left' ? 'A' : 'B') + ' refreshed', '🔄');
+}
+
+function setActivePane(paneId, event) {
+    if (event && event.stopPropagation) event.stopPropagation();
+    activePaneId = paneId;
+    const leftPane = document.getElementById('commander-pane-left');
+    const rightPane = document.getElementById('commander-pane-right');
+    if (leftPane) leftPane.classList.toggle('active-pane', paneId === 'left');
+    if (rightPane) rightPane.classList.toggle('active-pane', paneId === 'right');
+}
+
+function switchActivePane() {
+    const nextPane = activePaneId === 'left' ? 'right' : 'left';
+    setActivePane(nextPane);
+    showToast('Active: Pane ' + (nextPane === 'left' ? 'A' : 'B'), '⫴');
+}
+
+async function commanderCopy() {
+    const sourceState = activePaneId === 'left' ? commanderLeftState : commanderRightState;
+    const targetState = activePaneId === 'left' ? commanderRightState : commanderLeftState;
+    const targetPaneId = activePaneId === 'left' ? 'right' : 'left';
+
+    const itemsToCopy = sourceState.selectedItems.length > 0 ? sourceState.selectedItems : (sourceState.selected ? [sourceState.selected] : []);
+    if (itemsToCopy.length === 0) {
+        showToast('Select item(s) in active pane to copy', '⚠️');
+        return;
+    }
+
+    if (sourceState.path === targetState.path) {
+        showToast('Target pane is identical to source pane', '⚠️');
+        return;
+    }
+
+    const sep = isWindows ? '\\' : '/';
+    let successCount = 0;
+    for (let i = 0; i < itemsToCopy.length; i++) {
+        const item = itemsToCopy[i];
+        const srcPath = item.path || (sourceState.path.endsWith(sep) ? sourceState.path + item.name : sourceState.path + sep + item.name);
+        try {
+            const res = await fetch('/api/files/copy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source: srcPath, destinationDir: targetState.path })
+            });
+            if (res.ok) successCount++;
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    if (successCount > 0) {
+        showToast('Copied ' + successCount + (successCount === 1 ? ' item' : ' items') + ' to Pane ' + (targetPaneId === 'left' ? 'A' : 'B') + ' ➔', '📋');
+        loadCommanderPane(targetPaneId, targetState.path);
+    } else {
+        showToast('Failed to copy item(s)', '❌');
+    }
+}
+
+async function commanderMove() {
+    const sourceState = activePaneId === 'left' ? commanderLeftState : commanderRightState;
+    const targetState = activePaneId === 'left' ? commanderRightState : commanderLeftState;
+    const targetPaneId = activePaneId === 'left' ? 'right' : 'left';
+
+    const itemsToMove = sourceState.selectedItems.length > 0 ? sourceState.selectedItems : (sourceState.selected ? [sourceState.selected] : []);
+    if (itemsToMove.length === 0) {
+        showToast('Select item(s) in active pane to move', '⚠️');
+        return;
+    }
+
+    if (sourceState.path === targetState.path) {
+        showToast('Target pane is identical to source pane', '⚠️');
+        return;
+    }
+
+    const sep = isWindows ? '\\' : '/';
+    let successCount = 0;
+    for (let i = 0; i < itemsToMove.length; i++) {
+        const item = itemsToMove[i];
+        const srcPath = item.path || (sourceState.path.endsWith(sep) ? sourceState.path + item.name : sourceState.path + sep + item.name);
+        try {
+            const res = await fetch('/api/files/move', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source: srcPath, destinationDir: targetState.path })
+            });
+            if (res.ok) successCount++;
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    if (successCount > 0) {
+        showToast('Moved ' + successCount + (successCount === 1 ? ' item' : ' items') + ' to Pane ' + (targetPaneId === 'left' ? 'A' : 'B') + ' ➔', '📦');
+        loadCommanderPane(activePaneId, sourceState.path);
+        loadCommanderPane(targetPaneId, targetState.path);
+    } else {
+        showToast('Failed to move item(s)', '❌');
+    }
+}
+
+function openTerminalAtActiveCommander(paneId) {
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    if (state && state.path) {
+        openTerminal(state.path);
+    }
+}
+
+function openTerminalAtActivePane() {
+    const state = activePaneId === 'left' ? commanderLeftState : commanderRightState;
+    if (state && state.path) {
+        openTerminal(state.path);
+    }
+}
+
+function handleCommanderDragStart(paneId, itemIndex, event) {
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    const item = state.items[itemIndex];
+    if (!item || !event.dataTransfer) return;
+    const sep = isWindows ? '\\' : '/';
+    const fullPath = state.path.endsWith(sep) ? state.path + item.name : state.path + sep + item.name;
+    event.dataTransfer.setData('text/plain', fullPath);
+    event.dataTransfer.effectAllowed = 'copyMove';
+}
+
+function initDualPaneResizer() {
+    const resizer = document.getElementById('dual-pane-resizer');
+    const leftPane = document.getElementById('commander-pane-left');
+    const rightPane = document.getElementById('commander-pane-right');
+    const wrapper = document.getElementById('dual-pane-split-wrapper');
+    if (!resizer || !leftPane || !rightPane || !wrapper) return;
+
+    let isDragging = false;
+    let startX = 0;
+    let startLeftWidth = 0;
+
+    resizer.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        isDragging = true;
+        startX = e.clientX;
+        startLeftWidth = leftPane.getBoundingClientRect().width;
+        resizer.classList.add('resizing');
+        document.body.style.cursor = 'col-resize';
+    });
+
+    resizer.addEventListener('dblclick', function() {
+        leftPane.style.flex = '1 1 50%';
+        rightPane.style.flex = '1 1 50%';
+        localStorage.removeItem('venel_commander_left_pct');
+        showToast('Dual panes reset 50/50', '📐');
+    });
+
+    window.addEventListener('mousemove', function(e) {
+        if (!isDragging) return;
+        const totalWidth = wrapper.getBoundingClientRect().width;
+        const delta = e.clientX - startX;
+        let newLeftWidth = startLeftWidth + delta;
+        const minWidth = 180;
+        if (newLeftWidth < minWidth) newLeftWidth = minWidth;
+        if (newLeftWidth > totalWidth - minWidth) newLeftWidth = totalWidth - minWidth;
+        const leftPct = (newLeftWidth / totalWidth) * 100;
+        leftPane.style.flex = '0 0 ' + leftPct + '%';
+        rightPane.style.flex = '1 1 ' + (100 - leftPct) + '%';
+        localStorage.setItem('venel_commander_left_pct', leftPct);
+    });
+
+    window.addEventListener('mouseup', function() {
+        if (isDragging) {
+            isDragging = false;
+            resizer.classList.remove('resizing');
+            document.body.style.cursor = '';
+        }
+    });
+
+    const savedPct = localStorage.getItem('venel_commander_left_pct');
+    if (savedPct) {
+        const pct = parseFloat(savedPct);
+        if (pct >= 20 && pct <= 80) {
+            leftPane.style.flex = '0 0 ' + pct + '%';
+            rightPane.style.flex = '1 1 ' + (100 - pct) + '%';
+        }
+    }
+}
+
+
+// ══════════════════════════════════════════════════════════
 // ⌨️ GLOBAL EVENT LISTENERS & SHORTCUTS
 // ══════════════════════════════════════════════════════════
 document.addEventListener('click', function(e) {
@@ -4861,6 +5515,10 @@ document.addEventListener('keydown', function(e) {
     const isEditing = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
 
     if (e.key === 'Escape') {
+        if (isInlineEditorActive) {
+            cancelInlineEditor();
+            return;
+        }
         closeAiAssistantModal();
         closeAllMenus();
         clearTypeAhead();
@@ -4871,6 +5529,57 @@ document.addEventListener('keydown', function(e) {
         closeQuickLook();
         exitPathEditMode();
         clearSearch();
+        return;
+    }
+
+    // Cmd+S / Ctrl+S: Save In-Line Editor or Quick Look Editor
+    if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) {
+        if (isInlineEditorActive) {
+            e.preventDefault();
+            saveInlineEditor();
+            return;
+        }
+        if (isQlEditorActive) {
+            e.preventDefault();
+            saveQuickLookEditor();
+            return;
+        }
+    }
+
+    // Cmd+E / Ctrl+E: Toggle In-Line Editor for current preview file
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'e' || e.key === 'E')) {
+        if (activePreviewPath && !isEditing) {
+            e.preventDefault();
+            toggleInlineEditor();
+            return;
+        }
+    }
+
+    // Alt+D / Option+D: Toggle Dual-Pane Commander Mode
+    if (e.altKey && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        toggleDualPaneMode();
+        return;
+    }
+
+    // Tab: In Dual-Pane mode, switch active pane
+    if (e.key === 'Tab' && isDualPane && !isEditing) {
+        e.preventDefault();
+        switchActivePane();
+        return;
+    }
+
+    // F5: In Dual-Pane mode, copy to other pane
+    if (e.key === 'F5' && isDualPane && !isEditing) {
+        e.preventDefault();
+        commanderCopy();
+        return;
+    }
+
+    // F6: In Dual-Pane mode, move to other pane
+    if (e.key === 'F6' && isDualPane && !isEditing) {
+        e.preventDefault();
+        commanderMove();
         return;
     }
 
@@ -6496,6 +7205,16 @@ if (ctxShortcut) ctxShortcut.textContent = tabShortcutLabel;
 // Initialize Resizable Splitters
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
     initSplitters();
+    initDualPaneResizer();
 } else {
-    window.addEventListener('DOMContentLoaded', initSplitters);
+    window.addEventListener('DOMContentLoaded', function() {
+        initSplitters();
+        initDualPaneResizer();
+    });
 }
+
+// Restore saved dual-pane state
+try {
+    const savedDualPane = localStorage.getItem('venel_dual_pane') === 'true';
+    if (savedDualPane) toggleDualPaneMode(true);
+} catch {}

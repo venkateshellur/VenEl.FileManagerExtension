@@ -114,6 +114,16 @@ export class FileManagerPanel {
                     if (message.text) {
                         vscode.env.clipboard.writeText(message.text);
                     }
+                } else if (message.command === 'saveFile') {
+                    const target = message.filePath || message.path;
+                    if (target) {
+                        try {
+                            await fs.promises.writeFile(target, message.content ?? '', 'utf8');
+                            vscode.window.setStatusBarMessage(`$(check) VenEl: Saved ${path.basename(target)}`, 3000);
+                        } catch (err: any) {
+                            vscode.window.showErrorMessage(`Failed to save file: ${err?.message || err}`);
+                        }
+                    }
                 } else if (message.command === 'askAi') {
                     const { prompt, fullText, fileName, filePath, tokenCount } = message;
                     const textToCopy = fullText || prompt || '';

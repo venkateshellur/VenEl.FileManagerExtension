@@ -43,7 +43,10 @@
             </div>
             <div id="path-dropdown" class="path-dropdown" onclick="event.stopPropagation()" style="display: none;"></div>
         </div>
-        <div class="nav-buttons view-toggles" style="position: relative;">
+        <div class="nav-buttons view-toggles" style="position: relative; display: flex; align-items: center; gap: 4px;">
+            <button id="btn-toggle-dual-pane" class="tool-btn dual-pane-toggle-btn" onclick="toggleDualPaneMode()" title="Toggle Dual-Pane Commander Mode (⌥D / Alt+D)">
+                <span class="dual-pane-icon">⫴</span> <span class="dual-pane-label">Dual Pane</span>
+            </button>
             <button id="btn-view-dropdown" class="tool-btn view-dropdown-btn" onclick="toggleViewMenu(event)" title="Change layout view">
                 <span id="current-view-icon">⊞</span> <span id="current-view-label">Grid</span> <span style="font-size: 8px; opacity: 0.7; margin-left: 2px;">▾</span>
             </button>
@@ -244,6 +247,12 @@
                             <span class="menu-label">Small Icons / Compact</span>
                         </div>
                         <div class="menu-divider"></div>
+                        <div class="menu-entry" onclick="menuAction(toggleDualPaneMode)">
+                            <span class="menu-check" id="menu-chk-dualpane"></span>
+                            <span class="menu-icon">⫴</span>
+                            <span class="menu-label">Dual-Pane Commander</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌥D" data-shortcut-win="Alt+D">⌥D</span>
+                        </div>
                         <div class="menu-entry" onclick="menuAction(togglePreview)">
                             <span class="menu-check" id="menu-chk-preview">✓</span>
                             <span class="menu-icon">👁️</span>
@@ -586,6 +595,77 @@
             </div>
         </div>
 
+        <!-- Dual-Pane Commander Container (Shown when isDualPane = true) -->
+        <div class="dual-pane-container" id="dual-pane-container" style="display: none;">
+            <div class="dual-pane-split-wrapper" id="dual-pane-split-wrapper">
+                <!-- Left Pane (Pane A) -->
+                <div class="commander-pane active-pane" id="commander-pane-left" onclick="setActivePane('left', event)">
+                    <div class="commander-pane-header">
+                        <div class="commander-pane-title-group">
+                            <span class="commander-pane-badge left-badge">Pane A</span>
+                            <span class="commander-pane-path" id="pane-left-path">~</span>
+                        </div>
+                        <div class="commander-pane-actions">
+                            <button class="commander-pane-btn" onclick="event.stopPropagation(); openTerminalAtActiveCommander('left')" title="Open Integrated Terminal in Pane A (⌥T)">💻</button>
+                            <button class="commander-pane-btn" onclick="event.stopPropagation(); refreshCommanderPane('left')" title="Refresh Pane A">🔄</button>
+                        </div>
+                    </div>
+                    <div class="commander-pane-body" id="commander-files-left"></div>
+                    <div class="commander-pane-footer" id="commander-footer-left">
+                        <span id="pane-left-count">0 items</span>
+                        <span id="pane-left-selected">No selection</span>
+                    </div>
+                </div>
+
+                <!-- Resizer Handle between Left and Right Pane -->
+                <div class="dual-pane-resizer" id="dual-pane-resizer" title="Drag to resize panes (Double-click to reset 50/50)"></div>
+
+                <!-- Right Pane (Pane B) -->
+                <div class="commander-pane" id="commander-pane-right" onclick="setActivePane('right', event)">
+                    <div class="commander-pane-header">
+                        <div class="commander-pane-title-group">
+                            <span class="commander-pane-badge right-badge">Pane B</span>
+                            <span class="commander-pane-path" id="pane-right-path">~</span>
+                        </div>
+                        <div class="commander-pane-actions">
+                            <button class="commander-pane-btn" onclick="event.stopPropagation(); openTerminalAtActiveCommander('right')" title="Open Integrated Terminal in Pane B (⌥T)">💻</button>
+                            <button class="commander-pane-btn" onclick="event.stopPropagation(); refreshCommanderPane('right')" title="Refresh Pane B">🔄</button>
+                        </div>
+                    </div>
+                    <div class="commander-pane-body" id="commander-files-right"></div>
+                    <div class="commander-pane-footer" id="commander-footer-right">
+                        <span id="pane-right-count">0 items</span>
+                        <span id="pane-right-selected">No selection</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Commander Bottom Action Strip (Classic Total Commander F-keys) -->
+            <div class="commander-action-strip">
+                <button class="commander-action-key" onclick="switchActivePane()" title="Switch Active Pane (Tab)">
+                    <span class="f-key">Tab</span> <span>Switch Pane</span>
+                </button>
+                <button class="commander-action-key" onclick="commanderCopy()" title="Copy selected items to other pane (F5)">
+                    <span class="f-key">F5</span> <span>Copy ➔</span>
+                </button>
+                <button class="commander-action-key" onclick="commanderMove()" title="Move selected items to other pane (F6)">
+                    <span class="f-key">F6</span> <span>Move ➔</span>
+                </button>
+                <button class="commander-action-key" onclick="showNewFolderModal()" title="Create New Folder (F7)">
+                    <span class="f-key">F7</span> <span>New Folder</span>
+                </button>
+                <button class="commander-action-key" onclick="deleteSelectedItem()" title="Delete Selected Items (F8)">
+                    <span class="f-key">F8</span> <span>Delete</span>
+                </button>
+                <button class="commander-action-key" onclick="openTerminalAtActivePane()" title="Open Integrated Terminal (⌥T)">
+                    <span class="f-key">⌥T</span> <span>Terminal</span>
+                </button>
+                <button class="commander-action-key close-commander" onclick="toggleDualPaneMode()" title="Exit Dual-Pane Mode">
+                    <span>✕ Exit Split</span>
+                </button>
+            </div>
+        </div>
+
         <!-- Draggable Preview Resizer Handle -->
         <div class="resizer-handle" id="preview-resizer" title="Drag to resize preview pane (Double-click to reset)"></div>
 
@@ -597,6 +677,9 @@
                 </h2>
                 <div style="display: flex; align-items: center; gap: 6px;">
                     <span id="preview-header-tokens" class="token-pill" style="display: none;" title="Estimated LLM Tokens (GPT-4o / Claude 3.5 Sonnet)">✨ 0 tokens</span>
+                    <button id="preview-edit-btn" class="preview-action-btn preview-edit-btn" onclick="toggleInlineEditor()" title="Edit file in-place (⌘E / Ctrl+E)" style="display: none;">✏️ Edit</button>
+                    <button id="preview-save-btn" class="preview-action-btn preview-save-btn" onclick="saveInlineEditor()" title="Save changes (⌘S / Ctrl+S)" style="display: none;">💾 Save</button>
+                    <button id="preview-cancel-btn" class="preview-action-btn preview-cancel-btn" onclick="cancelInlineEditor()" title="Cancel editing (Esc)" style="display: none;">✕</button>
                     <button id="preview-pin-btn" class="preview-action-btn preview-pin-btn" onclick="togglePinPreviewItem()" title="Pin/Unpin This Item to Favorites" style="display: none;">★</button>
                     <button id="preview-copy-import-btn" class="preview-action-btn preview-copy-btn" onclick="copySmartImportAtPreview()" title="Copy Smart Import Statement / Relative Path" style="display: none;">📦 Import</button>
                     <button id="preview-terminal-btn" class="preview-action-btn preview-terminal-btn" onclick="openTerminalAtPreview()" title="Open in Integrated Terminal (⌥T / Alt+T)" style="display: none;">💻 Terminal</button>
@@ -891,6 +974,8 @@
                     <button class="ai-glow-btn" onclick="openAiAssistantFromQuickLook()" title="Ask AI About This File">
                         <span class="ai-sparkle">✨</span> Ask AI
                     </button>
+                    <button id="ql-edit-btn" class="preview-action-btn preview-edit-btn" onclick="toggleQuickLookEditor()" title="Edit file in-place (⌘E / Ctrl+E)" style="display: none;">✏️ Edit</button>
+                    <button id="ql-save-btn" class="preview-action-btn preview-save-btn" onclick="saveQuickLookEditor()" title="Save changes (⌘S / Ctrl+S)" style="display: none;">💾 Save</button>
                     <button class="preview-action-btn" onclick="copySmartImportAtSelection()" title="Copy Smart Import Statement (⌥⇧I)">📦 Import</button>
                     <button class="preview-action-btn" onclick="openTerminalAtSelection()" title="Open in Integrated Terminal (⌥T)">💻 Terminal</button>
                 </div>

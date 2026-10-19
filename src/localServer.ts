@@ -732,6 +732,21 @@ export class LocalServer {
                         return;
                     }
 
+                    // 8b. Save / Update File Content (In-line Quick Editor)
+                    if (pathname === '/api/files/saveFile' && req.method === 'POST') {
+                        const body = await LocalServer.parseJsonBody(req);
+                        const filePath = body.filePath || body.path;
+                        if (!filePath) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'filePath or path is required' }));
+                            return;
+                        }
+                        await fs.promises.writeFile(filePath, body.content ?? '', 'utf8');
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ success: true, path: filePath }));
+                        return;
+                    }
+
                     // 9. Rename File or Folder
                     if (pathname === '/api/files/rename' && req.method === 'POST') {
                         const body = await LocalServer.parseJsonBody(req);
