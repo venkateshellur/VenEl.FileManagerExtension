@@ -97,6 +97,122 @@ body.theme-light {
     --git-r-color: var(--vscode-gitDecoration-renamedResourceForeground, #8e44ad);
 }
 
+/* ☀️ High-Contrast Legibility for Places, Drives, & Sidebar Items in Light Mode */
+body.vscode-light .quick-item,
+body[data-theme="light"] .quick-item,
+body.theme-light .quick-item,
+body.vscode-light .fav-pinned-item,
+body[data-theme="light"] .fav-pinned-item,
+body.theme-light .fav-pinned-item {
+    color: #111827 !important;
+    font-weight: 500;
+}
+
+body.vscode-light .quick-item span,
+body[data-theme="light"] .quick-item span,
+body.theme-light .quick-item span,
+body.vscode-light .fav-item-name,
+body[data-theme="light"] .fav-item-name,
+body.theme-light .fav-item-name {
+    color: #111827 !important;
+}
+
+body.vscode-light .quick-item:hover,
+body[data-theme="light"] .quick-item:hover,
+body.theme-light .quick-item:hover,
+body.vscode-light .fav-pinned-item:hover,
+body[data-theme="light"] .fav-pinned-item:hover,
+body.theme-light .fav-pinned-item:hover {
+    background: rgba(0, 0, 0, 0.07) !important;
+    color: #000000 !important;
+}
+
+body.vscode-light .quick-item:hover span,
+body[data-theme="light"] .quick-item:hover span,
+body.theme-light .quick-item:hover span,
+body.vscode-light .fav-pinned-item:hover .fav-item-name,
+body[data-theme="light"] .fav-pinned-item:hover .fav-item-name,
+body.theme-light .fav-pinned-item:hover .fav-item-name {
+    color: #000000 !important;
+}
+
+body.vscode-light .sidebar-section-title-wrap,
+body[data-theme="light"] .sidebar-section-title-wrap,
+body.theme-light .sidebar-section-title-wrap,
+body.vscode-light .sidebar-group-title,
+body[data-theme="light"] .sidebar-group-title,
+body.theme-light .sidebar-group-title {
+    color: #374151 !important;
+    font-weight: 700;
+}
+
+body.vscode-light .sidebar-section-chevron,
+body[data-theme="light"] .sidebar-section-chevron,
+body.theme-light .sidebar-section-chevron {
+    color: #4b5563 !important;
+}
+
+body.vscode-light .favorites-empty-guide,
+body[data-theme="light"] .favorites-empty-guide,
+body.theme-light .favorites-empty-guide {
+    color: #4b5563 !important;
+    border-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+body.vscode-light .fav-item-badge,
+body[data-theme="light"] .fav-item-badge,
+body.theme-light .fav-item-badge {
+    background: rgba(0, 0, 0, 0.06) !important;
+    color: #374151 !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+/* ☀️ Light Theme Tooltip (Hover Card) */
+body.vscode-light .file-hover-card,
+body[data-theme="light"] .file-hover-card,
+body.theme-light .file-hover-card {
+    background: rgba(255, 255, 255, 0.96) !important;
+    border: 1px solid rgba(0, 0, 0, 0.14) !important;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.2) !important;
+    color: #111827 !important;
+}
+
+body.vscode-light .hover-card-name,
+body[data-theme="light"] .hover-card-name,
+body.theme-light .hover-card-name {
+    color: #000000 !important;
+}
+
+body.vscode-light .hover-card-type,
+body[data-theme="light"] .hover-card-type,
+body.theme-light .hover-card-type {
+    color: #4f46e5 !important;
+}
+
+body.vscode-light .hover-card-val,
+body[data-theme="light"] .hover-card-val,
+body.theme-light .hover-card-val {
+    color: #1f2937 !important;
+}
+
+body.vscode-light .hover-card-label,
+body[data-theme="light"] .hover-card-label,
+body.theme-light .hover-card-label {
+    color: #64748b !important;
+}
+
+body.vscode-light .hover-card-divider,
+body[data-theme="light"] .hover-card-divider,
+body.theme-light .hover-card-divider {
+    background: rgba(0, 0, 0, 0.08) !important;
+}
+
+body.vscode-light .hover-card-location,
+body[data-theme="light"] .hover-card-location,
+body.theme-light .hover-card-location {
+    color: #4338ca !important;
+}
+
 /* ══════════════════════════════════════════════════════════ */
 /* 👁️ HIGH CONTRAST THEME (VS Code & Accessibility)           */
 /* ══════════════════════════════════════════════════════════ */
@@ -845,7 +961,7 @@ header {
     border-radius: 6px;
     cursor: pointer;
     font-size: 12px;
-    color: #dfe6e9;
+    color: var(--text-main, #dfe6e9);
     transition: background 0.15s, color 0.15s;
     white-space: nowrap;
     overflow: hidden;
@@ -853,7 +969,7 @@ header {
 }
 .quick-item:hover {
     background: var(--hover-bg);
-    color: #ffffff;
+    color: var(--text-main, #ffffff);
 }
 .quick-item.active {
     background: var(--active-bg);
@@ -4312,7 +4428,7 @@ kbd {
     border-radius: 5px;
     cursor: pointer;
     font-size: 12px;
-    color: #dfe6e9;
+    color: var(--text-main, #dfe6e9);
     transition: background 0.15s, color 0.15s;
     user-select: none;
     position: relative;
@@ -4320,7 +4436,7 @@ kbd {
 
 .fav-pinned-item:hover {
     background: var(--hover-bg);
-    color: #ffffff;
+    color: var(--text-main, #ffffff);
 }
 
 .fav-pinned-item.active {
