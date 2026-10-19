@@ -2787,7 +2787,128 @@
             max-width: 180px;
         }
 
-    
+        /* ══════════════════════════════════════════════════════════ */
+        /* ✨ FLOATING GLASSMORPHIC HOVER CARD TOOLTIP                */
+        /* ══════════════════════════════════════════════════════════ */
+        .file-hover-card {
+            position: fixed;
+            z-index: 99999;
+            pointer-events: none;
+            width: max-content;
+            max-width: 380px;
+            min-width: 240px;
+            background: rgba(22, 27, 34, 0.92);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 9px;
+            padding: 9px 12px;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.35), 0 0 18px rgba(108, 92, 231, 0.18);
+            color: var(--text-color);
+            font-size: 11.5px;
+            line-height: 1.35;
+            opacity: 0;
+            transform: scale(0.97) translateY(4px);
+            transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1), transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+            will-change: opacity, transform, left, top;
+            box-sizing: border-box;
+        }
+        .file-hover-card.visible {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+        .hover-card-header {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+        }
+        .hover-card-icon {
+            font-size: 22px;
+            line-height: 1;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .hover-card-title-col {
+            overflow: hidden;
+            min-width: 0;
+            flex: 1;
+        }
+        .hover-card-name {
+            font-weight: 700;
+            font-size: 12px;
+            color: #ffffff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            letter-spacing: 0.2px;
+        }
+        .hover-card-type {
+            font-size: 10px;
+            color: var(--accent);
+            opacity: 0.95;
+            margin-top: 1px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .hover-card-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.08);
+            margin: 7px 0;
+        }
+        .hover-card-meta-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 4.5px;
+        }
+        .hover-card-row {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 11px;
+        }
+        .hover-card-label {
+            color: var(--text-muted);
+            font-size: 10px;
+            flex-shrink: 0;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .hover-card-val {
+            color: #dfe6e9;
+            font-weight: 500;
+            text-align: right;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+        .hover-card-location {
+            max-width: 250px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 9.5px;
+            color: #a29bfe;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: right;
+        }
+        .hover-git-val {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .hover-git-dot {
+            font-size: 11px;
+            line-height: 1;
+        }
+
         /* ══════════════════════════════════════════════════════════ */
         /* 📐 DRAGGABLE RESIZER SPLITTER HANDLES                      */
         /* ══════════════════════════════════════════════════════════ */
@@ -3857,6 +3978,39 @@
         <span style="margin-left: auto; opacity: 0.85; font-size: 11px;">
             VenEl File Manager &bull; <a href="https://www.linkedin.com/in/venkateshellur/" target="_blank" style="color: inherit; text-decoration: underline; text-underline-offset: 2px;">Venkatesh Ellur</a>
         </span>
+    </div>
+
+    <!-- Rich Floating Glassmorphic Hover Card (Tooltip) -->
+    <div id="file-hover-card" class="file-hover-card" style="display: none;">
+        <div class="hover-card-header">
+            <span class="hover-card-icon" id="hover-card-icon">📄</span>
+            <div class="hover-card-title-col">
+                <div class="hover-card-name" id="hover-card-name">filename.txt</div>
+                <div class="hover-card-type" id="hover-card-type">Plain Text Document</div>
+            </div>
+        </div>
+        <div class="hover-card-divider"></div>
+        <div class="hover-card-meta-grid">
+            <div class="hover-card-row">
+                <span class="hover-card-label">Size</span>
+                <span class="hover-card-val" id="hover-card-size">12.4 KB</span>
+            </div>
+            <div class="hover-card-row">
+                <span class="hover-card-label">Modified</span>
+                <span class="hover-card-val" id="hover-card-modified">Oct 18, 2026 2:15 PM</span>
+            </div>
+            <div class="hover-card-row" id="hover-card-git-row" style="display: none;">
+                <span class="hover-card-label">Git Status</span>
+                <span class="hover-card-val hover-git-val" id="hover-card-git">
+                    <span class="hover-git-dot" id="hover-card-git-dot">●</span>
+                    <span id="hover-card-git-text">Modified</span>
+                </span>
+            </div>
+            <div class="hover-card-row" id="hover-card-location-row">
+                <span class="hover-card-label">Location</span>
+                <span class="hover-card-val hover-card-location" id="hover-card-location">/Users/...</span>
+            </div>
+        </div>
     </div>
 
     <!-- Context Menu -->
@@ -6062,6 +6216,10 @@
             return '<div class="item ' + className + (isSelected ? ' selected' : '') + (isCut ? ' cut-item' : '') + (isHidden ? ' is-hidden' : '') + '" ' +
                     dragAttr + ' ' +
                     'data-name="' + escapeHtml(item.name) + '" ' +
+                    'data-path="' + escapeHtml(fullItemPath) + '" ' +
+                    'onmouseenter="handleItemHoverEnter(event, this)" ' +
+                    'onmouseleave="handleItemHoverLeave(event, this)" ' +
+                    'onmousemove="handleItemHoverMove(event, this)" ' +
                     'onclick="handleItemClick(event, \'' + escapePath(item.name) + '\', ' + isDir + ')" ' +
                     'onauxclick="handleItemAuxClick(event, \'' + escapePath(item.name) + '\', ' + isDir + ')" ' +
                     'ondblclick="handleDoubleClick(\'' + escapePath(item.name) + '\', ' + isDir + ')" ' +
@@ -9977,10 +10135,199 @@
             });
         }
 
+        // ══════════════════════════════════════════════════════════
+        // ✨ FLOATING GLASSMORPHIC HOVER CARD (TOOLTIP)
+        // ══════════════════════════════════════════════════════════
+        let hoverCardTimer = null;
+        let hoverCardCurrentTarget = null;
+        let lastMousePos = { x: 0, y: 0 };
+
+        function handleItemHoverEnter(e, itemEl) {
+            hideHoverCard();
+            hoverCardCurrentTarget = itemEl;
+            lastMousePos = { x: e ? e.clientX : 0, y: e ? e.clientY : 0 };
+            hoverCardTimer = setTimeout(function() {
+                if (hoverCardCurrentTarget === itemEl) {
+                    showHoverCardForItem(itemEl, lastMousePos.x, lastMousePos.y);
+                }
+            }, 280);
+        }
+
+        function handleItemHoverLeave(e, itemEl) {
+            if (hoverCardCurrentTarget === itemEl) {
+                hideHoverCard();
+            }
+        }
+
+        function handleItemHoverMove(e, itemEl) {
+            if (e) {
+                lastMousePos = { x: e.clientX, y: e.clientY };
+            }
+            const card = document.getElementById('file-hover-card');
+            if (card && card.classList.contains('visible') && hoverCardCurrentTarget === itemEl) {
+                positionHoverCard(card, lastMousePos.x, lastMousePos.y, itemEl);
+            }
+        }
+
+        window.triggerItemHover = function(name) {
+            const itemEl = name ? document.querySelector('.item[data-name="' + name + '"]') : document.querySelector('.item');
+            if (itemEl) {
+                hoverCardCurrentTarget = itemEl;
+                itemEl.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+                showHoverCardForItem(itemEl, 0, 0);
+            }
+        };
+
+        function initHoverCard() {
+            const filesContainer = document.getElementById('files');
+            const card = document.getElementById('file-hover-card');
+            if (!card) return;
+
+            // Hide immediately when scrolling, clicking, dragging, or opening context menus
+            const scrollContainer = document.getElementById('file-list-container') || filesContainer;
+            if (scrollContainer) {
+                scrollContainer.addEventListener('scroll', hideHoverCard, { passive: true });
+            }
+            window.addEventListener('scroll', hideHoverCard, { passive: true });
+            window.addEventListener('resize', hideHoverCard, { passive: true });
+            window.addEventListener('contextmenu', hideHoverCard);
+            window.addEventListener('mousedown', function(e) {
+                if (e.target && e.target.closest && e.target.closest('#file-hover-card')) return;
+                hideHoverCard();
+            });
+            window.addEventListener('dragstart', hideHoverCard);
+        }
+
+        function hideHoverCard() {
+            if (hoverCardTimer) {
+                clearTimeout(hoverCardTimer);
+                hoverCardTimer = null;
+            }
+            hoverCardCurrentTarget = null;
+            const card = document.getElementById('file-hover-card');
+            if (card) {
+                card.classList.remove('visible');
+                card.style.display = 'none';
+            }
+        }
+
+        function showHoverCardForItem(itemEl, mouseX, mouseY) {
+            const card = document.getElementById('file-hover-card');
+            if (!card || !itemEl) return;
+
+            const itemPath = itemEl.getAttribute('data-path');
+            const itemName = itemEl.getAttribute('data-name');
+            if (!itemName && !itemPath) return;
+
+            // Find item in displayedItems or currentItems
+            const item = (itemPath && (displayedItems || []).find(function(it) { return it.path === itemPath; })) ||
+                         (displayedItems || []).find(function(it) { return it.name === itemName; }) ||
+                         (currentItems || []).find(function(it) { return it.name === itemName; });
+            if (!item) return;
+
+            const isDir = item.type === 'Directory';
+            const visual = getFileVisual(item.name, isDir);
+
+            // 1. Icon & Header
+            const iconEl = document.getElementById('hover-card-icon');
+            const nameEl = document.getElementById('hover-card-name');
+            const typeEl = document.getElementById('hover-card-type');
+            if (iconEl) iconEl.textContent = visual.icon;
+            if (nameEl) nameEl.textContent = item.name;
+            if (typeEl) typeEl.textContent = visual.typeLabel || (isDir ? 'File folder' : 'File');
+
+            // 2. Size & Modified
+            const sizeEl = document.getElementById('hover-card-size');
+            const modEl = document.getElementById('hover-card-modified');
+            if (sizeEl) sizeEl.textContent = !isDir ? formatBytes(item.size) : '--';
+            if (modEl) modEl.textContent = item.modified ? formatDate(item.modified) : '--';
+
+            // 3. Git Status
+            const gitRow = document.getElementById('hover-card-git-row');
+            const gitText = document.getElementById('hover-card-git-text');
+            const gitDot = document.getElementById('hover-card-git-dot');
+            if (gitRow && gitText) {
+                const gitCode = currentGitStatuses ? currentGitStatuses[item.name] : null;
+                if (gitCode) {
+                    gitRow.style.display = 'flex';
+                    let gitLabel = 'Modified';
+                    let dotColor = '#ffeaa7';
+                    if (gitCode === 'M') { gitLabel = 'Modified (unstaged)'; dotColor = '#ffeaa7'; }
+                    else if (gitCode === 'U' || gitCode === '?') { gitLabel = 'Untracked'; dotColor = '#55efc4'; }
+                    else if (gitCode === 'A') { gitLabel = 'Added (staged)'; dotColor = '#00cec9'; }
+                    else if (gitCode === 'D') { gitLabel = 'Deleted'; dotColor = '#ff7675'; }
+                    else if (gitCode === 'R') { gitLabel = 'Renamed'; dotColor = '#74b9ff'; }
+                    else { gitLabel = 'Changed'; dotColor = '#a29bfe'; }
+
+                    gitText.textContent = gitLabel;
+                    if (gitDot) gitDot.style.color = dotColor;
+                } else {
+                    gitRow.style.display = 'none';
+                }
+            }
+
+            // 4. Location / Full Path
+            const locEl = document.getElementById('hover-card-location');
+            if (locEl) {
+                const sep = isWindows ? '\\' : '/';
+                const fullLoc = (item.isSearchResult && item.directory)
+                    ? item.directory
+                    : ((item.isSearchResult && item.path)
+                        ? item.path.substring(0, item.path.lastIndexOf(sep))
+                        : currentPath);
+                locEl.textContent = fullLoc || currentPath || '/';
+                locEl.title = fullLoc || currentPath || '/';
+            }
+
+            card.style.display = 'block';
+            positionHoverCard(card, mouseX, mouseY, itemEl);
+            requestAnimationFrame(function() {
+                card.classList.add('visible');
+            });
+        }
+
+        function positionHoverCard(card, mouseX, mouseY, itemEl) {
+            if (!mouseX || !mouseY || mouseX <= 0 || mouseY <= 0) {
+                if (itemEl) {
+                    const r = itemEl.getBoundingClientRect();
+                    mouseX = Math.round(r.left + r.width / 2);
+                    mouseY = Math.round(r.bottom);
+                } else {
+                    return;
+                }
+            }
+
+            const cardRect = card.getBoundingClientRect();
+            const cardWidth = cardRect.width || 280;
+            const cardHeight = cardRect.height || 140;
+
+            const padding = 12;
+            let left = mouseX + 16;
+            let top = mouseY + 16;
+
+            // Flip horizontally if it would overflow right edge
+            if (left + cardWidth > window.innerWidth - padding) {
+                left = mouseX - cardWidth - 14;
+            }
+
+            // Flip vertically if it would overflow bottom edge
+            if (top + cardHeight > window.innerHeight - padding) {
+                top = mouseY - cardHeight - 12;
+            }
+
+            // Clamp within viewport
+            left = Math.max(padding, Math.min(left, window.innerWidth - cardWidth - padding));
+            top = Math.max(padding, Math.min(top, window.innerHeight - cardHeight - padding));
+
+            card.style.left = left + 'px';
+            card.style.top = top + 'px';
+        }
+
         // Initialize
         fetchRoots();
         initBookmarks();
         initQuickFilterAndHiddenFiles();
+        initHoverCard();
         const initialTab = tabs.find(function(t) { return t.id === activeTabId; }) || tabs[0];
         navigateTo(initialTab.path);
         setView(currentViewMode);
