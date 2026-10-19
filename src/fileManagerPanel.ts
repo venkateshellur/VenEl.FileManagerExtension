@@ -54,6 +54,10 @@ export class FileManagerPanel {
 
         this.refresh();
 
+        vscode.window.onDidChangeActiveColorTheme(() => {
+            this.sendThemeUpdate();
+        }, null, this._disposables);
+
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
         this._panel.webview.onDidReceiveMessage(
@@ -158,12 +162,40 @@ export class FileManagerPanel {
         );
     }
 
-    public async refresh() {
-        const serverUrl = await ServerManager.getServerUrl();
-        this._panel.webview.html = this.getFrameHtml(serverUrl);
+    public static getIdeThemeKind(): string {
+        const kind = vscode.window.activeColorTheme.kind;
+        if (kind === vscode.ColorThemeKind.Light) {
+            return 'light';
+        }
+        if (kind === vscode.ColorThemeKind.HighContrastLight) {
+            return 'high-contrast-light';
+        }
+        if (kind === vscode.ColorThemeKind.HighContrast) {
+            return 'high-contrast';
+        }
+        return 'dark';
     }
 
-    private getFrameHtml(serverUrl: string): string {
+    public sendThemeUpdate() {
+        const themeKind = FileManagerPanel.getIdeThemeKind();
+        this._panel.webview.postMessage({
+            command: 'ide-theme-changed',
+            themeKind: themeKind
+        });
+    }
+
+    public async refresh() {
+        const serverUrl = await ServerManager.getServerUrl();
+        const ideTheme = FileManagerPanel.getIdeThemeKind();
+        this._panel.webview.html = this.getFrameHtml(serverUrl, ideTheme);
+    }
+
+    private getFrameHtml(serverUrl: string, initialThemeKind: string = 'dark'): string {
+        const delimiter = serverUrl.includes('?') ? '&' : '?';
+        const targetUrl = serverUrl !== 'about:blank' 
+            ? `${serverUrl}${delimiter}ideTheme=${encodeURIComponent(initialThemeKind)}` 
+            : '';
+
         return `<!DOCTYPE html>
 <html lang="en" style="height: 100%; margin: 0; padding: 0;">
 <head>
@@ -249,9 +281,10 @@ export class FileManagerPanel {
         <div class="loading-hint">First launch takes a few moments while the engine initializes routes and scans system drives. Subsequent launches and folder navigations are instant!</div>
         <div class="loading-badge">⚡ Initialization in progress</div>
     </div>
-    ${serverUrl !== 'about:blank' ? `<iframe id="engine-frame" src="${serverUrl}" onload="onFrameLoad()"></iframe>` : ''}
+    ${targetUrl !== '' ? `<iframe id="engine-frame" src="${targetUrl}" onload="onFrameLoad()"></iframe>` : ''}
     <script>
         const vscode = acquireVsCodeApi();
+        let currentThemeKind = '${initialThemeKind}';
 
         function sendThemeToFrame() {
             const frame = document.getElementById('engine-frame');
@@ -260,10 +293,11 @@ export class FileManagerPanel {
             const isLight = document.body.classList.contains('vscode-light');
             const isHcLight = document.body.classList.contains('vscode-high-contrast-light');
             const isHc = document.body.classList.contains('vscode-high-contrast');
-            let themeKind = 'dark';
+            let themeKind = currentThemeKind || 'dark';
             if (isHcLight) themeKind = 'high-contrast-light';
             else if (isHc) themeKind = 'high-contrast';
             else if (isLight) themeKind = 'light';
+            else if (document.body.classList.contains('vscode-dark')) themeKind = 'dark';
 
             const themePayload = {
                 command: 'ide-theme-changed',
@@ -303,6 +337,19 @@ export class FileManagerPanel {
         }
 
         window.addEventListener('message', function(event) {
+            if (event.data && event.data.command === 'ide-theme-changed') {
+                if (event.data.themeKind) {
+                    currentThemeKind = event.data.themeKind;
+                }
+                sendThemeToFrame();
+                const frame = document.getElementById('engine-frame');
+                if (frame && frame.contentWindow) {
+                    try {
+                        frame.contentWindow.postMessage(event.data, '*');
+                    } catch (e) {}
+                }
+                return;
+            }
             if (event.data && event.data.command === 'request-ide-theme') {
                 sendThemeToFrame();
                 return;

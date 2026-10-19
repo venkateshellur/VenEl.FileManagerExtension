@@ -169,14 +169,24 @@ function updateViewMenuChecks() {
 // ══════════════════════════════════════════════════════════
 // 🎨 DYNAMIC IDE & SYSTEM THEME ENGINE
 // ══════════════════════════════════════════════════════════
+const _urlParams = (typeof window !== 'undefined' && window.location && window.location.search) ? new URLSearchParams(window.location.search) : null;
+const _urlIdeTheme = _urlParams ? _urlParams.get('ideTheme') : null;
+
+let cachedIdeTheme = (_urlIdeTheme && ['dark', 'light', 'high-contrast', 'high-contrast-light'].includes(_urlIdeTheme)) 
+    ? { themeKind: _urlIdeTheme } 
+    : null;
+
 let currentThemeMode = (function() {
     try {
-        return localStorage.getItem('venel_theme_mode') || 'auto';
+        const stored = localStorage.getItem('venel_theme_mode');
+        if (stored && ['auto', 'dark', 'light', 'high-contrast'].includes(stored)) {
+            return stored;
+        }
+        return 'auto';
     } catch (e) {
         return 'auto';
     }
 })();
-let cachedIdeTheme = null;
 
 function getThemeMode() {
     return currentThemeMode;
@@ -209,7 +219,7 @@ function setThemeMode(mode) {
 }
 
 function cycleThemeMode() {
-    const modes = ['auto', 'light', 'dark', 'high-contrast'];
+    const modes = ['auto', 'dark', 'light', 'high-contrast'];
     const idx = modes.indexOf(currentThemeMode);
     const nextMode = modes[(idx + 1) % modes.length];
     setThemeMode(nextMode);
@@ -223,9 +233,11 @@ function applyTheme() {
     if (currentThemeMode === 'auto') {
         if (cachedIdeTheme && cachedIdeTheme.themeKind) {
             effectiveTheme = cachedIdeTheme.themeKind;
-        } else if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-            effectiveTheme = 'light';
+        } else if (_urlIdeTheme) {
+            effectiveTheme = _urlIdeTheme;
         } else {
+            // Default to dark for Antigravity & VS Code developer environment.
+            // Never let macOS OS-level light appearance override an IDE dark environment.
             effectiveTheme = 'dark';
         }
     } else {
@@ -302,6 +314,12 @@ function initTheme() {
     try {
         if (window.parent && window.parent !== window) {
             window.parent.postMessage({ command: 'request-ide-theme' }, '*');
+            setTimeout(function() {
+                try { window.parent.postMessage({ command: 'request-ide-theme' }, '*'); } catch (e) {}
+            }, 150);
+            setTimeout(function() {
+                try { window.parent.postMessage({ command: 'request-ide-theme' }, '*'); } catch (e) {}
+            }, 600);
         }
     } catch (e) {}
 
