@@ -494,9 +494,18 @@
                             <span class="menu-icon">⚡</span>
                             <span class="menu-label">VenEl Engine Status</span>
                         </div>
-                        <div class="menu-entry" onclick="menuAction(function() { openHelpModal('features'); })">
+                        <div class="menu-entry" onclick="menuAction(openAboutModal)">
                             <span class="menu-icon">ℹ️</span>
                             <span class="menu-label">About VenEl File Manager</span>
+                        </div>
+                        <div class="menu-divider"></div>
+                        <div class="menu-entry" onclick="menuAction(openReportIssueModal)">
+                            <span class="menu-icon">🐛</span>
+                            <span class="menu-label">Report an Issue / Bug</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(openLogsFolder)">
+                            <span class="menu-icon">📂</span>
+                            <span class="menu-label">Open Diagnostic Logs Folder</span>
                         </div>
                     </div>
                 </div>
@@ -1304,6 +1313,169 @@
         </div>
     </div>
 
+    <!-- ℹ️ About VenEl File Manager Modal -->
+    <div class="modal-overlay" id="modal-about" onclick="hideModals()">
+        <div class="modal-box" onclick="event.stopPropagation()" style="max-width: 520px; width: 92%; max-height: 88vh; display: flex; flex-direction: column;">
+            <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 4px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <img src="logo.png" alt="VenEl Logo" style="width: 32px; height: 32px; border-radius: 6px; object-fit: contain;" onerror="this.style.display='none'; document.getElementById('about-icon-fallback').style.display='inline-block';" />
+                    <span id="about-icon-fallback" style="display: none; font-size: 26px;">📁</span>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 16px; font-weight: 700; color: var(--text-main);">VenEl File Manager</span>
+                            <span id="about-version-badge" style="background: rgba(108, 92, 231, 0.25); color: #a29bfe; border: 1px solid rgba(108, 92, 231, 0.4); font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px;">v1.1.3</span>
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Professional Dual-Pane File Manager for VS Code</div>
+                    </div>
+                </div>
+                <button onclick="hideModals()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; padding: 4px 8px; border-radius: 4px;" title="Close">✕</button>
+            </div>
+
+            <!-- Body info container -->
+            <div style="overflow-y: auto; max-height: calc(88vh - 120px); display: flex; flex-direction: column; gap: 12px; padding: 4px 2px;">
+                <!-- System & Environment Info Grid -->
+                <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent, #6c5ce7); display: flex; justify-content: space-between; align-items: center;">
+                        <span>System & Runtime Information</span>
+                        <span id="about-engine-status-pill" style="font-size: 10px; background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3); border-radius: 8px; padding: 1px 6px;">● Online</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 130px 1fr; gap: 6px 12px; font-size: 12px;">
+                        <span style="color: var(--text-muted);">Extension Version:</span>
+                        <span id="about-info-version" style="font-weight: 600; color: var(--text-main);">1.1.3</span>
+
+                        <span style="color: var(--text-muted);">Host IDE:</span>
+                        <span id="about-info-ide" style="font-weight: 600; color: var(--text-main);">Visual Studio Code</span>
+
+                        <span style="color: var(--text-muted);">Platform / OS:</span>
+                        <span id="about-info-os" style="color: var(--text-main);">Detecting...</span>
+
+                        <span style="color: var(--text-muted);">Backend Engine:</span>
+                        <span id="about-info-engine" style="color: var(--text-main);">Kestrel (.NET)</span>
+
+                        <span style="color: var(--text-muted);">Engine Endpoint:</span>
+                        <span id="about-info-url" style="color: var(--text-muted); font-family: monospace; font-size: 11px;">http://localhost:5050</span>
+                    </div>
+                </div>
+
+                <!-- Feature Highlights -->
+                <div style="background: rgba(108, 92, 231, 0.08); border: 1px solid rgba(108, 92, 231, 0.2); border-radius: 8px; padding: 12px;">
+                    <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #a29bfe; margin-bottom: 6px;">
+                        ✨ Included Features & Tools
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 11px; color: var(--text-muted);">
+                        <div>🗂️ Multi-Tab Browsing</div>
+                        <div>⚡ Commander Dual-Pane</div>
+                        <div>🌐 SFTP & Remote Explorer</div>
+                        <div>🌿 Live Git Diff & Badges</div>
+                        <div>🔍 Spotlight Machine Search</div>
+                        <div>👁️ Spacebar Quick Look</div>
+                        <div>🏷️ Smart Batch Renamer</div>
+                        <div>🗜️ Zip / Tar.gz Extraction</div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons: Copy info, open settings -->
+                <div style="display: flex; gap: 8px;">
+                    <button class="modal-btn" onclick="copyAboutSystemInfo()" style="flex: 1; justify-content: center; background: rgba(255, 255, 255, 0.08); border: 1px solid var(--border-color); color: var(--text-main); font-size: 11px; padding: 8px; display: flex; align-items: center; gap: 6px;">
+                        📋 Copy System Info
+                    </button>
+                    <button class="modal-btn" onclick="openVsCodeExtensionSettings()" style="flex: 1; justify-content: center; background: rgba(255, 255, 255, 0.08); border: 1px solid var(--border-color); color: var(--text-main); font-size: 11px; padding: 8px; display: flex; align-items: center; gap: 6px;">
+                        ⚙️ Extension Settings
+                    </button>
+                </div>
+
+                <!-- Attribution & Links -->
+                <div style="border-top: 1px solid var(--border-color); padding-top: 10px; font-size: 11px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
+                    <div>Developed with ❤️ by <strong style="color: var(--text-main);">Venkatesh Ellur</strong></div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <a href="https://github.com/venkateshellur/VenEl.FileManagerExtension" target="_blank" style="color: var(--accent); text-decoration: none;">GitHub</a>
+                        <span>•</span>
+                        <a href="https://open-vsx.org/extension/venkateshellur/venel-filemanager" target="_blank" style="color: #4a9eff; text-decoration: none;">Open VSX</a>
+                        <span>•</span>
+                        <a href="https://www.linkedin.com/in/venkateshellur/" target="_blank" style="color: #0077b5; text-decoration: none; font-weight: 500;">LinkedIn</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-actions" style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; gap: 8px;">
+                    <button class="modal-btn" onclick="openReportIssueModal()" style="font-size: 11px; padding: 6px 10px; background: rgba(235, 87, 87, 0.15); border: 1px solid rgba(235, 87, 87, 0.4); color: #ff7675; display: flex; align-items: center; gap: 5px;">
+                        <span>🐛</span><span>Report Issue</span>
+                    </button>
+                    <button class="modal-btn" onclick="openLogsFolder()" style="font-size: 11px; padding: 6px 10px; background: rgba(255, 255, 255, 0.08); border: 1px solid var(--border-color); color: var(--text-main); display: flex; align-items: center; gap: 5px;">
+                        <span>📂</span><span>Logs</span>
+                    </button>
+                </div>
+                <button class="modal-btn cancel" onclick="hideModals()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🐛 Report an Issue / Bug Modal -->
+    <div class="modal-overlay" id="modal-report-issue" onclick="hideModals()">
+        <div class="modal-box" onclick="event.stopPropagation()" style="max-width: 600px; width: 92%; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 4px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 22px;">🐛</span>
+                    <div>
+                        <div style="font-size: 15px; font-weight: 700; color: #fff;">Report an Issue / Bug</div>
+                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Submit feedback directly to GitHub with auto-attached diagnostics</div>
+                    </div>
+                </div>
+                <button onclick="hideModals()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; padding: 4px 8px; border-radius: 4px;">✕</button>
+            </div>
+
+            <div style="overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <label style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #a29bfe;">
+                        Issue Title / Summary
+                    </label>
+                    <input type="text" id="issue-title-input" class="search-input" placeholder="e.g. Places panel not displaying Desktop folder" style="width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 6px; font-size: 12px;" />
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <label style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #a29bfe;">
+                        What happened? (Steps to reproduce)
+                    </label>
+                    <textarea id="issue-description-input" class="search-input" rows="4" placeholder="1. What were you doing?&#10;2. What did you expect to happen?&#10;3. What actually happened?" style="width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 6px; font-size: 12px; resize: vertical; min-height: 70px;"></textarea>
+                </div>
+
+                <!-- Collapsible Diagnostic Info & Error Logs -->
+                <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden;">
+                    <details id="issue-details-accordion" style="padding: 8px 10px; font-size: 11px;">
+                        <summary style="cursor: pointer; font-weight: 600; color: #a29bfe; user-select: none;">
+                            📋 Preview System Diagnostics & Recent Logs (Auto-attached)
+                        </summary>
+                        <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;">
+                            <div id="issue-system-preview" style="color: var(--text-muted); font-size: 11px; line-height: 1.5;">
+                                Loading diagnostics...
+                            </div>
+                            <pre id="issue-logs-preview" style="margin: 0; padding: 6px 8px; background: rgba(0,0,0,0.4); border-radius: 4px; font-size: 10.5px; max-height: 120px; overflow-y: auto; white-space: pre-wrap; font-family: monospace; color: #ddd;">Fetching recent error logs...</pre>
+                        </div>
+                    </details>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-main);">
+                    <input type="checkbox" id="issue-include-logs" checked style="cursor: pointer;" />
+                    <label for="issue-include-logs" style="cursor: pointer;">Include system environment and error log lines in GitHub issue</label>
+                </div>
+            </div>
+
+            <div class="modal-actions" style="margin-top: 14px; display: flex; justify-content: space-between; align-items: center;">
+                <button class="modal-btn" onclick="openLogsFolder()" style="font-size: 11px; padding: 6px 10px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); color: var(--text-main);">
+                    📂 Open Logs Folder
+                </button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="modal-btn cancel" onclick="hideModals()">Cancel</button>
+                    <button class="modal-btn" onclick="submitIssueReport()" style="background: #238636; border: 1px solid #2ea043; color: #fff; font-weight: 600; padding: 7px 14px; display: flex; align-items: center; gap: 6px;">
+                        <span>🚀 Submit on GitHub</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Help & Feature Guide Modal -->
     <div class="modal-overlay" id="modal-help" onclick="hideModals()">
         <div class="modal-box" onclick="event.stopPropagation()" style="max-width: 680px; width: 94%; max-height: 88vh; display: flex; flex-direction: column;">
@@ -1325,6 +1497,7 @@
                 <button class="help-tab-btn" id="help-btn-git" onclick="switchHelpTab('git')">🌿 Git & Diff</button>
                 <button class="help-tab-btn" id="help-btn-search" onclick="switchHelpTab('search')">⚡ Search & Filter</button>
                 <button class="help-tab-btn" id="help-btn-power" onclick="switchHelpTab('power')">🚀 Power Tools</button>
+                <button class="help-tab-btn" id="help-btn-about" onclick="switchHelpTab('about')">ℹ️ About</button>
             </div>
 
             <!-- Tab Content Panes -->
@@ -1463,6 +1636,28 @@
                     <div class="help-card">
                         <div class="help-card-title">⚙️ Engine Diagnostics & Direct-to-Editor Mode</div>
                         <div class="help-card-desc">Click <strong>⚙️</strong> in the header to view engine diagnostics, endpoint status, and quick VS Code configuration controls.</div>
+                    </div>
+                </div>
+
+                <!-- 6. About Pane -->
+                <div class="help-pane" id="help-pane-about">
+                    <div class="help-card">
+                        <div class="help-card-title">ℹ️ About VenEl File Manager</div>
+                        <div class="help-card-desc">
+                            <p style="margin-top: 0; line-height: 1.5;"><strong>VenEl File Manager</strong> is an enterprise-grade file manager and dual-pane commander built for developers in VS Code and compatible IDEs.</p>
+                            <table class="help-table" style="margin-top: 10px; width: 100%;">
+                                <tbody>
+                                    <tr><td style="width: 140px;"><strong>Extension Version</strong></td><td><span class="extension-version-text" style="font-weight: 700; color: var(--accent);">1.1.3</span></td></tr>
+                                    <tr><td><strong>Host IDE</strong></td><td><span class="ide-name-text">Visual Studio Code</span></td></tr>
+                                    <tr><td><strong>Backend Engine</strong></td><td><span id="help-about-engine-text">Kestrel (.NET)</span></td></tr>
+                                    <tr><td><strong>Repository</strong></td><td><a href="https://github.com/venkateshellur/VenEl.FileManagerExtension" target="_blank" style="color: var(--accent); text-decoration: none;">venkateshellur/VenEl.FileManagerExtension</a></td></tr>
+                                </tbody>
+                            </table>
+                            <div style="margin-top: 14px; display: flex; gap: 8px;">
+                                <button class="modal-btn" onclick="copyAboutSystemInfo()" style="padding: 7px 14px; font-size: 11px; display: flex; align-items: center; gap: 6px;">📋 Copy System Diagnostics</button>
+                                <button class="modal-btn confirm" onclick="openAboutModal()" style="padding: 7px 14px; font-size: 11px; display: flex; align-items: center; gap: 6px;">🔍 Open About Dialog</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

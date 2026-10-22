@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ServerManager } from './serverManager';
 import { LocalServer } from './localServer';
+import { Logger } from './logger';
 
 export class FileManagerPanel {
     public static currentPanel: FileManagerPanel | undefined;
@@ -10,11 +11,11 @@ export class FileManagerPanel {
     private readonly _extensionUri: vscode.Uri;
     private _disposables: vscode.Disposable[] = [];
 
-    public static async createOrShow(extensionUri: vscode.Uri) {
+    public static async createOrShow(extensionUri: vscode.Uri): Promise<FileManagerPanel> {
         // 1. Single Instance: If panel already exists, bring user to the existing instance!
         if (FileManagerPanel.currentPanel) {
             FileManagerPanel.currentPanel._panel.reveal(FileManagerPanel.currentPanel._panel.viewColumn);
-            return;
+            return FileManagerPanel.currentPanel;
         }
 
         const column = vscode.window.activeTextEditor
@@ -33,6 +34,7 @@ export class FileManagerPanel {
         );
 
         FileManagerPanel.currentPanel = new FileManagerPanel(panel, extensionUri);
+        return FileManagerPanel.currentPanel;
     }
 
     public static revive(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
@@ -267,11 +269,40 @@ export class FileManagerPanel {
                     if (message.path) {
                         vscode.window.setStatusBarMessage(`$(briefcase) VenEl: Working Directory -> ${path.basename(message.path)}`, 3000);
                     }
+                } else if (message.command === 'openLogsFolder') {
+                    Logger.revealLogFolder();
+                } else if (message.command === 'openTodayLog') {
+                    Logger.openTodayLog();
+                } else if (message.command === 'logError') {
+                    Logger.error(message.text || 'UI Error', message.error);
+                } else if (message.command === 'getRecentLogs') {
+                    this._panel.webview.postMessage({
+                        command: 'recent-logs-data',
+                        logs: Logger.getRecentLogs(35)
+                    });
+                } else if (message.command === 'openExternalUrl') {
+                    if (message.url) {
+                        try {
+                            vscode.env.openExternal(vscode.Uri.parse(message.url));
+                        } catch (e: any) {
+                            Logger.error('Failed to open external URL:', e);
+                        }
+                    }
                 }
             },
             null,
             this._disposables
         );
+    }
+
+    public openIssueModal(): void {
+        if (this._panel && this._panel.webview) {
+            this._panel.webview.postMessage({
+                command: 'open-issue-modal',
+                logs: Logger.getRecentLogs(35),
+                version: FileManagerPanel.getExtensionVersion()
+            });
+        }
     }
 
     public static getIdeDisplayName(): string {
@@ -309,6 +340,7 @@ export class FileManagerPanel {
             command: 'ide-theme-changed',
             themeKind: themeKind,
             ideName: ideName,
+            version: FileManagerPanel.getExtensionVersion(),
             workspaceFolders: workspaceFolders
         });
     }
@@ -319,8 +351,19 @@ export class FileManagerPanel {
         this._panel.webview.html = this.getFrameHtml(serverUrl, ideTheme);
     }
 
+    public static getExtensionVersion(): string {
+        try {
+            const ext = vscode.extensions.getExtension('venkateshellur.venel-filemanager');
+            if (ext && ext.packageJSON && ext.packageJSON.version) {
+                return ext.packageJSON.version;
+            }
+        } catch {}
+        return '1.1.3';
+    }
+
     private getFrameHtml(serverUrl: string, initialThemeKind: string = 'dark'): string {
         const ideName = FileManagerPanel.getIdeDisplayName();
+        const extensionVersion = FileManagerPanel.getExtensionVersion();
         const workspaceFolders = vscode.workspace.workspaceFolders 
             ? vscode.workspace.workspaceFolders.map(wf => ({ name: wf.name, path: wf.uri.fsPath })) 
             : [];
@@ -328,7 +371,7 @@ export class FileManagerPanel {
 
         const delimiter = serverUrl.includes('?') ? '&' : '?';
         const targetUrl = serverUrl !== 'about:blank' 
-            ? `${serverUrl}${delimiter}ideTheme=${encodeURIComponent(initialThemeKind)}&ideName=${encodeURIComponent(ideName)}&workspace=${encodeURIComponent(primaryWorkspace)}` 
+            ? `${serverUrl}${delimiter}ideTheme=${encodeURIComponent(initialThemeKind)}&ideName=${encodeURIComponent(ideName)}&workspace=${encodeURIComponent(primaryWorkspace)}&version=${encodeURIComponent(extensionVersion)}` 
             : '';
 
         return `<!DOCTYPE html>
@@ -479,25 +522,31 @@ export class FileManagerPanel {
         }
 
         window.addEventListener('message', function(event) {
-            if (event.data && event.data.command === 'ide-theme-changed') {
-                if (event.data.themeKind) {
-                    currentThemeKind = event.data.themeKind;
+            const frame = document.getElementById('engine-frame');
+            const isFromIframe = frame && frame.contentWindow && event.source === frame.contentWindow;
+
+            if (isFromIframe) {
+                // Message from inner iframe -> forward to VS Code extension host
+                if (event.data && (event.data.command === 'request-ide-theme' || event.data.command === 'request-ide-info')) {
+                    sendThemeToFrame();
+                    return;
                 }
-                sendThemeToFrame();
-                const frame = document.getElementById('engine-frame');
-                if (frame && frame.contentWindow) {
+                if (event.data && event.data.command) {
+                    vscode.postMessage(event.data);
+                }
+            } else {
+                // Message from VS Code extension host -> forward to inner iframe
+                if (event.data && event.data.command === 'ide-theme-changed') {
+                    if (event.data.themeKind) {
+                        currentThemeKind = event.data.themeKind;
+                    }
+                    sendThemeToFrame();
+                }
+                if (frame && frame.contentWindow && event.data) {
                     try {
                         frame.contentWindow.postMessage(event.data, '*');
                     } catch (e) {}
                 }
-                return;
-            }
-            if (event.data && (event.data.command === 'request-ide-theme' || event.data.command === 'request-ide-info')) {
-                sendThemeToFrame();
-                return;
-            }
-            if (event.data && event.data.command) {
-                vscode.postMessage(event.data);
             }
         });
 

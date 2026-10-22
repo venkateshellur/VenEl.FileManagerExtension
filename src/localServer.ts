@@ -5,6 +5,7 @@ import * as os from 'os';
 import * as vscode from 'vscode';
 import { exec, execFile } from 'child_process';
 import { KestrelLauncher } from './kestrelLauncher';
+import { Logger } from './logger';
 
 export class LocalServer {
     private static _server: http.Server | undefined;
@@ -126,12 +127,29 @@ export class LocalServer {
                                 }
                             }
                         } catch {}
+                        let version = '1.1.3';
+                        try {
+                            const pkgPath = path.join(__dirname, '..', 'package.json');
+                            if (fs.existsSync(pkgPath)) {
+                                version = JSON.parse(fs.readFileSync(pkgPath, 'utf8')).version || version;
+                            }
+                        } catch {}
                         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
                         res.end(JSON.stringify({
                             ideName,
+                            version,
+                            engine: 'Node.js LocalServer',
                             workspaceFolders,
                             primaryWorkspace: workspaceFolders.length > 0 ? workspaceFolders[0].path : undefined
                         }));
+                        return;
+                    }
+
+                    // 1b. Diagnostic Logs
+                    if (pathname === '/api/logs/recent') {
+                        const logs = Logger.getRecentLogs(50);
+                        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                        res.end(JSON.stringify({ logs }));
                         return;
                     }
 
@@ -1335,19 +1353,31 @@ export class LocalServer {
             roots.push({ name: 'Home (~)', path: home, type: 'Home' });
         }
 
-        const desktop = path.join(home, 'Desktop');
-        if (fs.existsSync(desktop)) {
+        // Check for corporate / personal OneDrive folder redirection on Windows
+        const oneDrive = isWindows ? (process.env.OneDriveCommercial || process.env.OneDrive || process.env.OneDriveConsumer) : undefined;
+        const desktopCandidates = [
+            oneDrive ? path.join(oneDrive, 'Desktop') : undefined,
+            path.join(home, 'Desktop')
+        ].filter(Boolean) as string[];
+
+        const desktop = desktopCandidates.find(p => fs.existsSync(p));
+        if (desktop) {
             roots.push({ name: 'Desktop', path: desktop, type: 'Desktop' });
         }
 
-        const documents = path.join(home, 'Documents');
-        if (fs.existsSync(documents)) {
+        const docCandidates = [
+            oneDrive ? path.join(oneDrive, 'Documents') : undefined,
+            path.join(home, 'Documents')
+        ].filter(Boolean) as string[];
+
+        const documents = docCandidates.find(p => fs.existsSync(p));
+        if (documents) {
             roots.push({ name: 'Documents', path: documents, type: 'Documents' });
         }
 
         const downloads = path.join(home, 'Downloads');
         if (fs.existsSync(downloads)) {
-            roots.push({ name: 'Downloads', path: downloads, type: 'Folder' });
+            roots.push({ name: 'Downloads', path: downloads, type: 'Downloads' });
         }
 
         try {

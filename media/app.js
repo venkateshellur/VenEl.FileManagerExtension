@@ -11,8 +11,8 @@ let typeAheadTimer = null;
 let activeBatchTab = 'replace';
 let batchGeneratedNames = [];
 let selectedPropPath = '';
-let clipboard = null;
-let isWindows = false;
+const isWindowsPlatform = typeof navigator !== 'undefined' && (/Win/i.test(navigator.platform || '') || /Win/i.test(navigator.userAgent || ''));
+let isWindows = isWindowsPlatform;
 const isMac = typeof navigator !== 'undefined' && (/Mac/i.test(navigator.platform || '') || /Mac/i.test(navigator.userAgent || ''));
 const tabShortcutLabel = isMac ? '⌘T' : 'Ctrl+T';
 let systemRoots = [];
@@ -59,6 +59,14 @@ let detectedIdeName = (function() {
     } catch {}
     return 'IDE';
 })();
+let extensionVersion = (function() {
+    try {
+        const p = new URLSearchParams(window.location.search).get('version');
+        if (p) return p;
+    } catch {}
+    return '1.1.3';
+})();
+let backendEngineName = 'Kestrel (.NET)';
 let activeWorkingDirectory = safeStorage.getItem('venel_working_directory') || null;
 let ideWorkspaceFolders = [];
 let idePrimaryWorkspace = null;
@@ -358,6 +366,14 @@ function initTheme() {
     window.addEventListener('message', function(event) {
         if (!event.data) return;
         if (event.data.command === 'ide-theme-changed' || event.data.command === 'ide-info') {
+            if (event.data.version) {
+                extensionVersion = event.data.version;
+                updateAboutVersionDisplay();
+            }
+            if (event.data.engine) {
+                backendEngineName = event.data.engine;
+                updateAboutVersionDisplay();
+            }
             if (event.data.themeKind || event.data.vars) {
                 cachedIdeTheme = event.data;
                 if (currentThemeMode === 'auto') {
@@ -368,6 +384,15 @@ function initTheme() {
             if (event.data.ideName || event.data.workspaceFolders) {
                 updateIdeEnvironmentInfo(event.data.ideName, event.data.workspaceFolders, event.data.primaryWorkspace);
             }
+        }
+        if (event.data.command === 'open-issue-modal') {
+            openReportIssueModal();
+        } else if (event.data.command === 'recent-logs-data') {
+            const logsElem = document.getElementById('issue-logs-preview');
+            if (logsElem) {
+                logsElem.textContent = event.data.logs || 'No recent logs.';
+            }
+            cachedRecentLogs = event.data.logs || '';
         }
     });
 
@@ -2128,7 +2153,7 @@ async function loadFiles(targetPath, retryCount = 0) {
 
         const data = await res.json();
         currentPath = (data && typeof data.currentPath === 'string') ? data.currentPath : (targetPath || '/');
-        isWindows = typeof currentPath === 'string' && currentPath.includes('\\');
+        isWindows = isWindowsPlatform || (typeof currentPath === 'string' && (currentPath.includes('\\') || /^[a-zA-Z]:/.test(currentPath)));
         document.getElementById('path').value = currentPath;
         renderBreadcrumbs();
         updateActiveTabAfterLoad(currentPath);
@@ -4882,6 +4907,11 @@ async function initIdeEnvironment() {
         if (urlIde) {
             updateIdeEnvironmentInfo(urlIde, null, null);
         }
+        const urlVer = urlParams.get('version');
+        if (urlVer) {
+            extensionVersion = urlVer;
+            updateAboutVersionDisplay();
+        }
     } catch {}
 
     // 2. Fetch server environment API
@@ -4889,8 +4919,17 @@ async function initIdeEnvironment() {
         const res = await fetch('/api/env/info').catch(() => null);
         if (res && res.ok) {
             const data = await res.json();
-            if (data && data.ideName) {
-                updateIdeEnvironmentInfo(data.ideName, data.workspaceFolders, data.primaryWorkspace);
+            if (data) {
+                if (data.version) {
+                    extensionVersion = data.version;
+                }
+                if (data.engine) {
+                    backendEngineName = data.engine;
+                }
+                if (data.ideName) {
+                    updateIdeEnvironmentInfo(data.ideName, data.workspaceFolders, data.primaryWorkspace);
+                }
+                updateAboutVersionDisplay();
             }
         }
     } catch (e) {
@@ -5741,6 +5780,260 @@ function switchHelpTab(tabName) {
 
     const activePane = document.getElementById('help-pane-' + tabName);
     if (activePane) activePane.classList.add('active');
+}
+
+function updateAboutVersionDisplay() {
+    try {
+        const badge = document.getElementById('about-version-badge');
+        if (badge) badge.textContent = 'v' + extensionVersion;
+
+        const infoVer = document.getElementById('about-info-version');
+        if (infoVer) infoVer.textContent = extensionVersion;
+
+        document.querySelectorAll('.extension-version-text').forEach(function(el) {
+            el.textContent = extensionVersion;
+        });
+
+        const infoIde = document.getElementById('about-info-ide');
+        if (infoIde) infoIde.textContent = (detectedIdeName && detectedIdeName !== 'IDE') ? detectedIdeName : 'Visual Studio Code';
+
+        const infoEngine = document.getElementById('about-info-engine');
+        if (infoEngine) infoEngine.textContent = backendEngineName;
+
+        const helpEngine = document.getElementById('help-about-engine-text');
+        if (helpEngine) helpEngine.textContent = backendEngineName;
+
+        const infoUrl = document.getElementById('about-info-url');
+        if (infoUrl) infoUrl.textContent = window.location.origin || 'http://localhost:5050';
+
+        const infoOs = document.getElementById('about-info-os');
+        if (infoOs) {
+            let osName = 'Unknown OS';
+            const ua = typeof navigator !== 'undefined' ? (navigator.userAgent || '') : '';
+            const plat = typeof navigator !== 'undefined' ? (navigator.platform || '') : '';
+            if (/Win/i.test(plat) || /Win/i.test(ua)) {
+                osName = 'Windows';
+            } else if (/Mac/i.test(plat) || /Mac/i.test(ua)) {
+                osName = 'macOS';
+            } else if (/Linux/i.test(plat) || /Linux/i.test(ua)) {
+                osName = 'Linux';
+            }
+            infoOs.textContent = osName;
+        }
+    } catch (e) {
+        console.warn('Error updating about version display', e);
+    }
+}
+
+async function openAboutModal() {
+    hideContextMenu();
+    hideModals();
+    updateAboutVersionDisplay();
+
+    const modal = document.getElementById('modal-about');
+    if (!modal) return;
+
+    // Check engine status asynchronously to update status pill
+    try {
+        const res = await fetch('/api/env/info').catch(() => null);
+        const pill = document.getElementById('about-engine-status-pill');
+        if (res && res.ok) {
+            const data = await res.json().catch(() => null);
+            if (data) {
+                if (data.version) extensionVersion = data.version;
+                if (data.engine) backendEngineName = data.engine;
+                updateAboutVersionDisplay();
+            }
+            if (pill) {
+                pill.textContent = '● Online (' + (backendEngineName.includes('.NET') ? '.NET' : 'Node') + ')';
+                pill.style.color = '#2ecc71';
+                pill.style.background = 'rgba(46, 204, 113, 0.15)';
+                pill.style.borderColor = 'rgba(46, 204, 113, 0.3)';
+            }
+        } else {
+            if (pill) {
+                pill.textContent = '● Connecting / Fallback';
+                pill.style.color = '#f39c12';
+                pill.style.background = 'rgba(243, 156, 18, 0.15)';
+                pill.style.borderColor = 'rgba(243, 156, 18, 0.3)';
+            }
+        }
+    } catch {}
+
+    modal.style.display = 'flex';
+}
+
+function copyAboutSystemInfo() {
+    let osName = 'Unknown OS';
+    const ua = typeof navigator !== 'undefined' ? (navigator.userAgent || '') : '';
+    const plat = typeof navigator !== 'undefined' ? (navigator.platform || '') : '';
+    if (/Win/i.test(plat) || /Win/i.test(ua)) {
+        osName = 'Windows';
+    } else if (/Mac/i.test(plat) || /Mac/i.test(ua)) {
+        osName = 'macOS';
+    } else if (/Linux/i.test(plat) || /Linux/i.test(ua)) {
+        osName = 'Linux';
+    }
+
+    const info = [
+        'VenEl File Manager System Info:',
+        '--------------------------------',
+        `Extension Version: ${extensionVersion}`,
+        `Host IDE: ${(detectedIdeName && detectedIdeName !== 'IDE') ? detectedIdeName : 'Visual Studio Code'}`,
+        `Operating System: ${osName} (${plat})`,
+        `Backend Engine: ${backendEngineName}`,
+        `Engine Origin: ${window.location.origin || 'http://localhost:5050'}`,
+        `User Agent: ${ua}`,
+        `Timestamp: ${new Date().toISOString()}`
+    ].join('\n');
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(info).then(function() {
+            showToast('System info copied to clipboard! 📋', '✅');
+        }).catch(function() {
+            fallbackCopyText(info);
+        });
+    } else {
+        fallbackCopyText(info);
+    }
+}
+
+function fallbackCopyText(text) {
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('System info copied to clipboard! 📋', '✅');
+    } catch {
+        showToast('Could not copy system info', '⚠️');
+    }
+}
+
+let cachedRecentLogs = '';
+
+function openLogsFolder() {
+    if (typeof window.vscode !== 'undefined' && window.vscode.postMessage) {
+        window.vscode.postMessage({ command: 'openLogsFolder' });
+    } else if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ command: 'openLogsFolder' }, '*');
+    }
+    showToast('Revealing diagnostic logs folder... 📂', '📂');
+}
+
+async function openReportIssueModal() {
+    hideContextMenu();
+    hideModals();
+
+    const modal = document.getElementById('modal-report-issue');
+    if (!modal) return;
+
+    const titleInput = document.getElementById('issue-title-input');
+    const descInput = document.getElementById('issue-description-input');
+    const sysPreview = document.getElementById('issue-system-preview');
+    const logsPreview = document.getElementById('issue-logs-preview');
+
+    let osName = 'Unknown OS';
+    const ua = typeof navigator !== 'undefined' ? (navigator.userAgent || '') : '';
+    const plat = typeof navigator !== 'undefined' ? (navigator.platform || '') : '';
+    if (/Win/i.test(plat) || /Win/i.test(ua)) osName = 'Windows';
+    else if (/Mac/i.test(plat) || /Mac/i.test(ua)) osName = 'macOS';
+    else if (/Linux/i.test(plat) || /Linux/i.test(ua)) osName = 'Linux';
+
+    const hostIde = (detectedIdeName && detectedIdeName !== 'IDE') ? detectedIdeName : 'Visual Studio Code';
+
+    if (sysPreview) {
+        sysPreview.innerHTML = `
+            <strong>Version:</strong> ${extensionVersion} &bull;
+            <strong>IDE:</strong> ${hostIde} &bull;
+            <strong>OS:</strong> ${osName} (${plat || 'x64'}) &bull;
+            <strong>Engine:</strong> ${backendEngineName}
+        `;
+    }
+
+    if (logsPreview) {
+        logsPreview.textContent = cachedRecentLogs || 'Fetching recent diagnostic logs...';
+    }
+
+    if (typeof window.vscode !== 'undefined' && window.vscode.postMessage) {
+        window.vscode.postMessage({ command: 'getRecentLogs' });
+    } else if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ command: 'getRecentLogs' }, '*');
+    }
+
+    try {
+        fetch('/api/logs/recent')
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                if (data && data.logs && logsPreview) {
+                    cachedRecentLogs = data.logs;
+                    logsPreview.textContent = data.logs;
+                }
+            })
+            .catch(() => {});
+    } catch {}
+
+    modal.style.display = 'flex';
+    if (titleInput) {
+        setTimeout(() => titleInput.focus(), 80);
+    }
+}
+
+function submitIssueReport() {
+    const titleInput = document.getElementById('issue-title-input');
+    const descInput = document.getElementById('issue-description-input');
+    const includeLogsCheckbox = document.getElementById('issue-include-logs');
+    const logsPreview = document.getElementById('issue-logs-preview');
+
+    const userTitle = titleInput && titleInput.value.trim() ? titleInput.value.trim() : 'Unexpected issue in VenEl File Manager';
+    const userDesc = descInput && descInput.value.trim() ? descInput.value.trim() : '_No description provided._';
+    const includeLogs = includeLogsCheckbox ? includeLogsCheckbox.checked : true;
+
+    let osName = 'Unknown OS';
+    const ua = typeof navigator !== 'undefined' ? (navigator.userAgent || '') : '';
+    const plat = typeof navigator !== 'undefined' ? (navigator.platform || '') : '';
+    if (/Win/i.test(plat) || /Win/i.test(ua)) osName = 'Windows';
+    else if (/Mac/i.test(plat) || /Mac/i.test(ua)) osName = 'macOS';
+    else if (/Linux/i.test(plat) || /Linux/i.test(ua)) osName = 'Linux';
+
+    const hostIde = (detectedIdeName && detectedIdeName !== 'IDE') ? detectedIdeName : 'Visual Studio Code';
+    const logsText = (logsPreview && logsPreview.textContent && !logsPreview.textContent.startsWith('Fetching'))
+        ? logsPreview.textContent
+        : (cachedRecentLogs || 'No recent errors captured.');
+
+    let body = `### Description\n${userDesc}\n\n`;
+
+    if (includeLogs) {
+        body += `### Environment & Diagnostics\n`;
+        body += `- **Extension Version**: \`${extensionVersion}\`\n`;
+        body += `- **Host IDE**: ${hostIde}\n`;
+        body += `- **Operating System**: ${osName} (${plat})\n`;
+        body += `- **Backend Engine**: ${backendEngineName}\n`;
+        body += `- **Engine Endpoint**: \`${window.location.origin || 'http://localhost:5050'}\`\n`;
+        body += `- **Timestamp**: ${new Date().toISOString()}\n\n`;
+        body += `### Diagnostic Logs\n\`\`\`\n${logsText}\n\`\`\`\n`;
+    }
+
+    const issueUrl = 'https://github.com/venkateshellur/VenEl.FileManagerExtension/issues/new?title=' +
+        encodeURIComponent('[Bug]: ' + userTitle) +
+        '&body=' + encodeURIComponent(body) +
+        '&labels=bug';
+
+    if (typeof window.vscode !== 'undefined' && window.vscode.postMessage) {
+        window.vscode.postMessage({ command: 'openExternalUrl', url: issueUrl });
+    } else if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ command: 'openExternalUrl', url: issueUrl }, '*');
+    } else {
+        window.open(issueUrl, '_blank');
+    }
+
+    hideModals();
+    showToast('Opening GitHub issue form... 🚀', '✅');
 }
 
 function openSettingsModal() {
@@ -9126,3 +9419,42 @@ try {
 try {
     refreshSftpSessionsList();
 } catch {}
+
+// Initialize About & Version displays
+try {
+    updateAboutVersionDisplay();
+} catch {}
+
+// Global error logging bridge to central Logger
+window.addEventListener('error', function(event) {
+    try {
+        const payload = {
+            command: 'logError',
+            text: `[UI Error] ${event.message || 'Unknown UI Error'} (${event.filename || 'app.js'}:${event.lineno || 0})`,
+            error: event.error ? (event.error.stack || event.error.message) : event.message
+        };
+        if (typeof window.vscode !== 'undefined' && window.vscode.postMessage) {
+            window.vscode.postMessage(payload);
+        } else if (window.parent && window.parent !== window) {
+            window.parent.postMessage(payload, '*');
+        }
+    } catch {}
+});
+
+window.addEventListener('unhandledrejection', function(event) {
+    try {
+        const reason = event.reason;
+        const payload = {
+            command: 'logError',
+            text: `[UI Unhandled Rejection] ${reason?.message || String(reason)}`,
+            error: reason?.stack || String(reason)
+        };
+        if (typeof window.vscode !== 'undefined' && window.vscode.postMessage) {
+            window.vscode.postMessage(payload);
+        } else if (window.parent && window.parent !== window) {
+            window.parent.postMessage(payload, '*');
+        }
+    } catch {}
+});
+
+

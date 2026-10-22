@@ -3,21 +3,23 @@ import { FileManagerPanel } from './fileManagerPanel';
 import { SidebarProvider } from './sidebarProvider';
 import { ServerManager } from './serverManager';
 import { KestrelLauncher } from './kestrelLauncher';
+import { Logger } from './logger';
 
 let statusBarItem: vscode.StatusBarItem;
 
 export async function activate(context: vscode.ExtensionContext) {
-    console.log('[VenEl] Extension activated. Starting silent background setup...');
+    Logger.initialize(context);
+    Logger.info('[VenEl] Extension activated. Starting silent background setup...');
     KestrelLauncher.init(context);
 
     // 0. Eagerly start background engine & pre-warm drives with 0 user delay!
     (async () => {
         try {
             const serverUrl = await ServerManager.getServerUrl();
-            console.log(`[VenEl] Engine warmed and ready in background: ${serverUrl}`);
+            Logger.info(`[VenEl] Engine warmed and ready in background: ${serverUrl}`);
             await ServerManager.pingUrl(serverUrl);
-        } catch (e) {
-            console.error('[VenEl] Background setup error:', e);
+        } catch (e: any) {
+            Logger.error('[VenEl] Background setup error:', e);
         }
     })();
 
@@ -54,6 +56,25 @@ export async function activate(context: vscode.ExtensionContext) {
         sidebarProvider.updateView();
     });
     context.subscriptions.push(checkServerCommand);
+
+    // 3b. Diagnostic Logging & Issue Reporting Commands
+    const openLogsCommand = vscode.commands.registerCommand('venel.filemanager.openLogsFolder', () => {
+        Logger.revealLogFolder();
+    });
+    context.subscriptions.push(openLogsCommand);
+
+    const openTodayLogCommand = vscode.commands.registerCommand('venel.filemanager.openTodayLog', async () => {
+        await Logger.openTodayLog();
+    });
+    context.subscriptions.push(openTodayLogCommand);
+
+    const reportIssueCommand = vscode.commands.registerCommand('venel.filemanager.reportIssue', async () => {
+        const panel = await FileManagerPanel.createOrShow(context.extensionUri);
+        if (panel) {
+            panel.openIssueModal();
+        }
+    });
+    context.subscriptions.push(reportIssueCommand);
 
     // 4. Status Bar Item
     const config = vscode.workspace.getConfiguration('venel.filemanager');

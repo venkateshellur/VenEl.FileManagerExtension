@@ -5,6 +5,7 @@ import * as https from 'https';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { Logger } from './logger';
 
 export class KestrelLauncher {
     private static _process: child_process.ChildProcess | undefined;
@@ -66,7 +67,7 @@ export class KestrelLauncher {
                 return undefined;
             }
 
-            this.log(`Auto-starting backend engine in background: "${dotnetPath}" "${serverDll}"`);
+            this.log(`Auto-starting backend engine in background: "${dotnetPath}" --roll-forward LatestMajor "${serverDll}"`);
 
             const isWin = process.platform === 'win32';
             const currentPath = process.env.PATH || process.env.Path || '';
@@ -83,8 +84,9 @@ export class KestrelLauncher {
             }
             envCopy.ASPNETCORE_ENVIRONMENT = 'Production';
             envCopy.ASPNETCORE_URLS = 'http://127.0.0.1:5050;http://localhost:5050';
+            envCopy.VENEL_EXTENSION_VERSION = '1.1.3';
 
-            const proc = child_process.spawn(dotnetPath, [serverDll], {
+            const proc = child_process.spawn(dotnetPath, ['--roll-forward', 'LatestMajor', serverDll], {
                 cwd: path.dirname(serverDll),
                 env: envCopy as NodeJS.ProcessEnv,
                 stdio: ['pipe', 'pipe', 'pipe']
@@ -507,10 +509,12 @@ export class KestrelLauncher {
     }
 
     private static log(msg: string) {
-        if (!this._outputChannel) {
-            this._outputChannel = vscode.window.createOutputChannel('VenEl Engine');
+        if (/error|failed|crash|exit/i.test(msg)) {
+            Logger.error(msg);
+        } else if (/warn/i.test(msg)) {
+            Logger.warn(msg);
+        } else {
+            Logger.info(msg);
         }
-        this._outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] ${msg}`);
-        console.log(`[VenEl Engine] ${msg}`);
     }
 }
