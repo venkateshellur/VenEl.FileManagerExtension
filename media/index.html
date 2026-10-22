@@ -33,6 +33,9 @@
             <div class="path-bar" id="path-bar-box" onclick="handlePathBarClick(event)">
                 <div class="path-breadcrumbs" id="path-breadcrumbs"></div>
                 <input type="text" id="path" onkeypress="handlePathEnter(event)" onblur="exitPathEditMode()" style="display: none;" placeholder="Type path and press Enter..." autocomplete="off" />
+                <button id="btn-pin-address-bar" class="btn-pin-address-bar" onclick="handleAddressBarPinClick(event)" title="Pin/Unpin current folder to Favorites (⭐)">
+                    <span id="address-star-icon">☆</span>
+                </button>
                 <button id="btn-path-dropdown" onclick="togglePathDropdown(event)" title="Browse drives and folders">▾</button>
             </div>
             <!-- Collapsed Window Title (Visual Studio Zen Mode) -->
@@ -112,8 +115,8 @@
         </div>
     </header>
 
-    <!-- Bookmarks / Favorites Quick-Access Bar -->
-    <div id="bookmarks-bar" class="bookmarks-bar">
+    <!-- Bookmarks / Favorites Quick-Access Bar (Saved ~32px vertical space: Pinned items now live inside Address Bar ⭐ and Path Dropdown) -->
+    <div id="bookmarks-bar" class="bookmarks-bar" style="display: none !important;">
         <div class="bookmarks-label">
             <span>⭐ Pinned:</span>
         </div>
@@ -146,8 +149,16 @@
                         <div class="menu-divider"></div>
                         <div class="menu-entry" id="menu-item-open-editor" onclick="menuAction(openSelectedFileInEditor)">
                             <span class="menu-icon">🚀</span>
-                            <span class="menu-label">Open in VS Code Editor</span>
+                            <span class="menu-label" id="menu-label-open-editor">Open in IDE Editor</span>
                             <span class="menu-shortcut">Enter</span>
+                        </div>
+                        <div class="menu-entry" id="menu-item-open-system" onclick="menuAction(openSelectedWithSystemApp)">
+                            <span class="menu-icon">↗️</span>
+                            <span class="menu-label" id="menu-label-open-system">Open with System Default App</span>
+                        </div>
+                        <div class="menu-entry" id="menu-item-run-script" onclick="menuAction(runSelectedScriptInTerminal)">
+                            <span class="menu-icon">▶️</span>
+                            <span class="menu-label">Run in Integrated Terminal</span>
                         </div>
                         <div class="menu-entry" id="menu-item-quicklook" onclick="menuAction(toggleQuickLook)">
                             <span class="menu-icon">👁️</span>
@@ -169,6 +180,15 @@
                             <span class="menu-icon">🔄</span>
                             <span class="menu-label">Refresh View</span>
                             <span class="menu-shortcut" data-shortcut-mac="⌘R" data-shortcut-win="F5">⌘R</span>
+                        </div>
+                        <div class="menu-divider"></div>
+                        <div class="menu-entry" onclick="menuAction(function() { setSelectionAsWorkingDirectory(currentPath); })">
+                            <span class="menu-icon">💼</span>
+                            <span class="menu-label">Set Current as Working Directory</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(function() { openSelectionAsIdeWorkspace(currentPath); })">
+                            <span class="menu-icon">📂</span>
+                            <span class="menu-label" id="menu-label-open-workspace">Open Current as Workspace</span>
                         </div>
                         <div class="menu-divider"></div>
                         <div class="menu-entry" onclick="menuAction(openSftpModal)">
@@ -564,6 +584,24 @@
                 <span class="sidebar-group-title" style="margin: 0; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; color: var(--text-main); padding: 0 4px;">🧭 Places</span>
                 <button class="sidebar-collapse-chevron" onclick="toggleSidebarRail()" title="Auto-Hide / Collapse Places to Left Margin (❮)">❮</button>
             </div>
+
+            <!-- Collapsible Active Working Directory Section -->
+            <div class="sidebar-collapsible-section" id="sidebar-section-working-dir" style="margin-bottom: 8px;">
+                <div class="sidebar-section-header" onclick="toggleSidebarSection('working-dir')">
+                    <div class="sidebar-section-title-wrap">
+                        <span class="sidebar-section-chevron" id="chevron-working-dir">▼</span>
+                        <span class="sidebar-section-title">💼 Working Directory</span>
+                        <span class="working-dir-badge" id="working-dir-ide-badge" style="display: none;">IDE</span>
+                    </div>
+                    <button class="sidebar-action-btn" id="btn-set-working-dir-sidebar" onclick="event.stopPropagation(); setSelectionAsWorkingDirectory(currentPath)" title="Set Current Folder as Working Directory">🎯</button>
+                </div>
+                <div class="sidebar-section-body" id="working-dir-section-body">
+                    <div id="working-dir-card" class="working-dir-card">
+                        <!-- Dynamically populated current working directory -->
+                    </div>
+                </div>
+            </div>
+
             <!-- Collapsible Pinned Favorites Section -->
             <div class="sidebar-collapsible-section" id="sidebar-section-favorites">
                 <div class="sidebar-section-header" onclick="toggleSidebarSection('favorites')">
@@ -662,16 +700,20 @@
         <!-- Dual-Pane Commander Container (Shown when isDualPane = true) -->
         <div class="dual-pane-container" id="dual-pane-container" style="display: none;">
             <div class="dual-pane-split-wrapper" id="dual-pane-split-wrapper">
-                <!-- Left Pane (Pane A) -->
+                <!-- Left Pane -->
                 <div class="commander-pane active-pane" id="commander-pane-left" onclick="setActivePane('left', event)">
                     <div class="commander-pane-header">
                         <div class="commander-pane-title-group">
-                            <span class="commander-pane-badge left-badge">Pane A</span>
-                            <span class="commander-pane-path" id="pane-left-path">~</span>
+                            <span class="commander-pane-badge left-badge">Left Pane</span>
+                            <div class="commander-pane-path-bar" id="commander-path-bar-left" onclick="handleCommanderPathBarClick('left', event)" title="Click to edit path or click folder to navigate">
+                                <div class="commander-breadcrumbs" id="pane-left-breadcrumbs"></div>
+                                <input type="text" class="commander-path-input" id="pane-left-input" onkeydown="handleCommanderPathKeyDown('left', event)" onblur="exitCommanderPathEdit('left')" style="display: none;" placeholder="Type path and press Enter..." autocomplete="off" />
+                            </div>
+                            <span class="commander-pane-path" id="pane-left-path" style="display: none;">~</span>
                         </div>
                         <div class="commander-pane-actions">
-                            <button class="commander-pane-btn" onclick="event.stopPropagation(); openTerminalAtActiveCommander('left')" title="Open Integrated Terminal in Pane A (⌥T)">💻</button>
-                            <button class="commander-pane-btn" onclick="event.stopPropagation(); refreshCommanderPane('left')" title="Refresh Pane A">🔄</button>
+                            <button class="commander-pane-btn" onclick="event.stopPropagation(); openTerminalAtActiveCommander('left')" title="Open Integrated Terminal in Left Pane (⌥T)">💻</button>
+                            <button class="commander-pane-btn" onclick="event.stopPropagation(); refreshCommanderPane('left')" title="Refresh Left Pane">🔄</button>
                         </div>
                     </div>
                     <div class="commander-pane-body" id="commander-files-left"></div>
@@ -684,16 +726,20 @@
                 <!-- Resizer Handle between Left and Right Pane -->
                 <div class="dual-pane-resizer" id="dual-pane-resizer" title="Drag to resize panes (Double-click to reset 50/50)"></div>
 
-                <!-- Right Pane (Pane B) -->
+                <!-- Right Pane -->
                 <div class="commander-pane" id="commander-pane-right" onclick="setActivePane('right', event)">
                     <div class="commander-pane-header">
                         <div class="commander-pane-title-group">
-                            <span class="commander-pane-badge right-badge">Pane B</span>
-                            <span class="commander-pane-path" id="pane-right-path">~</span>
+                            <span class="commander-pane-badge right-badge">Right Pane</span>
+                            <div class="commander-pane-path-bar" id="commander-path-bar-right" onclick="handleCommanderPathBarClick('right', event)" title="Click to edit path or click folder to navigate">
+                                <div class="commander-breadcrumbs" id="pane-right-breadcrumbs"></div>
+                                <input type="text" class="commander-path-input" id="pane-right-input" onkeydown="handleCommanderPathKeyDown('right', event)" onblur="exitCommanderPathEdit('right')" style="display: none;" placeholder="Type path and press Enter..." autocomplete="off" />
+                            </div>
+                            <span class="commander-pane-path" id="pane-right-path" style="display: none;">~</span>
                         </div>
                         <div class="commander-pane-actions">
-                            <button class="commander-pane-btn" onclick="event.stopPropagation(); openTerminalAtActiveCommander('right')" title="Open Integrated Terminal in Pane B (⌥T)">💻</button>
-                            <button class="commander-pane-btn" onclick="event.stopPropagation(); refreshCommanderPane('right')" title="Refresh Pane B">🔄</button>
+                            <button class="commander-pane-btn" onclick="event.stopPropagation(); openTerminalAtActiveCommander('right')" title="Open Integrated Terminal in Right Pane (⌥T)">💻</button>
+                            <button class="commander-pane-btn" onclick="event.stopPropagation(); refreshCommanderPane('right')" title="Refresh Right Pane">🔄</button>
                         </div>
                     </div>
                     <div class="commander-pane-body" id="commander-files-right"></div>
@@ -754,7 +800,7 @@
                 </div>
             </div>
             <div class="preview-content" id="preview-content">
-                Select a file to preview.<br><br>💡 Tap <strong>Spacebar</strong> for Quick Look or double-click to open in VS Code!
+                Select a file to preview.<br><br>💡 Tap <strong>Spacebar</strong> for Quick Look or double-click to open in <span class="ide-name-text">IDE</span>!
             </div>
         </aside>
 
@@ -839,7 +885,13 @@
             <i>🗂️</i> <span>New Tab</span> <span class="shortcut" id="ctx-new-tab-shortcut">Ctrl+T</span>
         </div>
         <div class="context-item" id="ctx-open" onclick="openSelectedItemInEditor()">
-            <i>🚀</i> <span>Open in Editor</span> <span class="shortcut">Enter</span>
+            <i>🚀</i> <span id="ctx-open-label">Open in Editor</span> <span class="shortcut">Enter</span>
+        </div>
+        <div class="context-item" id="ctx-open-system" onclick="openSelectedWithSystemApp()" style="display: none;">
+            <i>↗️</i> <span id="ctx-open-system-label">Open with System Default App</span>
+        </div>
+        <div class="context-item" id="ctx-run-script" onclick="runSelectedScriptInTerminal()" style="display: none;">
+            <i>▶️</i> <span id="ctx-run-script-label">Run in Integrated Terminal</span>
         </div>
         <div class="context-item" id="ctx-ai-assistant" onclick="openAiAssistantModal()">
             <i>✨</i> <span>Ask AI / MCP Assistant</span> <span class="shortcut">⌘⇧A</span>
@@ -877,6 +929,15 @@
         </div>
         <div class="context-item" id="ctx-pin-folder" onclick="togglePinSelectedItem()">
             <i id="ctx-pin-icon">⭐</i> <span id="ctx-pin-label">Pin to Favorites</span>
+        </div>
+        <div class="context-item" id="ctx-set-working-dir" onclick="setSelectionAsWorkingDirectory()" style="display: none;">
+            <i>💼</i> <span id="ctx-set-working-dir-label">Set as Working Directory</span>
+        </div>
+        <div class="context-item" id="ctx-open-ide-workspace" onclick="openSelectionAsIdeWorkspace()" style="display: none;">
+            <i>📂</i> <span id="ctx-open-ide-workspace-label">Open as Workspace</span>
+        </div>
+        <div class="context-item" id="ctx-add-to-ide-workspace" onclick="addSelectionToIdeWorkspace()" style="display: none;">
+            <i>➕</i> <span id="ctx-add-to-ide-workspace-label">Add to Workspace</span>
         </div>
         <div class="context-divider" id="ctx-div-2"></div>
         <div class="context-item" id="ctx-rename" onclick="renameSelectedItem()">
@@ -1582,7 +1643,7 @@
                     </div>
                 </div>
                 <div style="display: flex; gap: 8px; align-items: center;">
-                    <button class="modal-btn" style="font-size: 11px; padding: 4px 10px;" id="diff-btn-vscode" onclick="openDiffInVsCode()">🚀 Open in VS Code Diff</button>
+                    <button class="modal-btn" style="font-size: 11px; padding: 4px 10px;" id="diff-btn-vscode" onclick="openDiffInVsCode()">🚀 Open in <span id="diff-ide-btn-label">IDE</span> Diff</button>
                     <button onclick="closeVisualDiff()" style="background: none; border: none; color: #888; cursor: pointer; font-size: 18px; padding: 4px 8px; border-radius: 4px;">✕</button>
                 </div>
             </div>

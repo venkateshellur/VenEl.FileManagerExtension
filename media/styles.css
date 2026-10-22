@@ -51,6 +51,63 @@
 }
 
 /* ══════════════════════════════════════════════════════════ */
+/* 🌙 DARK THEME (VS Code Dark, System Dark, User Option)     */
+/* ══════════════════════════════════════════════════════════ */
+body.vscode-dark,
+body[data-theme="dark"],
+body.theme-dark {
+    --bg-color: var(--vscode-editor-background, #121214);
+    --sidebar-bg: var(--vscode-sideBar-background, #15151a);
+    --panel-bg: var(--vscode-editorWidget-background, rgba(255, 255, 255, 0.03));
+    --border-color: var(--vscode-sideBar-border, var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.1)));
+    --text-main: var(--vscode-editor-foreground, #e0e0e0);
+    --text-muted: var(--vscode-descriptionForeground, #888899);
+    --accent: var(--vscode-focusBorder, #6c5ce7);
+    --accent-hover: #8172fa;
+    --accent-gradient: linear-gradient(135deg, #6c5ce7 0%, #00cec9 100%);
+    --danger: #eb4d4b;
+    --danger-hover: #ff7675;
+    --hover-bg: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.08));
+    --active-bg: var(--vscode-list-activeSelectionBackground, rgba(108, 92, 231, 0.22));
+    --active-border: var(--vscode-focusBorder, #6c5ce7);
+    --modal-bg: var(--vscode-editorWidget-background, #1c1c21);
+
+    --header-bg: var(--vscode-sideBar-background, #141418);
+    --toolbar-bg: rgba(0, 0, 0, 0.22);
+    --tabs-bar-bg: var(--vscode-editorGroupHeader-tabsBackground, #0d0d11);
+    --tab-active-bg: var(--vscode-tab-activeBackground, #141418);
+    --tab-active-fg: var(--vscode-tab-activeForeground, #ffffff);
+    --input-bg: var(--vscode-input-background, #18181e);
+    --input-fg: var(--vscode-input-foreground, #e0e0e0);
+    --input-border: var(--vscode-input-border, rgba(255, 255, 255, 0.15));
+    --dropdown-bg: var(--vscode-menu-background, #1c1c24);
+    --dropdown-fg: var(--vscode-menu-foreground, #f1f2f6);
+    --dropdown-hover-bg: var(--vscode-menu-selectionBackground, #2d2654);
+    --dropdown-hover-fg: var(--vscode-menu-selectionForeground, #ffffff);
+    --card-bg: rgba(255, 255, 255, 0.035);
+    --card-border: rgba(255, 255, 255, 0.08);
+    --card-hover-bg: rgba(255, 255, 255, 0.07);
+    --table-stripe: rgba(255, 255, 255, 0.02);
+    --editor-textarea-bg: var(--vscode-editor-background, #0d0d11);
+    --editor-textarea-fg: var(--vscode-editor-foreground, #f1f2f6);
+    --commander-strip-bg: var(--vscode-editorGroupHeader-tabsBackground, #101014);
+    --status-bar-bg: var(--vscode-statusBar-background, #0e0e11);
+    --code-bg: var(--vscode-editor-background, #0f0f13);
+    --shadow-color: rgba(0, 0, 0, 0.65);
+    --folder-color: #74b9ff;
+    --git-m-color: var(--vscode-gitDecoration-modifiedResourceForeground, #f39c12);
+    --git-u-color: var(--vscode-gitDecoration-untrackedResourceForeground, #2ecc71);
+    --git-a-color: var(--vscode-gitDecoration-addedResourceForeground, #3498db);
+    --git-d-color: var(--vscode-gitDecoration-deletedResourceForeground, #e74c3c);
+    --git-r-color: var(--vscode-gitDecoration-renamedResourceForeground, #9b59b6);
+    color-scheme: dark;
+    --scrollbar-thumb: var(--vscode-scrollbarSlider-background, rgba(255, 255, 255, 0.22));
+    --scrollbar-thumb-hover: var(--vscode-scrollbarSlider-hoverBackground, rgba(255, 255, 255, 0.38));
+    --scrollbar-thumb-active: var(--vscode-scrollbarSlider-activeBackground, rgba(255, 255, 255, 0.55));
+    --scrollbar-track: transparent;
+}
+
+/* ══════════════════════════════════════════════════════════ */
 /* ☀️ LIGHT THEME (VS Code Light, System Light, User Option)  */
 /* ══════════════════════════════════════════════════════════ */
 body.vscode-light,
@@ -171,10 +228,13 @@ body.theme-light .favorites-empty-guide {
 
 body.vscode-light .fav-item-badge,
 body[data-theme="light"] .fav-item-badge,
-body.theme-light .fav-item-badge {
+body.theme-light .fav-item-badge,
+body.vscode-light .item-badge,
+body[data-theme="light"] .item-badge,
+body.theme-light .item-badge {
     background: rgba(0, 0, 0, 0.06) !important;
     color: #374151 !important;
-    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    border: 1px solid rgba(0, 0, 0, 0.15) !important;
 }
 
 /* ☀️ Light Theme Tooltip (Hover Card) */
@@ -337,8 +397,14 @@ body[data-theme="high-contrast-light"] {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* Firefox fallback for thin scrollbars (only applied where ::-webkit-scrollbar is unsupported) */
+@supports not selector(::-webkit-scrollbar) {
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--scrollbar-thumb) transparent;
+    }
 }
 
 /* ══════════════════════════════════════════════════════════ */
@@ -350,11 +416,11 @@ body[data-theme="high-contrast-light"] {
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--scrollbar-track);
+    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb);
+    background: var(--scrollbar-thumb, rgba(255, 255, 255, 0.22));
     border-radius: 6px;
     border: 2px solid transparent;
     background-clip: padding-box;
@@ -362,14 +428,14 @@ body[data-theme="high-contrast-light"] {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--scrollbar-thumb-hover);
-    border: 1px solid transparent;
+    background: var(--scrollbar-thumb-hover, rgba(255, 255, 255, 0.38));
+    border: 2px solid transparent;
     background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:active {
-    background: var(--scrollbar-thumb-active);
-    border: 1px solid transparent;
+    background: var(--scrollbar-thumb-active, rgba(255, 255, 255, 0.55));
+    border: 2px solid transparent;
     background-clip: padding-box;
 }
 
@@ -685,6 +751,38 @@ header {
 #btn-path-dropdown:hover {
     background: var(--hover-bg);
     color: var(--text-main);
+}
+.btn-pin-address-bar {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 3px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+    opacity: 0.65;
+    flex-shrink: 0;
+}
+.btn-pin-address-bar:hover {
+    background: var(--hover-bg);
+    color: #ffd32a;
+    opacity: 1;
+    transform: scale(1.15);
+}
+.btn-pin-address-bar.pinned {
+    color: #ffd32a;
+    opacity: 1;
+    text-shadow: 0 0 8px rgba(255, 211, 42, 0.45);
+}
+.btn-pin-address-bar.pinned:hover {
+    color: #ff9f1a;
+    transform: scale(1.18);
 }
 
 /* Toolbar & Desktop Menu Bar (macOS Finder / Windows Explorer Style) */
@@ -1243,7 +1341,23 @@ header {
     border-radius: 3px;
     border: 1px solid rgba(255, 255, 255, 0.15);
 }
-#files.grid-small-view .item-badge { display: none; }
+#files.grid-small-view .item-badge {
+    position: absolute;
+    bottom: -2px;
+    right: -4px;
+    font-size: 7.5px;
+    font-weight: 700;
+    padding: 0 3px;
+    border-radius: 2.5px;
+    background: #2d3436;
+    color: #dfe6e9;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    text-transform: uppercase;
+    line-height: 1.25;
+    pointer-events: none;
+    letter-spacing: 0.2px;
+    display: inline-block;
+}
 #files.grid-small-view .item-size { display: none; }
 #files.grid-small-view .item-modified { display: none; }
 #files.grid-small-view .item-type { display: none; }
@@ -2845,9 +2959,9 @@ kbd {
     display: none;
 }
 
-/* Bookmarks Quick-Access Bar */
+/* Bookmarks Quick-Access Bar (Saved ~32px space: Pinned items now live inside Address Bar ⭐ and Path Dropdown) */
 .bookmarks-bar {
-    display: flex;
+    display: none !important;
     align-items: center;
     gap: 8px;
     padding: 4px 16px;
@@ -4580,6 +4694,155 @@ kbd {
 }
 
 /* ══════════════════════════════════════════════════════════
+   💼 ACTIVE WORKING DIRECTORY CARD & SIDEBAR SECTION
+   ══════════════════════════════════════════════════════════ */
+.working-dir-badge {
+    background: rgba(108, 92, 231, 0.2);
+    color: #a29bfe;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(108, 92, 231, 0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+body.vscode-light .working-dir-badge,
+body[data-theme="light"] .working-dir-badge,
+body.theme-light .working-dir-badge {
+    background: rgba(108, 92, 231, 0.1);
+    color: #5f3dc4;
+    border-color: rgba(108, 92, 231, 0.3);
+}
+
+.working-dir-card {
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin: 2px 2px 6px 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: all 0.18s ease;
+    position: relative;
+    box-sizing: border-box;
+}
+
+.working-dir-card:hover {
+    background: var(--hover-bg);
+    border-color: rgba(108, 92, 231, 0.4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.working-dir-card-header {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+}
+
+.working-dir-icon {
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+.working-dir-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex-grow: 1;
+}
+
+.working-dir-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-main);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.working-dir-path {
+    font-size: 10px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0.8;
+}
+
+.working-dir-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.working-dir-btn-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+}
+
+.working-dir-btn {
+    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    transition: all 0.12s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.working-dir-btn:hover {
+    background: var(--accent);
+    color: #ffffff;
+    border-color: var(--accent);
+}
+
+.working-dir-btn.btn-ide {
+    flex: 1;
+}
+
+.working-dir-btn.btn-reset {
+    flex: 0 0 24px;
+    padding: 4px 2px;
+    color: var(--text-muted);
+}
+.working-dir-btn.btn-reset:hover {
+    background: rgba(235, 77, 75, 0.2);
+    color: #ff7675;
+    border-color: rgba(235, 77, 75, 0.4);
+}
+
+body.vscode-light .working-dir-card,
+body[data-theme="light"] .working-dir-card,
+body.theme-light .working-dir-card {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.1);
+}
+body.vscode-light .working-dir-btn,
+body[data-theme="light"] .working-dir-btn,
+body.theme-light .working-dir-btn {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.12);
+}
+
+/* ══════════════════════════════════════════════════════════
    💻 PREVIEW HEADER & TOOLBAR ACTIONS
    ══════════════════════════════════════════════════════════ */
 .preview-action-btn {
@@ -4766,6 +5029,104 @@ kbd {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.commander-pane-path-bar {
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+    min-width: 0;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 2px 6px;
+    cursor: text;
+    transition: border-color 0.15s ease, background 0.15s ease;
+    height: 24px;
+    box-sizing: border-box;
+}
+
+.commander-pane.active-pane .commander-pane-path-bar {
+    border-color: rgba(108, 92, 231, 0.45);
+    background: rgba(0, 0, 0, 0.32);
+}
+
+.commander-breadcrumbs {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-grow: 1;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    white-space: nowrap;
+}
+.commander-breadcrumbs::-webkit-scrollbar { display: none; }
+
+.commander-crumb {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: var(--text-main);
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+    white-space: nowrap;
+    user-select: none;
+}
+.commander-crumb:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+}
+.commander-crumb.current {
+    font-weight: 600;
+    color: #74b9ff;
+}
+.commander-crumb-sep {
+    color: var(--text-muted);
+    font-size: 10px;
+    opacity: 0.5;
+    padding: 0 1px;
+    user-select: none;
+}
+
+.commander-path-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text-main);
+    font-size: 11px;
+    font-family: inherit;
+    outline: none;
+    padding: 0;
+    height: 100%;
+}
+
+body.vscode-light .commander-pane-path-bar,
+body[data-theme="light"] .commander-pane-path-bar,
+body.theme-light .commander-pane-path-bar {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.15);
+}
+body.vscode-light .commander-pane.active-pane .commander-pane-path-bar,
+body[data-theme="light"] .commander-pane.active-pane .commander-pane-path-bar,
+body.theme-light .commander-pane.active-pane .commander-pane-path-bar {
+    background: rgba(108, 92, 231, 0.06);
+    border-color: rgba(108, 92, 231, 0.4);
+}
+body.vscode-light .commander-crumb:hover,
+body[data-theme="light"] .commander-crumb:hover,
+body.theme-light .commander-crumb:hover {
+    background: rgba(0, 0, 0, 0.08);
+    color: #000000;
+}
+body.vscode-light .commander-crumb.current,
+body[data-theme="light"] .commander-crumb.current,
+body.theme-light .commander-crumb.current {
+    color: #0984e3;
 }
 
 .commander-pane-actions {

@@ -7,6 +7,10 @@ import { KestrelLauncher } from './kestrelLauncher';
 export class ServerManager {
     private static _activeServerUrl: string | undefined;
 
+    public static setActiveServerUrl(url: string) {
+        this._activeServerUrl = url;
+    }
+
     public static async getServerUrl(): Promise<string> {
         const isKestrelUrl = (url?: string) => url === 'http://127.0.0.1:5050' || url === 'http://localhost:5050';
         if (isKestrelUrl(this._activeServerUrl) && await KestrelLauncher.pingKestrel()) {

@@ -64,13 +64,106 @@ export class FileManagerPanel {
             async (message) => {
                 if (message.command === 'retry') {
                     await this.refresh();
-                } else if (message.command === 'openFile') {
+                } else if (message.command === 'openFile' || message.command === 'openInEditor') {
                     if (message.path) {
                         try {
-                            const doc = await vscode.workspace.openTextDocument(message.path);
-                            await vscode.window.showTextDocument(doc, { preview: false });
+                            await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(message.path));
                         } catch (e: any) {
-                            vscode.window.showErrorMessage(`Could not open file: ${e.message}`);
+                            try {
+                                const doc = await vscode.workspace.openTextDocument(message.path);
+                                await vscode.window.showTextDocument(doc, { preview: false });
+                            } catch (err: any) {
+                                vscode.window.showErrorMessage(`Could not open file in editor: ${err.message}`);
+                            }
+                        }
+                    }
+                } else if (message.command === 'openWithSystemApp') {
+                    if (message.path && fs.existsSync(message.path)) {
+                        try {
+                            const success = await vscode.env.openExternal(vscode.Uri.file(message.path));
+                            if (!success) {
+                                vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(message.path));
+                            }
+                        } catch (e: any) {
+                            vscode.window.showErrorMessage(`Could not open with system app: ${e.message}`);
+                        }
+                    }
+                } else if (message.command === 'runInTerminal') {
+                    if (message.path && fs.existsSync(message.path)) {
+                        const filePath = message.path;
+                        const dir = path.dirname(filePath);
+                        const fileName = path.basename(filePath);
+                        const term = vscode.window.createTerminal({
+                            name: `Run: ${fileName}`,
+                            cwd: dir
+                        });
+                        term.show();
+
+                        const isWin = process.platform === 'win32';
+                        const ext = path.extname(filePath).toLowerCase();
+                        if (isWin) {
+                            if (ext === '.ps1') {
+                                term.sendText(`powershell -ExecutionPolicy Bypass -File "${filePath}"`);
+                            } else if (ext === '.bat' || ext === '.cmd') {
+                                term.sendText(`& "${filePath}"`);
+                            } else {
+                                term.sendText(`"${filePath}"`);
+                            }
+                        } else {
+                            if (ext === '.sh' || ext === '.command' || ext === '.bash' || ext === '.zsh') {
+                                term.sendText(`chmod +x "${filePath}" && "${filePath}"`);
+                            } else if (ext === '.py') {
+                                term.sendText(`python3 "${filePath}"`);
+                            } else {
+                                term.sendText(`"${filePath}"`);
+                            }
+                        }
+                    }
+                } else if (message.command === 'smartOpenFile') {
+                    if (message.path && fs.existsSync(message.path)) {
+                        const filePath = message.path;
+                        const ext = path.extname(filePath).toLowerCase();
+                        const isScript = ['.bat', '.cmd', '.sh', '.command', '.bash', '.zsh', '.ps1'].includes(ext);
+                        const isSystemDoc = [
+                            '.xlsx', '.xls', '.xlsm', '.docx', '.doc', '.pptx', '.ppt',
+                            '.pdf', '.numbers', '.pages', '.keynote',
+                            '.mp4', '.mov', '.avi', '.mkv', '.mp3', '.wav', '.flac', '.aac',
+                            '.psd', '.ai', '.epub', '.exe', '.msi', '.dmg', '.pkg', '.app'
+                        ].includes(ext);
+
+                        if (isScript) {
+                            const dir = path.dirname(filePath);
+                            const fileName = path.basename(filePath);
+                            const term = vscode.window.createTerminal({
+                                name: `Run: ${fileName}`,
+                                cwd: dir
+                            });
+                            term.show();
+                            if (process.platform === 'win32') {
+                                if (ext === '.ps1') {
+                                    term.sendText(`powershell -ExecutionPolicy Bypass -File "${filePath}"`);
+                                } else {
+                                    term.sendText(`& "${filePath}"`);
+                                }
+                            } else {
+                                term.sendText(`chmod +x "${filePath}" && "${filePath}"`);
+                            }
+                        } else if (isSystemDoc) {
+                            try {
+                                const success = await vscode.env.openExternal(vscode.Uri.file(filePath));
+                                if (!success) {
+                                    vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(filePath));
+                                }
+                            } catch (e: any) {
+                                vscode.window.showErrorMessage(`Could not open with system app: ${e.message}`);
+                            }
+                        } else {
+                            try {
+                                await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(filePath));
+                            } catch {
+                                const doc = await vscode.workspace.openTextDocument(filePath);
+                                await vscode.window.showTextDocument(doc, { preview: false });
+                            }
                         }
                     }
                 } else if (message.command === 'openSettings') {
@@ -155,11 +248,41 @@ export class FileManagerPanel {
                             } catch {}
                         }
                     });
+                } else if (message.command === 'openAsWorkspace') {
+                    if (message.path && fs.existsSync(message.path)) {
+                        const targetUri = vscode.Uri.file(message.path);
+                        const openInNewWindow = message.newWindow ?? false;
+                        await vscode.commands.executeCommand('vscode.openFolder', targetUri, { forceNewWindow: openInNewWindow });
+                    }
+                } else if (message.command === 'addToWorkspace') {
+                    if (message.path && fs.existsSync(message.path)) {
+                        const targetUri = vscode.Uri.file(message.path);
+                        const currentCount = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders.length : 0;
+                        const success = vscode.workspace.updateWorkspaceFolders(currentCount, null, { uri: targetUri });
+                        if (success) {
+                            vscode.window.showInformationMessage(`Added "${path.basename(message.path)}" to ${FileManagerPanel.getIdeDisplayName()} workspace!`);
+                        }
+                    }
+                } else if (message.command === 'setWorkingDir') {
+                    if (message.path) {
+                        vscode.window.setStatusBarMessage(`$(briefcase) VenEl: Working Directory -> ${path.basename(message.path)}`, 3000);
+                    }
                 }
             },
             null,
             this._disposables
         );
+    }
+
+    public static getIdeDisplayName(): string {
+        const appName = vscode.env.appName || 'IDE';
+        if (/visual studio code/i.test(appName)) return 'VS Code';
+        if (/cursor/i.test(appName)) return 'Cursor';
+        if (/antigravity/i.test(appName)) return 'Antigravity';
+        if (/devin/i.test(appName)) return 'Devin';
+        if (/windsurf/i.test(appName)) return 'Windsurf';
+        if (/vscodium/i.test(appName)) return 'VSCodium';
+        return appName;
     }
 
     public static getIdeThemeKind(): string {
@@ -178,9 +301,15 @@ export class FileManagerPanel {
 
     public sendThemeUpdate() {
         const themeKind = FileManagerPanel.getIdeThemeKind();
+        const ideName = FileManagerPanel.getIdeDisplayName();
+        const workspaceFolders = vscode.workspace.workspaceFolders 
+            ? vscode.workspace.workspaceFolders.map(wf => ({ name: wf.name, path: wf.uri.fsPath })) 
+            : [];
         this._panel.webview.postMessage({
             command: 'ide-theme-changed',
-            themeKind: themeKind
+            themeKind: themeKind,
+            ideName: ideName,
+            workspaceFolders: workspaceFolders
         });
     }
 
@@ -191,9 +320,15 @@ export class FileManagerPanel {
     }
 
     private getFrameHtml(serverUrl: string, initialThemeKind: string = 'dark'): string {
+        const ideName = FileManagerPanel.getIdeDisplayName();
+        const workspaceFolders = vscode.workspace.workspaceFolders 
+            ? vscode.workspace.workspaceFolders.map(wf => ({ name: wf.name, path: wf.uri.fsPath })) 
+            : [];
+        const primaryWorkspace = workspaceFolders.length > 0 ? workspaceFolders[0].path : '';
+
         const delimiter = serverUrl.includes('?') ? '&' : '?';
         const targetUrl = serverUrl !== 'about:blank' 
-            ? `${serverUrl}${delimiter}ideTheme=${encodeURIComponent(initialThemeKind)}` 
+            ? `${serverUrl}${delimiter}ideTheme=${encodeURIComponent(initialThemeKind)}&ideName=${encodeURIComponent(ideName)}&workspace=${encodeURIComponent(primaryWorkspace)}` 
             : '';
 
         return `<!DOCTYPE html>
@@ -302,36 +437,39 @@ export class FileManagerPanel {
             const themePayload = {
                 command: 'ide-theme-changed',
                 themeKind: themeKind,
+                ideName: '${ideName}',
+                workspaceFolders: ${JSON.stringify(workspaceFolders)},
+                primaryWorkspace: '${primaryWorkspace.replace(/\\/g, '\\\\')}',
                 isLight: isLight,
                 isHighContrast: isHc || isHcLight,
                 bodyClass: document.body.className,
                 vars: {
-                    '--vscode-editor-background': cs.getPropertyValue('--vscode-editor-background').trim(),
-                    '--vscode-editor-foreground': cs.getPropertyValue('--vscode-editor-foreground').trim(),
-                    '--vscode-sideBar-background': cs.getPropertyValue('--vscode-sideBar-background').trim(),
-                    '--vscode-sideBar-foreground': cs.getPropertyValue('--vscode-sideBar-foreground').trim(),
-                    '--vscode-sideBar-border': cs.getPropertyValue('--vscode-sideBar-border').trim(),
-                    '--vscode-focusBorder': cs.getPropertyValue('--vscode-focusBorder').trim(),
-                    '--vscode-list-hoverBackground': cs.getPropertyValue('--vscode-list-hoverBackground').trim(),
-                    '--vscode-list-activeSelectionBackground': cs.getPropertyValue('--vscode-list-activeSelectionBackground').trim(),
-                    '--vscode-list-activeSelectionForeground': cs.getPropertyValue('--vscode-list-activeSelectionForeground').trim(),
-                    '--vscode-input-background': cs.getPropertyValue('--vscode-input-background').trim(),
-                    '--vscode-input-foreground': cs.getPropertyValue('--vscode-input-foreground').trim(),
-                    '--vscode-input-border': cs.getPropertyValue('--vscode-input-border').trim(),
-                    '--vscode-editorWidget-background': cs.getPropertyValue('--vscode-editorWidget-background').trim(),
-                    '--vscode-editorWidget-border': cs.getPropertyValue('--vscode-editorWidget-border').trim(),
-                    '--vscode-menu-background': cs.getPropertyValue('--vscode-menu-background').trim(),
-                    '--vscode-menu-foreground': cs.getPropertyValue('--vscode-menu-foreground').trim(),
-                    '--vscode-menu-selectionBackground': cs.getPropertyValue('--vscode-menu-selectionBackground').trim(),
-                    '--vscode-menu-selectionForeground': cs.getPropertyValue('--vscode-menu-selectionForeground').trim(),
-                    '--vscode-editorGroupHeader-tabsBackground': cs.getPropertyValue('--vscode-editorGroupHeader-tabsBackground').trim(),
-                    '--vscode-tab-activeBackground': cs.getPropertyValue('--vscode-tab-activeBackground').trim(),
-                    '--vscode-tab-activeForeground': cs.getPropertyValue('--vscode-tab-activeForeground').trim(),
-                    '--vscode-panel-background': cs.getPropertyValue('--vscode-panel-background').trim(),
-                    '--vscode-descriptionForeground': cs.getPropertyValue('--vscode-descriptionForeground').trim(),
-                    '--vscode-scrollbarSlider-background': cs.getPropertyValue('--vscode-scrollbarSlider-background').trim(),
-                    '--vscode-scrollbarSlider-hoverBackground': cs.getPropertyValue('--vscode-scrollbarSlider-hoverBackground').trim(),
-                    '--vscode-scrollbarSlider-activeBackground': cs.getPropertyValue('--vscode-scrollbarSlider-activeBackground').trim()
+                    '--vscode-editor-background': cs.getPropertyValue('--vscode-editor-background').trim() || (isLight ? '#ffffff' : '#121214'),
+                    '--vscode-editor-foreground': cs.getPropertyValue('--vscode-editor-foreground').trim() || (isLight ? '#22252a' : '#e0e0e0'),
+                    '--vscode-sideBar-background': cs.getPropertyValue('--vscode-sideBar-background').trim() || (isLight ? '#f5f6f8' : '#15151a'),
+                    '--vscode-sideBar-foreground': cs.getPropertyValue('--vscode-sideBar-foreground').trim() || (isLight ? '#22252a' : '#e0e0e0'),
+                    '--vscode-sideBar-border': cs.getPropertyValue('--vscode-sideBar-border').trim() || (isLight ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.1)'),
+                    '--vscode-focusBorder': cs.getPropertyValue('--vscode-focusBorder').trim() || '#6c5ce7',
+                    '--vscode-list-hoverBackground': cs.getPropertyValue('--vscode-list-hoverBackground').trim() || (isLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.08)'),
+                    '--vscode-list-activeSelectionBackground': cs.getPropertyValue('--vscode-list-activeSelectionBackground').trim() || 'rgba(108, 92, 231, 0.22)',
+                    '--vscode-list-activeSelectionForeground': cs.getPropertyValue('--vscode-list-activeSelectionForeground').trim() || '#ffffff',
+                    '--vscode-input-background': cs.getPropertyValue('--vscode-input-background').trim() || (isLight ? '#ffffff' : '#18181e'),
+                    '--vscode-input-foreground': cs.getPropertyValue('--vscode-input-foreground').trim() || (isLight ? '#22252a' : '#e0e0e0'),
+                    '--vscode-input-border': cs.getPropertyValue('--vscode-input-border').trim() || (isLight ? 'rgba(0, 0, 0, 0.18)' : 'rgba(255, 255, 255, 0.15)'),
+                    '--vscode-editorWidget-background': cs.getPropertyValue('--vscode-editorWidget-background').trim() || (isLight ? '#ffffff' : '#1c1c21'),
+                    '--vscode-editorWidget-border': cs.getPropertyValue('--vscode-editorWidget-border').trim() || (isLight ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.1)'),
+                    '--vscode-menu-background': cs.getPropertyValue('--vscode-menu-background').trim() || (isLight ? '#ffffff' : '#1c1c24'),
+                    '--vscode-menu-foreground': cs.getPropertyValue('--vscode-menu-foreground').trim() || (isLight ? '#22252a' : '#f1f2f6'),
+                    '--vscode-menu-selectionBackground': cs.getPropertyValue('--vscode-menu-selectionBackground').trim() || (isLight ? '#eef1f6' : '#2d2654'),
+                    '--vscode-menu-selectionForeground': cs.getPropertyValue('--vscode-menu-selectionForeground').trim() || '#ffffff',
+                    '--vscode-editorGroupHeader-tabsBackground': cs.getPropertyValue('--vscode-editorGroupHeader-tabsBackground').trim() || (isLight ? '#e9ecef' : '#0d0d11'),
+                    '--vscode-tab-activeBackground': cs.getPropertyValue('--vscode-tab-activeBackground').trim() || (isLight ? '#ffffff' : '#141418'),
+                    '--vscode-tab-activeForeground': cs.getPropertyValue('--vscode-tab-activeForeground').trim() || (isLight ? '#1e272e' : '#ffffff'),
+                    '--vscode-panel-background': cs.getPropertyValue('--vscode-panel-background').trim() || (isLight ? '#ffffff' : '#121214'),
+                    '--vscode-descriptionForeground': cs.getPropertyValue('--vscode-descriptionForeground').trim() || (isLight ? '#636e72' : '#888899'),
+                    '--vscode-scrollbarSlider-background': cs.getPropertyValue('--vscode-scrollbarSlider-background').trim() || (isLight ? 'rgba(0, 0, 0, 0.22)' : 'rgba(255, 255, 255, 0.22)'),
+                    '--vscode-scrollbarSlider-hoverBackground': cs.getPropertyValue('--vscode-scrollbarSlider-hoverBackground').trim() || (isLight ? 'rgba(0, 0, 0, 0.38)' : 'rgba(255, 255, 255, 0.38)'),
+                    '--vscode-scrollbarSlider-activeBackground': cs.getPropertyValue('--vscode-scrollbarSlider-activeBackground').trim() || (isLight ? 'rgba(0, 0, 0, 0.55)' : 'rgba(255, 255, 255, 0.55)')
                 }
             };
             try {
@@ -353,7 +491,7 @@ export class FileManagerPanel {
                 }
                 return;
             }
-            if (event.data && event.data.command === 'request-ide-theme') {
+            if (event.data && (event.data.command === 'request-ide-theme' || event.data.command === 'request-ide-info')) {
                 sendThemeToFrame();
                 return;
             }

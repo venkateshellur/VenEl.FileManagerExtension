@@ -17,6 +17,52 @@ const isMac = typeof navigator !== 'undefined' && (/Mac/i.test(navigator.platfor
 const tabShortcutLabel = isMac ? '⌘T' : 'Ctrl+T';
 let systemRoots = [];
 
+// ══════════════════════════════════════════════════════════
+// 🛡️ SAFE STORAGE WRAPPER (Prevents DOMException in sandboxed iframes)
+// ══════════════════════════════════════════════════════════
+const safeStorage = {
+    _mem: {},
+    getItem: function(key) {
+        try {
+            if (typeof window !== 'undefined' && window.localStorage) {
+                return window.localStorage.getItem(key);
+            }
+        } catch (e) {}
+        return Object.prototype.hasOwnProperty.call(this._mem, key) ? this._mem[key] : null;
+    },
+    setItem: function(key, val) {
+        const strVal = String(val);
+        try {
+            if (typeof window !== 'undefined' && window.localStorage) {
+                window.localStorage.setItem(key, strVal);
+            }
+        } catch (e) {}
+        this._mem[key] = strVal;
+    },
+    removeItem: function(key) {
+        try {
+            if (typeof window !== 'undefined' && window.localStorage) {
+                window.localStorage.removeItem(key);
+            }
+        } catch (e) {}
+        delete this._mem[key];
+    }
+};
+
+// ══════════════════════════════════════════════════════════
+// 💼 DYNAMIC HOST IDE & WORKING DIRECTORY STATE
+// ══════════════════════════════════════════════════════════
+let detectedIdeName = (function() {
+    try {
+        const p = new URLSearchParams(window.location.search).get('ideName');
+        if (p) return p;
+    } catch {}
+    return 'IDE';
+})();
+let activeWorkingDirectory = safeStorage.getItem('venel_working_directory') || null;
+let ideWorkspaceFolders = [];
+let idePrimaryWorkspace = null;
+
 // Navigation History Stack
 let navHistory = [];
 let navHistoryIndex = -1;
@@ -178,7 +224,7 @@ let cachedIdeTheme = (_urlIdeTheme && ['dark', 'light', 'high-contrast', 'high-c
 
 let currentThemeMode = (function() {
     try {
-        const stored = localStorage.getItem('venel_theme_mode');
+        const stored = safeStorage.getItem('venel_theme_mode');
         if (stored && ['auto', 'dark', 'light', 'high-contrast'].includes(stored)) {
             return stored;
         }
@@ -195,9 +241,7 @@ function getThemeMode() {
 function setThemeMode(mode) {
     if (!['auto', 'dark', 'light', 'high-contrast'].includes(mode)) mode = 'auto';
     currentThemeMode = mode;
-    try {
-        localStorage.setItem('venel_theme_mode', mode);
-    } catch (e) {}
+    safeStorage.setItem('venel_theme_mode', mode);
     applyTheme();
     updateViewMenuChecks();
     
@@ -305,11 +349,17 @@ function initTheme() {
     applyTheme();
 
     window.addEventListener('message', function(event) {
-        if (event.data && event.data.command === 'ide-theme-changed') {
-            cachedIdeTheme = event.data;
-            if (currentThemeMode === 'auto') {
-                applyTheme();
-                updateViewMenuChecks();
+        if (!event.data) return;
+        if (event.data.command === 'ide-theme-changed' || event.data.command === 'ide-info') {
+            if (event.data.themeKind || event.data.vars) {
+                cachedIdeTheme = event.data;
+                if (currentThemeMode === 'auto') {
+                    applyTheme();
+                    updateViewMenuChecks();
+                }
+            }
+            if (event.data.ideName || event.data.workspaceFolders) {
+                updateIdeEnvironmentInfo(event.data.ideName, event.data.workspaceFolders, event.data.primaryWorkspace);
             }
         }
     });
@@ -353,15 +403,15 @@ function toggleQuickFilterBar() {
     if (!bar) return;
     const isHidden = bar.style.display === 'none';
     bar.style.display = isHidden ? 'flex' : 'none';
-    localStorage.setItem('venel_show_quick_filter', isHidden ? 'true' : 'false');
+    safeStorage.setItem('venel_show_quick_filter', isHidden ? 'true' : 'false');
     updateViewMenuChecks();
 }
 
-let showHiddenFiles = localStorage.getItem('venel_show_hidden') === 'true';
+let showHiddenFiles = safeStorage.getItem('venel_show_hidden') === 'true';
 
 function toggleShowHiddenFiles() {
     showHiddenFiles = !showHiddenFiles;
-    localStorage.setItem('venel_show_hidden', showHiddenFiles ? 'true' : 'false');
+    safeStorage.setItem('venel_show_hidden', showHiddenFiles ? 'true' : 'false');
     updateHiddenFilesUI();
     updateViewMenuChecks();
     updateQuickFilterCounts();
@@ -383,7 +433,7 @@ function updateHiddenFilesUI() {
 
 function initQuickFilterAndHiddenFiles() {
     updateHiddenFilesUI();
-    const showFilterBar = localStorage.getItem('venel_show_quick_filter') !== 'false';
+    const showFilterBar = safeStorage.getItem('venel_show_quick_filter') !== 'false';
     const bar = document.getElementById('quick-filter-bar');
     if (bar) bar.style.display = showFilterBar ? 'flex' : 'none';
 }
@@ -725,7 +775,7 @@ function saveTabsState() {
                 sort: t.sort
             };
         });
-        localStorage.setItem('venel_tabs_v1', JSON.stringify({
+        safeStorage.setItem('venel_tabs_v1', JSON.stringify({
             activeTabId: activeTabId,
             tabs: saved
         }));
@@ -736,7 +786,7 @@ function saveTabsState() {
 
 function loadTabsState() {
     try {
-        const raw = localStorage.getItem('venel_tabs_v1');
+        const raw = safeStorage.getItem('venel_tabs_v1');
         if (raw) {
             const data = JSON.parse(raw);
             if (Array.isArray(data.tabs) && data.tabs.length > 0) {
@@ -766,6 +816,10 @@ function loadTabsState() {
 // ══════════════════════════════════════════════════════════
 function navigateTo(targetPath, isHistoryAction = false) {
     closePathDropdown();
+    if (isDualPane) {
+        loadCommanderPane(activePaneId, targetPath, isHistoryAction);
+        return;
+    }
     if (!isHistoryAction && targetPath) {
         // If user branched from previous history index, truncate forward history
         if (navHistoryIndex >= 0 && navHistoryIndex < navHistory.length - 1) {
@@ -786,6 +840,15 @@ function navigateTo(targetPath, isHistoryAction = false) {
 }
 
 function goBack() {
+    if (isDualPane) {
+        const state = activePaneId === 'left' ? commanderLeftState : commanderRightState;
+        if (state && state.history && state.historyIndex > 0) {
+            state.historyIndex--;
+            updateNavButtons();
+            loadCommanderPane(activePaneId, state.history[state.historyIndex], true);
+        }
+        return;
+    }
     if (navHistoryIndex > 0) {
         navHistoryIndex--;
         updateNavButtons();
@@ -794,6 +857,15 @@ function goBack() {
 }
 
 function goForward() {
+    if (isDualPane) {
+        const state = activePaneId === 'left' ? commanderLeftState : commanderRightState;
+        if (state && state.history && state.historyIndex < state.history.length - 1) {
+            state.historyIndex++;
+            updateNavButtons();
+            loadCommanderPane(activePaneId, state.history[state.historyIndex], true);
+        }
+        return;
+    }
     if (navHistoryIndex < navHistory.length - 1) {
         navHistoryIndex++;
         updateNavButtons();
@@ -804,13 +876,29 @@ function goForward() {
 function updateNavButtons() {
     const btnBack = document.getElementById('btn-back');
     const btnForward = document.getElementById('btn-forward');
-    if (btnBack) btnBack.disabled = (navHistoryIndex <= 0);
-    if (btnForward) btnForward.disabled = (navHistoryIndex >= navHistory.length - 1);
-    setMenuEntryDisabled('menu-go-back', navHistoryIndex <= 0);
-    setMenuEntryDisabled('menu-go-forward', navHistoryIndex >= navHistory.length - 1);
+    let canBack = false;
+    let canForward = false;
+    if (isDualPane) {
+        const state = activePaneId === 'left' ? commanderLeftState : commanderRightState;
+        if (state && state.history) {
+            canBack = state.historyIndex > 0;
+            canForward = state.historyIndex < state.history.length - 1;
+        }
+    } else {
+        canBack = navHistoryIndex > 0;
+        canForward = navHistoryIndex < navHistory.length - 1;
+    }
+    if (btnBack) btnBack.disabled = !canBack;
+    if (btnForward) btnForward.disabled = !canForward;
+    setMenuEntryDisabled('menu-go-back', !canBack);
+    setMenuEntryDisabled('menu-go-forward', !canForward);
 }
 
 function goUp() {
+    if (isDualPane) {
+        navigateCommanderParent(activePaneId);
+        return;
+    }
     if (!currentPath || currentPath === '.') return;
 
     const sftpInfo = parseSftpUrl(currentPath);
@@ -838,6 +926,10 @@ function goUp() {
 }
 
 function goHome() {
+    if (activeWorkingDirectory) {
+        navigateTo(activeWorkingDirectory);
+        return;
+    }
     const homeRoot = systemRoots.find(function(r) { return r.type === 'Home'; });
     navigateTo(homeRoot ? homeRoot.path : '.');
 }
@@ -910,8 +1002,17 @@ function renderBreadcrumbs() {
 
 function handlePathBarClick(e) {
     if (e.target.id === 'btn-path-dropdown' || e.target.closest('#btn-path-dropdown')) return;
+    if (e.target.id === 'btn-pin-address-bar' || e.target.closest('#btn-pin-address-bar')) return;
     if (e.target.classList.contains('crumb')) return;
     enterPathEditMode();
+}
+
+function handleAddressBarPinClick(e) {
+    if (e) {
+        if (e.stopPropagation) e.stopPropagation();
+        if (e.preventDefault) e.preventDefault();
+    }
+    togglePinCurrentFolder();
 }
 
 function enterPathEditMode() {
@@ -966,11 +1067,11 @@ function initSplitters() {
     if (!mainContent) return;
 
     // Restore saved custom widths
-    const savedSidebarWidth = localStorage.getItem('venel_sidebar_width');
+    const savedSidebarWidth = safeStorage.getItem('venel_sidebar_width');
     if (savedSidebarWidth && sidebar && !sidebar.classList.contains('collapsed')) {
         sidebar.style.width = savedSidebarWidth + 'px';
     }
-    const savedPreviewWidth = localStorage.getItem('venel_preview_width');
+    const savedPreviewWidth = safeStorage.getItem('venel_preview_width');
     if (savedPreviewWidth && preview && !preview.classList.contains('collapsed')) {
         preview.style.width = savedPreviewWidth + 'px';
     }
@@ -993,7 +1094,7 @@ function initSplitters() {
 
         sidebarResizer.addEventListener('dblclick', function() {
             sidebar.style.width = '195px';
-            localStorage.setItem('venel_sidebar_width', '195');
+            safeStorage.setItem('venel_sidebar_width', '195');
             showToast('Sidebar width reset (195px)', '📐');
         });
 
@@ -1003,7 +1104,7 @@ function initSplitters() {
             if (newWidth < 130) newWidth = 130;
             if (newWidth > 480) newWidth = 480;
             sidebar.style.width = newWidth + 'px';
-            localStorage.setItem('venel_sidebar_width', newWidth);
+            safeStorage.setItem('venel_sidebar_width', newWidth);
         });
 
         window.addEventListener('mouseup', function() {
@@ -1034,7 +1135,7 @@ function initSplitters() {
 
         previewResizer.addEventListener('dblclick', function() {
             preview.style.width = '320px';
-            localStorage.setItem('venel_preview_width', '320');
+            safeStorage.setItem('venel_preview_width', '320');
             showToast('Preview width reset (320px)', '📐');
         });
 
@@ -1044,7 +1145,7 @@ function initSplitters() {
             if (newWidth < 180) newWidth = 180;
             if (newWidth > 750) newWidth = 750;
             preview.style.width = newWidth + 'px';
-            localStorage.setItem('venel_preview_width', newWidth);
+            safeStorage.setItem('venel_preview_width', newWidth);
         });
 
         window.addEventListener('mouseup', function() {
@@ -1081,7 +1182,7 @@ function toggleSidebarRail(forcedState) {
         } else {
             isNowCollapsed = sidebar.classList.toggle('collapsed');
         }
-        localStorage.setItem('venel_sidebar_collapsed', isNowCollapsed ? 'true' : 'false');
+        safeStorage.setItem('venel_sidebar_collapsed', isNowCollapsed ? 'true' : 'false');
         if (chevron) chevron.textContent = isNowCollapsed ? '❯' : '❮';
         if (label) label.textContent = 'Places';
         if (btn) {
@@ -1398,7 +1499,7 @@ function applySortAndRender() {
 // ══════════════════════════════════════════════════════════
 // 🖼️ RENDER ITEMS & VIEWS
 // ══════════════════════════════════════════════════════════
-let currentViewMode = localStorage.getItem('venel_view_mode') || 'grid';
+let currentViewMode = safeStorage.getItem('venel_view_mode') || 'grid';
 
 function toggleViewMenu(e) {
     if (e && e.stopPropagation) e.stopPropagation();
@@ -1416,7 +1517,7 @@ function closeViewMenu() {
 
 function setView(mode) {
     currentViewMode = mode;
-    localStorage.setItem('venel_view_mode', mode);
+    safeStorage.setItem('venel_view_mode', mode);
     closeViewMenu();
 
     const filesContainer = document.getElementById('files');
@@ -1468,7 +1569,7 @@ function togglePreview(forcedState) {
         } else {
             isNowCollapsed = pane.classList.toggle('collapsed');
         }
-        localStorage.setItem('venel_preview_collapsed', isNowCollapsed ? 'true' : 'false');
+        safeStorage.setItem('venel_preview_collapsed', isNowCollapsed ? 'true' : 'false');
         if (btn) btn.classList.toggle('active', !isNowCollapsed);
         if (resizer) resizer.style.display = isNowCollapsed ? 'none' : 'block';
         if (!isNowCollapsed) {
@@ -1504,7 +1605,7 @@ function updateDockStripVisibility() {
 // ══════════════════════════════════════════════════════════
 // 🗜️ COMPACT MODE & FOLDER TITLE DISPLAY (VISUAL STUDIO ZEN)
 // ══════════════════════════════════════════════════════════
-let isCompactBars = localStorage.getItem('venel_compact_bars') === 'true';
+let isCompactBars = safeStorage.getItem('venel_compact_bars') === 'true';
 
 function toggleCompactBars(forcedState) {
     if (typeof forcedState === 'boolean') {
@@ -1512,7 +1613,7 @@ function toggleCompactBars(forcedState) {
     } else {
         isCompactBars = !isCompactBars;
     }
-    localStorage.setItem('venel_compact_bars', isCompactBars ? 'true' : 'false');
+    safeStorage.setItem('venel_compact_bars', isCompactBars ? 'true' : 'false');
     applyCompactBarsState();
     showToast(isCompactBars ? 'Compact Header Mode (Bars Collapsed)' : 'Full Power Chrome (Bars Expanded)', isCompactBars ? '🗜️' : '⊞');
 }
@@ -2007,6 +2108,10 @@ function refreshCurrentFolder() {
             btnReload.classList.remove('spinning');
         }, 500);
     }
+    if (isDualPane) {
+        refreshCommanderPane(activePaneId);
+        return;
+    }
     loadFiles(currentPath);
     showToast('Refreshed', '🔄');
 }
@@ -2208,6 +2313,19 @@ function updateSelectionState() {
     setMenuEntryDisabled('menu-item-open-editor', !hasSelection);
     setMenuEntryDisabled('menu-item-quicklook', !isSingle);
 
+    const isSingleFile = isSingle && selectedItem && selectedItem.type !== 'Directory';
+    setMenuEntryDisabled('menu-item-open-system', !isSingleFile);
+    const menuLabelSystem = document.getElementById('menu-label-open-system');
+    if (menuLabelSystem && selectedItem) {
+        menuLabelSystem.textContent = getSystemAppFriendlyLabel(selectedItem.name);
+    }
+    const isScript = isSingleFile && isScriptFile(selectedItem.name);
+    const menuItemRun = document.getElementById('menu-item-run-script');
+    if (menuItemRun) {
+        menuItemRun.style.display = isScript ? 'flex' : 'none';
+        setMenuEntryDisabled('menu-item-run-script', !isScript);
+    }
+
     const isBinary = isSingle && selectedItem && /\.(dll|exe|nupkg)$/i.test(selectedItem.name);
     setMenuEntryDisabled('menu-item-decompile', !isBinary);
     setMenuEntryDisabled('menu-item-export', !isBinary);
@@ -2242,7 +2360,7 @@ function handleDoubleClick(name, isDir) {
             activePreviewIsDir = false;
             loadInlineEditor();
         } else {
-            openSelectedItemInEditor(nextPath);
+            smartOpenFile(nextPath);
         }
     }
 }
@@ -3706,20 +3824,139 @@ function copyPathToClipboard(pathStr) {
 // ══════════════════════════════════════════════════════════
 // 💻 OPEN IN TERMINAL & EDITOR
 // ══════════════════════════════════════════════════════════
+function isScriptFile(filename) {
+    if (!filename) return false;
+    const dot = filename.lastIndexOf('.');
+    if (dot === -1) return false;
+    const ext = filename.substring(dot).toLowerCase();
+    return ['.bat', '.cmd', '.sh', '.command', '.bash', '.zsh', '.ps1'].includes(ext);
+}
+
+function isSystemDocOrMediaFile(filename) {
+    if (!filename) return false;
+    const dot = filename.lastIndexOf('.');
+    if (dot === -1) return false;
+    const ext = filename.substring(dot).toLowerCase();
+    return [
+        '.xlsx', '.xls', '.xlsm', '.docx', '.doc', '.pptx', '.ppt',
+        '.pdf', '.numbers', '.pages', '.keynote',
+        '.mp4', '.mov', '.avi', '.mkv', '.mp3', '.wav', '.flac', '.aac',
+        '.psd', '.ai', '.epub', '.exe', '.msi', '.dmg', '.pkg', '.app'
+    ].includes(ext);
+}
+
+function getSystemAppFriendlyLabel(filename) {
+    if (!filename) return 'Open with System Default App';
+    const dot = filename.lastIndexOf('.');
+    if (dot === -1) return 'Open with System Default App';
+    const ext = filename.substring(dot).toLowerCase();
+    if (ext === '.xlsx' || ext === '.xls' || ext === '.xlsm') return 'Open in Excel / Default App';
+    if (ext === '.docx' || ext === '.doc') return 'Open in Word / Default App';
+    if (ext === '.pptx' || ext === '.ppt') return 'Open in PowerPoint / Default App';
+    if (ext === '.pdf') return 'Open in PDF Reader / Default App';
+    if (['.mp4', '.mov', '.avi', '.mkv'].includes(ext)) return 'Play in Media Player';
+    if (['.mp3', '.wav', '.flac', '.aac'].includes(ext)) return 'Play Audio';
+    return 'Open with System Default App';
+}
+
+function smartOpenFile(targetPath) {
+    hideContextMenu();
+    const sep = isWindows ? '\\' : '/';
+    const path = targetPath || (selectedItem ? (selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name)) : null);
+    if (!path) return;
+
+    const fileName = path.substring(path.lastIndexOf(sep) + 1);
+    if (isScriptFile(fileName)) {
+        runScriptInTerminal(path);
+    } else if (isSystemDocOrMediaFile(fileName)) {
+        openFileWithSystemApp(path);
+    } else {
+        openSelectedItemInEditor(path);
+    }
+}
+
+function openSelectedFileInEditor() {
+    openSelectedItemInEditor();
+}
+
 function openSelectedItemInEditor(targetPath) {
     hideContextMenu();
     const sep = isWindows ? '\\' : '/';
-    const path = targetPath || (selectedItem ? (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name) : null);
+    const path = targetPath || (selectedItem ? (selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name)) : null);
     if (path) {
-        fetch('/api/files/openInEditor?path=' + encodeURIComponent(path));
-        showToast('Opening ' + (selectedItem ? selectedItem.name : 'file') + ' in VS Code...', '🚀');
+        const fileName = path.substring(path.lastIndexOf(sep) + 1);
+        showToast('Opening ' + fileName + ' in ' + detectedIdeName + '...', '🚀');
+        if (window.vscode) {
+            window.vscode.postMessage({ command: 'openInEditor', path: path });
+        } else if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ command: 'openInEditor', path: path }, '*');
+        }
+        fetch('/api/files/openInEditor?path=' + encodeURIComponent(path)).catch(() => {});
     }
+}
+
+function openSelectedWithSystemApp(targetPath) {
+    hideContextMenu();
+    const sep = isWindows ? '\\' : '/';
+    const p = targetPath || (selectedItem ? (selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name)) : currentPath);
+    if (!p) return;
+    openFileWithSystemApp(p);
+}
+
+function openFileWithSystemApp(filePath) {
+    if (!filePath) return;
+    const sep = isWindows ? '\\' : '/';
+    const fileName = filePath.substring(filePath.lastIndexOf(sep) + 1);
+    showToast('Opening ' + fileName + ' with System App...', '↗️');
+
+    // 1. VS Code Webview IPC
+    if (window.vscode) {
+        window.vscode.postMessage({ command: 'openWithSystemApp', path: filePath });
+    } else if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ command: 'openWithSystemApp', path: filePath }, '*');
+    }
+
+    // 2. HTTP Server backend
+    fetch('/api/files/openWithSystem?path=' + encodeURIComponent(filePath), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: filePath })
+    }).catch(() => fetch('/api/files/openWithSystem?path=' + encodeURIComponent(filePath)));
+}
+
+function runSelectedScriptInTerminal(targetPath) {
+    hideContextMenu();
+    const sep = isWindows ? '\\' : '/';
+    const p = targetPath || (selectedItem ? (selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name)) : null);
+    if (!p) return;
+    runScriptInTerminal(p);
+}
+
+function runScriptInTerminal(filePath) {
+    if (!filePath) return;
+    const sep = isWindows ? '\\' : '/';
+    const fileName = filePath.substring(filePath.lastIndexOf(sep) + 1);
+    showToast('Running ' + fileName + ' in Terminal...', '⚡');
+
+    // 1. VS Code Webview IPC
+    if (window.vscode) {
+        window.vscode.postMessage({ command: 'runInTerminal', path: filePath });
+    } else if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ command: 'runInTerminal', path: filePath }, '*');
+    }
+
+    // 2. HTTP Server backend
+    fetch('/api/files/runScript?path=' + encodeURIComponent(filePath), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: filePath })
+    }).catch(() => fetch('/api/files/runScript?path=' + encodeURIComponent(filePath)));
 }
 
 function openTerminal(targetPath) {
     hideContextMenu();
     const sep = isWindows ? '\\' : '/';
-    let p = targetPath || currentPath;
+    let p = targetPath || activeWorkingDirectory || currentPath;
     // If target is a file or selected item is a file, use its parent folder
     if (selectedItem && selectedItem.type !== 'Directory' && p.endsWith(sep + selectedItem.name)) {
         p = currentPath;
@@ -4201,7 +4438,7 @@ let userBookmarks = [];
 
 function initBookmarks() {
     try {
-        const stored = localStorage.getItem('venel_bookmarks_v1');
+        const stored = safeStorage.getItem('venel_bookmarks_v1');
         if (stored) {
             userBookmarks = JSON.parse(stored);
         } else {
@@ -4219,8 +4456,25 @@ function initBookmarks() {
 
 function saveBookmarks() {
     try {
-        localStorage.setItem('venel_bookmarks_v1', JSON.stringify(userBookmarks));
+        safeStorage.setItem('venel_bookmarks_v1', JSON.stringify(userBookmarks));
     } catch {}
+}
+
+function updateAddressBarStar() {
+    const isCurrentPinned = typeof userBookmarks !== 'undefined' && userBookmarks.some(function(b) { return b.path === currentPath; });
+    const addressPinBtn = document.getElementById('btn-pin-address-bar');
+    const addressStarIcon = document.getElementById('address-star-icon');
+    if (addressPinBtn) {
+        if (isCurrentPinned) {
+            addressPinBtn.classList.add('pinned');
+            if (addressStarIcon) addressStarIcon.textContent = '★';
+            addressPinBtn.title = 'Unpin this folder from Favorites (★)';
+        } else {
+            addressPinBtn.classList.remove('pinned');
+            if (addressStarIcon) addressStarIcon.textContent = '☆';
+            addressPinBtn.title = 'Pin this folder to Favorites (☆)';
+        }
+    }
 }
 
 function renderBookmarks() {
@@ -4233,15 +4487,29 @@ function renderBookmarks() {
     const previewPinBtn = document.getElementById('preview-pin-btn');
 
     const isCurrentPinned = userBookmarks.some(function(b) { return b.path === currentPath; });
+    const addressPinBtn = document.getElementById('btn-pin-address-bar');
+    const addressStarIcon = document.getElementById('address-star-icon');
+    if (addressPinBtn) {
+        if (isCurrentPinned) {
+            addressPinBtn.classList.add('pinned');
+            if (addressStarIcon) addressStarIcon.textContent = '★';
+            addressPinBtn.title = 'Unpin this folder from Favorites (★)';
+        } else {
+            addressPinBtn.classList.remove('pinned');
+            if (addressStarIcon) addressStarIcon.textContent = '☆';
+            addressPinBtn.title = 'Pin this folder to Favorites (☆)';
+        }
+    }
+
     if (pinBtn) {
         if (isCurrentPinned) {
             pinBtn.classList.add('pinned');
             if (starIcon) starIcon.textContent = '★';
-            if (starLabel) starLabel.textContent = 'Pinned';
+            starLabel.textContent = 'Pinned';
         } else {
             pinBtn.classList.remove('pinned');
             if (starIcon) starIcon.textContent = '☆';
-            if (starLabel) starLabel.textContent = 'Pin Folder';
+            starLabel.textContent = 'Pin Folder';
         }
     }
 
@@ -4347,14 +4615,14 @@ function toggleSidebarSection(sectionName) {
         if (chevron) chevron.classList.remove('collapsed');
     }
     try {
-        localStorage.setItem('venel_sec_collapsed_' + sectionName, isCollapsed ? '1' : '0');
+        safeStorage.setItem('venel_sec_collapsed_' + sectionName, isCollapsed ? '1' : '0');
     } catch {}
 }
 
 function initSidebarSections() {
-    ['favorites', 'places', 'sftp'].forEach(function(sec) {
+    ['working-dir', 'favorites', 'places', 'sftp'].forEach(function(sec) {
         try {
-            const stored = localStorage.getItem('venel_sec_collapsed_' + sec);
+            const stored = safeStorage.getItem('venel_sec_collapsed_' + sec);
             if (stored === '1') {
                 const body = document.getElementById(sec + '-section-body');
                 const chevron = document.getElementById('chevron-' + sec);
@@ -4363,6 +4631,203 @@ function initSidebarSections() {
             }
         } catch {}
     });
+}
+
+// ══════════════════════════════════════════════════════════
+// 💼 WORKING DIRECTORY & DYNAMIC HOST IDE WORKSPACE MANAGEMENT
+// ══════════════════════════════════════════════════════════
+
+function getTargetFolderForAction(overridePath) {
+    if (overridePath && typeof overridePath === 'string') return overridePath;
+    const sep = isWindows ? '\\' : '/';
+    if (selectedItem && (selectedItem.type === 'Directory' || selectedItem.isDir)) {
+        return selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name);
+    }
+    return currentPath;
+}
+
+function updateIdeEnvironmentInfo(name, folders, primary) {
+    if (name) {
+        detectedIdeName = name;
+        const ideBadge = document.getElementById('working-dir-ide-badge');
+        if (ideBadge) {
+            ideBadge.textContent = detectedIdeName;
+            ideBadge.style.display = 'inline-block';
+        }
+        const menuOpenWs = document.getElementById('menu-label-open-workspace');
+        if (menuOpenWs) {
+            menuOpenWs.textContent = 'Open Current as ' + detectedIdeName + ' Workspace';
+        }
+        const menuOpenEd = document.getElementById('menu-label-open-editor');
+        if (menuOpenEd) {
+            menuOpenEd.textContent = 'Open in ' + detectedIdeName + ' Editor';
+        }
+        const diffIdeLabel = document.getElementById('diff-ide-btn-label');
+        if (diffIdeLabel) {
+            diffIdeLabel.textContent = detectedIdeName;
+        }
+        document.querySelectorAll('.ide-name-text').forEach(function(el) {
+            el.textContent = detectedIdeName;
+        });
+    }
+    if (Array.isArray(folders)) {
+        ideWorkspaceFolders = folders;
+    }
+    if (primary) {
+        idePrimaryWorkspace = primary;
+    } else if (ideWorkspaceFolders.length > 0 && !idePrimaryWorkspace) {
+        idePrimaryWorkspace = ideWorkspaceFolders[0].path;
+    }
+
+    if (!activeWorkingDirectory && idePrimaryWorkspace) {
+        activeWorkingDirectory = idePrimaryWorkspace;
+    }
+    renderWorkingDirectoryCard();
+}
+
+function renderWorkingDirectoryCard() {
+    const card = document.getElementById('working-dir-card');
+    if (!card) return;
+
+    if (!activeWorkingDirectory) {
+        card.innerHTML = `
+            <div style="padding: 10px; text-align: center; font-size: 11px; color: var(--text-dim, #888);">
+                <div style="margin-bottom: 6px;">No working directory pinned.</div>
+                <button class="working-dir-btn" onclick="setSelectionAsWorkingDirectory(currentPath)" title="Pin current folder as working directory">🎯 Set Current Folder</button>
+            </div>
+        `;
+        return;
+    }
+
+    const sep = isWindows ? '\\' : '/';
+    const parts = activeWorkingDirectory.replace(/[\\/]+$/, '').split(sep).filter(Boolean);
+    const folderName = parts.length > 0 ? parts[parts.length - 1] : activeWorkingDirectory;
+
+    card.innerHTML = `
+        <div class="working-dir-card-header">
+            <span class="working-dir-icon">💼</span>
+            <div class="working-dir-meta">
+                <span class="working-dir-name" title="${escapeHtml(folderName)}">${escapeHtml(folderName)}</span>
+                <span class="working-dir-path" title="${escapeHtml(activeWorkingDirectory)}">${escapeHtml(activeWorkingDirectory)}</span>
+            </div>
+        </div>
+        <div class="working-dir-actions">
+            <div class="working-dir-btn-row">
+                <button class="working-dir-btn" onclick="navigateTo('${escapePath(activeWorkingDirectory)}')" title="Navigate to Working Directory">📂 Open</button>
+                <button class="working-dir-btn" onclick="openTerminal('${escapePath(activeWorkingDirectory)}')" title="Open Terminal in Working Directory">💻 Terminal</button>
+            </div>
+            <div class="working-dir-btn-row">
+                <button class="working-dir-btn btn-ide" onclick="openSelectionAsIdeWorkspace('${escapePath(activeWorkingDirectory)}')" title="Open as ${escapeHtml(detectedIdeName)} Workspace">🚀 ${escapeHtml(detectedIdeName)}</button>
+                <button class="working-dir-btn btn-reset" onclick="resetWorkingDirectory()" title="Reset Working Directory">🔄</button>
+            </div>
+        </div>
+    `;
+}
+
+function setSelectionAsWorkingDirectory(targetPath) {
+    hideContextMenu();
+    const folder = getTargetFolderForAction(targetPath);
+    if (!folder) return;
+
+    activeWorkingDirectory = folder;
+    try {
+        safeStorage.setItem('venel_working_directory', folder);
+    } catch {}
+
+    // Post to IDE Extension
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ command: 'setWorkingDir', path: folder }, '*');
+    }
+    if (window.vscode) {
+        window.vscode.postMessage({ command: 'setWorkingDir', path: folder });
+    }
+
+    renderWorkingDirectoryCard();
+    const sep = isWindows ? '\\' : '/';
+    const parts = folder.replace(/[\\/]+$/, '').split(sep).filter(Boolean);
+    const name = parts.length > 0 ? parts[parts.length - 1] : folder;
+    showToast('Working Directory set: ' + name, '💼');
+}
+
+function openSelectionAsIdeWorkspace(targetPath, newWindow = false) {
+    hideContextMenu();
+    const folder = getTargetFolderForAction(targetPath);
+    if (!folder) return;
+
+    // Post to IDE Extension
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ command: 'openAsWorkspace', path: folder, newWindow: !!newWindow }, '*');
+    }
+    if (window.vscode) {
+        window.vscode.postMessage({ command: 'openAsWorkspace', path: folder, newWindow: !!newWindow });
+    }
+
+    showToast('Opening as ' + detectedIdeName + ' workspace...', '🚀');
+}
+
+function addSelectionToIdeWorkspace(targetPath) {
+    hideContextMenu();
+    const folder = getTargetFolderForAction(targetPath);
+    if (!folder) return;
+
+    // Post to IDE Extension
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ command: 'addToWorkspace', path: folder }, '*');
+    }
+    if (window.vscode) {
+        window.vscode.postMessage({ command: 'addToWorkspace', path: folder });
+    }
+
+    showToast('Adding to ' + detectedIdeName + ' workspace...', '➕');
+}
+
+function resetWorkingDirectory() {
+    hideContextMenu();
+    const defaultRoot = idePrimaryWorkspace || (ideWorkspaceFolders.length > 0 ? ideWorkspaceFolders[0].path : null);
+    activeWorkingDirectory = defaultRoot;
+    if (defaultRoot) {
+        safeStorage.setItem('venel_working_directory', defaultRoot);
+    } else {
+        safeStorage.removeItem('venel_working_directory');
+    }
+    renderWorkingDirectoryCard();
+    showToast('Working Directory reset', '🔄');
+}
+
+async function initIdeEnvironment() {
+    // 1. Initial URL param check
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlIde = urlParams.get('ideName');
+        if (urlIde) {
+            updateIdeEnvironmentInfo(urlIde, null, null);
+        }
+    } catch {}
+
+    // 2. Fetch server environment API
+    try {
+        const res = await fetch('/api/env/info').catch(() => null);
+        if (res && res.ok) {
+            const data = await res.json();
+            if (data && data.ideName) {
+                updateIdeEnvironmentInfo(data.ideName, data.workspaceFolders, data.primaryWorkspace);
+            }
+        }
+    } catch (e) {
+        console.warn('Could not fetch /api/env/info', e);
+    }
+
+    // 3. Request IDE info via postMessage if framed
+    try {
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ command: 'request-ide-info' }, '*');
+            setTimeout(function() {
+                try { window.parent.postMessage({ command: 'request-ide-info' }, '*'); } catch (e) {}
+            }, 250);
+        }
+    } catch (e) {}
+
+    renderWorkingDirectoryCard();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -4388,7 +4853,7 @@ function parseSftpUrl(url) {
 
 function loadSftpSavedProfiles() {
     try {
-        const raw = localStorage.getItem('venel_sftp_profiles');
+        const raw = safeStorage.getItem('venel_sftp_profiles');
         sftpSavedProfiles = raw ? JSON.parse(raw) : [];
         if (!Array.isArray(sftpSavedProfiles)) sftpSavedProfiles = [];
     } catch {
@@ -4398,7 +4863,7 @@ function loadSftpSavedProfiles() {
 
 function saveSftpProfilesToStorage() {
     try {
-        localStorage.setItem('venel_sftp_profiles', JSON.stringify(sftpSavedProfiles));
+        safeStorage.setItem('venel_sftp_profiles', JSON.stringify(sftpSavedProfiles));
     } catch {}
 }
 
@@ -4488,6 +4953,10 @@ function getSavedProfileById(id) {
 }
 
 function openSftpModal(profileToEdit = null, event = null) {
+    if (profileToEdit && (profileToEdit instanceof Event || profileToEdit.target)) {
+        event = profileToEdit;
+        profileToEdit = null;
+    }
     if (event) {
         event.stopPropagation();
         event.preventDefault();
@@ -4548,7 +5017,9 @@ function openSftpModal(profileToEdit = null, event = null) {
 }
 
 function closeSftpModal(e = null) {
-    if (e && e.target && e.target.id !== 'modal-sftp' && !e.target.classList.contains('modal-close-x')) return;
+    if (e && e.target && e.target.id !== 'modal-sftp' && !e.target.classList.contains('modal-close-x') && !e.target.closest('.modal-close-x') && !e.target.classList.contains('cancel') && !e.target.closest('.cancel')) {
+        return;
+    }
     const modal = document.getElementById('modal-sftp');
     if (modal) modal.style.display = 'none';
 }
@@ -4658,11 +5129,16 @@ async function testSftpConnection() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        const result = await res.json();
+        let result = {};
+        try {
+            result = await res.json();
+        } catch {
+            result = { success: false, errorMessage: `Server returned HTTP ${res.status}` };
+        }
         if (result.success) {
             showSftpAlert(`✅ Connected successfully! (Latency: ${result.latencyMs}ms, Server: ${result.serverVersion || 'SSH-2.0'})`, 'success');
         } else {
-            showSftpAlert(`❌ Connection failed: ${result.errorMessage || 'Unknown error'}`, 'error');
+            showSftpAlert(`❌ Connection failed: ${result.errorMessage || result.error || 'Unknown error'}`, 'error');
         }
     } catch (err) {
         showSftpAlert(`❌ Connection test error: ${err.message}`, 'error');
@@ -4699,9 +5175,14 @@ async function submitSftpConnect() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        const result = await res.json();
+        let result = {};
+        try {
+            result = await res.json();
+        } catch {
+            result = { success: false, errorMessage: `Server returned HTTP ${res.status}` };
+        }
         if (!result.success) {
-            showSftpAlert(`❌ Connect failed: ${result.errorMessage || 'Check credentials and host.'}`, 'error');
+            showSftpAlert(`❌ Connect failed: ${result.errorMessage || result.error || 'Check credentials and host.'}`, 'error');
             return;
         }
 
@@ -4777,7 +5258,12 @@ async function connectSavedProfile(profileId) {
                     initialPath: prof.initialPath
                 })
             });
-            const result = await res.json();
+            let result = {};
+            try {
+                result = await res.json();
+            } catch {
+                result = { success: false, errorMessage: `Server returned HTTP ${res.status}` };
+            }
             if (result.success) {
                 await refreshSftpSessionsList();
                 const sftpPath = `sftp://${result.connectionId}${result.currentPath || '/'}`;
@@ -4785,7 +5271,7 @@ async function connectSavedProfile(profileId) {
                 showToast(`Connected to ${prof.name} 🌐`, '✅');
                 return;
             } else {
-                showToast(`Connect failed: ${result.errorMessage}`, '⚠️');
+                showToast(`Connect failed: ${result.errorMessage || result.error || 'Server unavailable'}`, '⚠️');
             }
         } catch (err) {
             showToast(`Connection failed: ${err.message}`, '❌');
@@ -5484,7 +5970,28 @@ function handleItemContextMenu(e, name, isDir) {
     const menu = document.getElementById('context-menu');
     const newTabItem = document.getElementById('ctx-new-tab');
     if (newTabItem) newTabItem.style.display = 'none';
-    document.getElementById('ctx-open').style.display = isSingle ? 'flex' : 'none';
+    document.getElementById('ctx-open').style.display = (isSingle && !isDir) ? 'flex' : 'none';
+    const ctxOpenLabel = document.getElementById('ctx-open-label');
+    if (ctxOpenLabel) ctxOpenLabel.textContent = 'Open in ' + detectedIdeName + ' Editor';
+
+    const openSystemItem = document.getElementById('ctx-open-system');
+    if (openSystemItem) {
+        openSystemItem.style.display = (isSingle && !isDir) ? 'flex' : 'none';
+        const label = document.getElementById('ctx-open-system-label');
+        if (label) label.textContent = getSystemAppFriendlyLabel(name);
+    }
+
+    const runScriptItem = document.getElementById('ctx-run-script');
+    if (runScriptItem) {
+        const isScript = isSingle && !isDir && isScriptFile(name);
+        runScriptItem.style.display = isScript ? 'flex' : 'none';
+        const label = document.getElementById('ctx-run-script-label');
+        if (label) {
+            const ext = name.substring(name.lastIndexOf('.')).toLowerCase();
+            label.textContent = (ext === '.bat' || ext === '.cmd') ? 'Run Batch File in Terminal' : 'Run Script in Terminal';
+        }
+    }
+
     const openTabItem = document.getElementById('ctx-open-new-tab');
     if (openTabItem) openTabItem.style.display = (isSingle && isDir) ? 'flex' : 'none';
     document.getElementById('ctx-quicklook').style.display = isSingle ? 'flex' : 'none';
@@ -5557,6 +6064,35 @@ function handleItemContextMenu(e, name, isDir) {
         document.getElementById('ctx-pin-icon').textContent = isPinned ? '☆' : '⭐';
     }
 
+    // Working Directory & IDE Workspace options
+    const ctxSetWorkingDir = document.getElementById('ctx-set-working-dir');
+    const ctxOpenIdeWorkspace = document.getElementById('ctx-open-ide-workspace');
+    const ctxAddToIdeWorkspace = document.getElementById('ctx-add-to-ide-workspace');
+    const sep = isWindows ? '\\' : '/';
+    const fullItemPath = selectedItem ? (selectedItem.path || (currentPath.endsWith(sep) ? currentPath + name : currentPath + sep + name)) : currentPath;
+
+    if (ctxSetWorkingDir) {
+        ctxSetWorkingDir.style.display = (isDir && isSingle) ? 'flex' : 'none';
+        const label = document.getElementById('ctx-set-working-dir-label');
+        if (label) {
+            label.textContent = (fullItemPath === activeWorkingDirectory) ? 'Working Directory (Active)' : 'Set as Working Directory';
+        }
+    }
+    if (ctxOpenIdeWorkspace) {
+        ctxOpenIdeWorkspace.style.display = (isDir && isSingle) ? 'flex' : 'none';
+        const label = document.getElementById('ctx-open-ide-workspace-label');
+        if (label) {
+            label.textContent = 'Open as ' + detectedIdeName + ' Workspace';
+        }
+    }
+    if (ctxAddToIdeWorkspace) {
+        ctxAddToIdeWorkspace.style.display = (isDir && isSingle) ? 'flex' : 'none';
+        const label = document.getElementById('ctx-add-to-ide-workspace-label');
+        if (label) {
+            label.textContent = 'Add to ' + detectedIdeName + ' Workspace';
+        }
+    }
+
     showContextMenuAt(e.clientX, e.clientY);
 }
 
@@ -5574,6 +6110,10 @@ function handleBackgroundContextMenu(e) {
     const openTabItem = document.getElementById('ctx-open-new-tab');
     if (openTabItem) openTabItem.style.display = 'none';
     document.getElementById('ctx-open').style.display = 'none';
+    const openSystemItem = document.getElementById('ctx-open-system');
+    if (openSystemItem) openSystemItem.style.display = 'none';
+    const runScriptItem = document.getElementById('ctx-run-script');
+    if (runScriptItem) runScriptItem.style.display = 'none';
     document.getElementById('ctx-diff').style.display = 'none';
     document.getElementById('ctx-quicklook').style.display = 'none';
     document.getElementById('ctx-rename').style.display = 'none';
@@ -5601,6 +6141,32 @@ function handleBackgroundContextMenu(e) {
         const isPinned = userBookmarks.some(function(b) { return b.path === currentPath; });
         document.getElementById('ctx-pin-label').textContent = isPinned ? 'Unpin from Favorites' : 'Pin to Favorites';
         document.getElementById('ctx-pin-icon').textContent = isPinned ? '☆' : '⭐';
+    }
+
+    const ctxSetWorkingDir = document.getElementById('ctx-set-working-dir');
+    const ctxOpenIdeWorkspace = document.getElementById('ctx-open-ide-workspace');
+    const ctxAddToIdeWorkspace = document.getElementById('ctx-add-to-ide-workspace');
+
+    if (ctxSetWorkingDir) {
+        ctxSetWorkingDir.style.display = 'flex';
+        const label = document.getElementById('ctx-set-working-dir-label');
+        if (label) {
+            label.textContent = (currentPath === activeWorkingDirectory) ? 'Current Directory (Working Dir Active)' : 'Set Current as Working Directory';
+        }
+    }
+    if (ctxOpenIdeWorkspace) {
+        ctxOpenIdeWorkspace.style.display = 'flex';
+        const label = document.getElementById('ctx-open-ide-workspace-label');
+        if (label) {
+            label.textContent = 'Open Current as ' + detectedIdeName + ' Workspace';
+        }
+    }
+    if (ctxAddToIdeWorkspace) {
+        ctxAddToIdeWorkspace.style.display = 'flex';
+        const label = document.getElementById('ctx-add-to-ide-workspace-label');
+        if (label) {
+            label.textContent = 'Add Current to ' + detectedIdeName + ' Workspace';
+        }
     }
 
     showContextMenuAt(e.clientX, e.clientY);
@@ -5661,6 +6227,20 @@ function closePathDropdown(e) {
 function renderPathDropdown() {
     const dropdown = document.getElementById('path-dropdown');
     let html = '';
+
+    if (userBookmarks && userBookmarks.length > 0) {
+        html += '<div class="dropdown-section-title">⭐ Pinned Favorites (' + userBookmarks.length + ')</div>';
+        for (let i = 0; i < userBookmarks.length; i++) {
+            const b = userBookmarks[i];
+            const isCurrent = (b.path === currentPath);
+            html += '<div class="dropdown-item' + (isCurrent ? ' dropdown-item-current' : '') + '" style="' + (isCurrent ? 'font-weight: 600; color: #74b9ff;' : '') + '" onclick="selectDropdownPath(\'' + escapePath(b.path) + '\', event)">' +
+                    '<i>' + (b.icon || '📁') + '</i>' +
+                    '<span>' + escapeHtml(b.name) + (isCurrent ? ' (Current)' : '') + '</span>' +
+                    '<span class="item-sub">' + escapeHtml(b.path) + '</span>' +
+                    '</div>';
+        }
+        html += '<div class="dropdown-divider"></div>';
+    }
 
     if (systemRoots && systemRoots.length > 0) {
         html += '<div class="dropdown-section-title">Drives & System Roots</div>';
@@ -6060,11 +6640,16 @@ async function saveQuickLookEditor() {
 // ══════════════════════════════════════════════════════════
 let isDualPane = false;
 let activePaneId = 'left';
-let commanderLeftState = { path: '', items: [], selected: null, selectedItems: [] };
-let commanderRightState = { path: '', items: [], selected: null, selectedItems: [] };
+let commanderLeftState = { path: '', items: [], selected: null, selectedItems: [], history: [], historyIndex: -1 };
+let commanderRightState = { path: '', items: [], selected: null, selectedItems: [], history: [], historyIndex: -1 };
 
-function toggleDualPaneMode() {
-    isDualPane = !isDualPane;
+function toggleDualPaneMode(forcedState) {
+    if (typeof forcedState === 'boolean') {
+        isDualPane = forcedState;
+    } else {
+        isDualPane = !isDualPane;
+    }
+    safeStorage.setItem('venel_dual_pane', isDualPane ? 'true' : 'false');
     const mainList = document.getElementById('file-list-container');
     const commanderContainer = document.getElementById('dual-pane-container');
     const toggleBtn = document.getElementById('btn-toggle-dual-pane');
@@ -6094,7 +6679,7 @@ function toggleDualPaneMode() {
 
         loadCommanderPane('left', commanderLeftState.path);
         loadCommanderPane('right', commanderRightState.path);
-        setActivePane(activePaneId);
+        setActivePane(activePaneId || 'left');
         showToast('Dual-Pane Commander Activated (Tab / F5 / F6)', '⫴');
     } else {
         if (commanderContainer) commanderContainer.style.display = 'none';
@@ -6111,8 +6696,21 @@ function toggleDualPaneMode() {
     }
 }
 
-async function loadCommanderPane(paneId, targetPath) {
+async function loadCommanderPane(paneId, targetPath, isHistoryAction = false) {
     const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    if (!state.history) {
+        state.history = [];
+        state.historyIndex = -1;
+    }
+    if (!isHistoryAction && targetPath) {
+        if (state.historyIndex >= 0 && state.historyIndex < state.history.length - 1) {
+            state.history = state.history.slice(0, state.historyIndex + 1);
+        }
+        if (state.history[state.history.length - 1] !== targetPath) {
+            state.history.push(targetPath);
+            state.historyIndex = state.history.length - 1;
+        }
+    }
     const bodyEl = document.getElementById('commander-files-' + paneId);
     const pathEl = document.getElementById('pane-' + paneId + '-path');
     if (!bodyEl) return;
@@ -6143,7 +6741,15 @@ async function loadCommanderPane(paneId, targetPath) {
                 pathEl.title = state.path;
             }
 
+            renderCommanderBreadcrumbs(paneId, state.path);
             renderCommanderPaneItems(paneId);
+            if (paneId === activePaneId) {
+                currentPath = state.path;
+                renderBreadcrumbs();
+                updateNavButtons();
+                updateAddressBarStar();
+                updateCompactWindowTitle();
+            }
             return;
         }
 
@@ -6163,7 +6769,15 @@ async function loadCommanderPane(paneId, targetPath) {
             pathEl.title = state.path;
         }
 
+        renderCommanderBreadcrumbs(paneId, state.path);
         renderCommanderPaneItems(paneId);
+        if (paneId === activePaneId) {
+            currentPath = state.path;
+            renderBreadcrumbs();
+            updateNavButtons();
+            updateAddressBarStar();
+            updateCompactWindowTitle();
+        }
 
         // Asynchronously fetch Git status for Commander pane
         fetch('/api/files/gitStatus?path=' + encodeURIComponent(state.path))
@@ -6280,7 +6894,7 @@ function openCommanderItem(paneId, itemIndex) {
     if (item.type === 'Directory') {
         loadCommanderPane(paneId, targetPath);
     } else {
-        openFileInEditor(targetPath);
+        smartOpenFile(targetPath);
     }
 }
 
@@ -6312,8 +6926,8 @@ function navigateCommanderParent(paneId) {
 
 function refreshCommanderPane(paneId) {
     const state = paneId === 'left' ? commanderLeftState : commanderRightState;
-    loadCommanderPane(paneId, state.path);
-    showToast('Pane ' + (paneId === 'left' ? 'A' : 'B') + ' refreshed', '🔄');
+    loadCommanderPane(paneId, state.path, true);
+    showToast((paneId === 'left' ? 'Left Pane' : 'Right Pane') + ' refreshed', '🔄');
 }
 
 function setActivePane(paneId, event) {
@@ -6323,12 +6937,21 @@ function setActivePane(paneId, event) {
     const rightPane = document.getElementById('commander-pane-right');
     if (leftPane) leftPane.classList.toggle('active-pane', paneId === 'left');
     if (rightPane) rightPane.classList.toggle('active-pane', paneId === 'right');
+
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    if (state && state.path) {
+        currentPath = state.path;
+        renderBreadcrumbs();
+        updateNavButtons();
+        updateAddressBarStar();
+        updateCompactWindowTitle();
+    }
 }
 
 function switchActivePane() {
     const nextPane = activePaneId === 'left' ? 'right' : 'left';
     setActivePane(nextPane);
-    showToast('Active: Pane ' + (nextPane === 'left' ? 'A' : 'B'), '⫴');
+    showToast('Active: ' + (nextPane === 'left' ? 'Left Pane' : 'Right Pane'), '⫴');
 }
 
 async function commanderCopy() {
@@ -6365,7 +6988,7 @@ async function commanderCopy() {
     }
 
     if (successCount > 0) {
-        showToast('Copied ' + successCount + (successCount === 1 ? ' item' : ' items') + ' to Pane ' + (targetPaneId === 'left' ? 'A' : 'B') + ' ➔', '📋');
+        showToast('Copied ' + successCount + (successCount === 1 ? ' item' : ' items') + ' to ' + (targetPaneId === 'left' ? 'Left Pane' : 'Right Pane') + ' ➔', '📋');
         loadCommanderPane(targetPaneId, targetState.path);
     } else {
         showToast('Failed to copy item(s)', '❌');
@@ -6406,11 +7029,117 @@ async function commanderMove() {
     }
 
     if (successCount > 0) {
-        showToast('Moved ' + successCount + (successCount === 1 ? ' item' : ' items') + ' to Pane ' + (targetPaneId === 'left' ? 'A' : 'B') + ' ➔', '📦');
+        showToast('Moved ' + successCount + (successCount === 1 ? ' item' : ' items') + ' to ' + (targetPaneId === 'left' ? 'Left Pane' : 'Right Pane') + ' ➔', '📦');
         loadCommanderPane(activePaneId, sourceState.path);
         loadCommanderPane(targetPaneId, targetState.path);
     } else {
         showToast('Failed to move item(s)', '❌');
+    }
+}
+
+function renderCommanderBreadcrumbs(paneId, currentPanePath) {
+    const container = document.getElementById('pane-' + paneId + '-breadcrumbs');
+    const pathEl = document.getElementById('pane-' + paneId + '-path');
+    if (pathEl) {
+        pathEl.textContent = currentPanePath || '~';
+        pathEl.title = currentPanePath || '~';
+    }
+    if (!container) return;
+    if (!currentPanePath || currentPanePath === '.') {
+        container.innerHTML = '<span class="commander-crumb current">Loading...</span>';
+        return;
+    }
+
+    const sftpInfo = parseSftpUrl(currentPanePath);
+    if (sftpInfo) {
+        let html = '';
+        const session = (typeof sftpActiveSessions !== 'undefined') ? sftpActiveSessions.find(s => s.connectionId === sftpInfo.connectionId) : null;
+        const serverLabel = session ? (session.name || `${session.username}@${session.host}`) : 'Remote';
+        const rootPath = `sftp://${sftpInfo.connectionId}/`;
+        const isAtRoot = sftpInfo.remotePath === '/' || !sftpInfo.remotePath;
+        html += '<span class="commander-crumb' + (isAtRoot ? ' current' : '') + '" onclick="event.stopPropagation(); navigateCommanderCrumb(\'' + paneId + '\', \'' + escapePath(rootPath) + '\')">' +
+                '<i>🌐</i> ' + escapeHtml(serverLabel) + '</span>';
+
+        const parts = sftpInfo.remotePath.split('/').filter(function(p) { return p !== ''; });
+        let accum = `sftp://${sftpInfo.connectionId}`;
+        for (let i = 0; i < parts.length; i++) {
+            accum += '/' + parts[i];
+            const isCurrent = (i === parts.length - 1);
+            html += '<span class="commander-crumb-sep">›</span>';
+            html += '<span class="commander-crumb' + (isCurrent ? ' current' : '') + '" onclick="event.stopPropagation(); navigateCommanderCrumb(\'' + paneId + '\', \'' + escapePath(accum) + '\')">' +
+                    escapeHtml(parts[i]) + '</span>';
+        }
+        container.innerHTML = html;
+        container.scrollLeft = container.scrollWidth;
+        return;
+    }
+
+    const sep = isWindows ? '\\' : '/';
+    const parts = currentPanePath.split(sep).filter(function(p) { return p !== ''; });
+    let html = '';
+
+    const rootPath = isWindows ? (currentPanePath.slice(0, 3)) : '/';
+    const rootLabel = isWindows ? rootPath : '/';
+    html += '<span class="commander-crumb' + (parts.length === 0 ? ' current' : '') + '" onclick="event.stopPropagation(); navigateCommanderCrumb(\'' + paneId + '\', \'' + escapePath(rootPath) + '\')">' +
+            '<i>' + (isWindows ? '💻' : '📁') + '</i> ' + escapeHtml(rootLabel) + '</span>';
+
+    let accum = isWindows ? rootPath : '';
+    for (let i = 0; i < parts.length; i++) {
+        if (isWindows && i === 0 && parts[0].endsWith(':')) continue;
+        accum = isWindows ? (accum.endsWith('\\') ? accum + parts[i] : accum + '\\' + parts[i]) : accum + '/' + parts[i];
+        const isCurrent = (i === parts.length - 1);
+        html += '<span class="commander-crumb-sep">›</span>';
+        html += '<span class="commander-crumb' + (isCurrent ? ' current' : '') + '" onclick="event.stopPropagation(); navigateCommanderCrumb(\'' + paneId + '\', \'' + escapePath(accum) + '\')">' +
+                escapeHtml(parts[i]) + '</span>';
+    }
+    container.innerHTML = html;
+    container.scrollLeft = container.scrollWidth;
+}
+
+function navigateCommanderCrumb(paneId, targetPath) {
+    setActivePane(paneId);
+    loadCommanderPane(paneId, targetPath);
+}
+
+function handleCommanderPathBarClick(paneId, event) {
+    if (event) event.stopPropagation();
+    setActivePane(paneId);
+    if (event && event.target && event.target.closest('.commander-crumb')) return;
+    enterCommanderPathEdit(paneId);
+}
+
+function enterCommanderPathEdit(paneId) {
+    const breadcrumbs = document.getElementById('pane-' + paneId + '-breadcrumbs');
+    const input = document.getElementById('pane-' + paneId + '-input');
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    if (breadcrumbs && input) {
+        breadcrumbs.style.display = 'none';
+        input.style.display = 'block';
+        input.value = state.path || '';
+        input.focus();
+        input.select();
+    }
+}
+
+function exitCommanderPathEdit(paneId) {
+    const breadcrumbs = document.getElementById('pane-' + paneId + '-breadcrumbs');
+    const input = document.getElementById('pane-' + paneId + '-input');
+    if (breadcrumbs && input) {
+        input.style.display = 'none';
+        breadcrumbs.style.display = 'flex';
+    }
+}
+
+function handleCommanderPathKeyDown(paneId, event) {
+    if (event.key === 'Enter') {
+        const input = document.getElementById('pane-' + paneId + '-input');
+        const target = input ? input.value.trim() : '';
+        exitCommanderPathEdit(paneId);
+        if (target) {
+            loadCommanderPane(paneId, target);
+        }
+    } else if (event.key === 'Escape') {
+        exitCommanderPathEdit(paneId);
     }
 }
 
@@ -6461,7 +7190,7 @@ function initDualPaneResizer() {
     resizer.addEventListener('dblclick', function() {
         leftPane.style.flex = '1 1 50%';
         rightPane.style.flex = '1 1 50%';
-        localStorage.removeItem('venel_commander_left_pct');
+        safeStorage.removeItem('venel_commander_left_pct');
         showToast('Dual panes reset 50/50', '📐');
     });
 
@@ -6476,7 +7205,7 @@ function initDualPaneResizer() {
         const leftPct = (newLeftWidth / totalWidth) * 100;
         leftPane.style.flex = '0 0 ' + leftPct + '%';
         rightPane.style.flex = '1 1 ' + (100 - leftPct) + '%';
-        localStorage.setItem('venel_commander_left_pct', leftPct);
+        safeStorage.setItem('venel_commander_left_pct', leftPct);
     });
 
     window.addEventListener('mouseup', function() {
@@ -6487,7 +7216,7 @@ function initDualPaneResizer() {
         }
     });
 
-    const savedPct = localStorage.getItem('venel_commander_left_pct');
+    const savedPct = safeStorage.getItem('venel_commander_left_pct');
     if (savedPct) {
         const pct = parseFloat(savedPct);
         if (pct >= 20 && pct <= 80) {
@@ -8190,18 +8919,20 @@ async function sendToMcpAssistant() {
 fetchRoots();
 initBookmarks();
 initSidebarSections();
+initIdeEnvironment();
 initQuickFilterAndHiddenFiles();
 initHoverCard();
 const initialTab = tabs.find(function(t) { return t.id === activeTabId; }) || tabs[0];
-navigateTo(initialTab.path);
+const startPath = (initialTab && initialTab.path && initialTab.path !== '.') ? initialTab.path : (activeWorkingDirectory || initialTab.path || '.');
+navigateTo(startPath);
 setView(currentViewMode);
 setupWindowDragAndDrop();
 syncMenuShortcuts();
 
 // Restore saved panel states
-const savedSidebarCollapsed = localStorage.getItem('venel_sidebar_collapsed') === 'true';
+const savedSidebarCollapsed = safeStorage.getItem('venel_sidebar_collapsed') === 'true';
 if (savedSidebarCollapsed) toggleSidebarRail(true);
-const savedPreviewCollapsed = localStorage.getItem('venel_preview_collapsed') === 'true';
+const savedPreviewCollapsed = safeStorage.getItem('venel_preview_collapsed') === 'true';
 if (savedPreviewCollapsed) togglePreview(true);
 if (typeof isCompactBars !== 'undefined' && isCompactBars) applyCompactBarsState();
 updateDockStripVisibility();
@@ -8226,7 +8957,7 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
 
 // Restore saved dual-pane state
 try {
-    const savedDualPane = localStorage.getItem('venel_dual_pane') === 'true';
+    const savedDualPane = safeStorage.getItem('venel_dual_pane') === 'true';
     if (savedDualPane) toggleDualPaneMode(true);
 } catch {}
 

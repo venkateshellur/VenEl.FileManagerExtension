@@ -103,6 +103,38 @@ export class LocalServer {
                     }
 
 
+                    // 1c. IDE Environment & Workspace Information
+                    if (pathname === '/api/env/info') {
+                        let ideName = 'IDE';
+                        let workspaceFolders: any[] = [];
+                        try {
+                            if (typeof vscode !== 'undefined') {
+                                const raw = vscode.env?.appName || 'IDE';
+                                if (/visual studio code/i.test(raw)) ideName = 'VS Code';
+                                else if (/cursor/i.test(raw)) ideName = 'Cursor';
+                                else if (/antigravity/i.test(raw)) ideName = 'Antigravity';
+                                else if (/devin/i.test(raw)) ideName = 'Devin';
+                                else if (/windsurf/i.test(raw)) ideName = 'Windsurf';
+                                else if (/vscodium/i.test(raw)) ideName = 'VSCodium';
+                                else ideName = raw;
+
+                                if (vscode.workspace && vscode.workspace.workspaceFolders) {
+                                    workspaceFolders = vscode.workspace.workspaceFolders.map(w => ({
+                                        name: w.name,
+                                        path: w.uri.fsPath
+                                    }));
+                                }
+                            }
+                        } catch {}
+                        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                        res.end(JSON.stringify({
+                            ideName,
+                            workspaceFolders,
+                            primaryWorkspace: workspaceFolders.length > 0 ? workspaceFolders[0].path : undefined
+                        }));
+                        return;
+                    }
+
                     // 2. System Roots / Drives
                     if (pathname === '/api/files/roots') {
                         const roots = LocalServer.getSystemRoots();
@@ -271,6 +303,64 @@ export class LocalServer {
                         const targetPath = reqUrl.searchParams.get('path');
                         if (targetPath && fs.existsSync(targetPath)) {
                             vscode.commands.executeCommand('vscode.open', vscode.Uri.file(targetPath));
+                        }
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ ok: true }));
+                        return;
+                    }
+
+                    // 6a. Open File with OS System Default App (Excel, Word, Preview, VLC, etc.)
+                    if (pathname === '/api/files/openWithSystem') {
+                        const targetPath = reqUrl.searchParams.get('path');
+                        if (targetPath && fs.existsSync(targetPath)) {
+                            try {
+                                if (vscode && vscode.env && vscode.env.openExternal) {
+                                    vscode.env.openExternal(vscode.Uri.file(targetPath));
+                                } else {
+                                    const isWin = process.platform === 'win32';
+                                    const isMac = process.platform === 'darwin';
+                                    if (isWin) {
+                                        exec(`start "" "${targetPath}"`);
+                                    } else if (isMac) {
+                                        exec(`open "${targetPath}"`);
+                                    } else {
+                                        exec(`xdg-open "${targetPath}"`);
+                                    }
+                                }
+                            } catch {}
+                        }
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ ok: true }));
+                        return;
+                    }
+
+                    // 6a2. Run Script in Terminal
+                    if (pathname === '/api/files/runScript') {
+                        const targetPath = reqUrl.searchParams.get('path');
+                        if (targetPath && fs.existsSync(targetPath)) {
+                            const dir = path.dirname(targetPath);
+                            const term = vscode.window.createTerminal({
+                                name: `Run: ${path.basename(targetPath)}`,
+                                cwd: dir
+                            });
+                            term.show();
+                            const isWin = process.platform === 'win32';
+                            const ext = path.extname(targetPath).toLowerCase();
+                            if (isWin) {
+                                if (ext === '.ps1') {
+                                    term.sendText(`powershell -ExecutionPolicy Bypass -File "${targetPath}"`);
+                                } else {
+                                    term.sendText(`& "${targetPath}"`);
+                                }
+                            } else {
+                                if (ext === '.sh' || ext === '.command' || ext === '.bash' || ext === '.zsh') {
+                                    term.sendText(`chmod +x "${targetPath}" && "${targetPath}"`);
+                                } else if (ext === '.py') {
+                                    term.sendText(`python3 "${targetPath}"`);
+                                } else {
+                                    term.sendText(`"${targetPath}"`);
+                                }
+                            }
                         }
                         res.writeHead(200, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({ ok: true }));
@@ -1260,6 +1350,18 @@ export class LocalServer {
             roots.push({ name: 'Downloads', path: downloads, type: 'Folder' });
         }
 
+        try {
+            if (typeof vscode !== 'undefined' && vscode.workspace && vscode.workspace.workspaceFolders) {
+                for (const wf of vscode.workspace.workspaceFolders) {
+                    roots.unshift({
+                        name: `Workspace: ${wf.name}`,
+                        path: wf.uri.fsPath,
+                        type: 'Workspace'
+                    });
+                }
+            }
+        } catch {}
+
         return roots;
     }
 
@@ -1634,8 +1736,13 @@ export class LocalServer {
 
         kReq.on('error', (err) => {
             if (!res.headersSent) {
+                KestrelLauncher.ensureRunning().catch(() => {});
                 res.writeHead(502, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: `Could not reach VenEl Kestrel backend engine: ${err.message}` }));
+                res.end(JSON.stringify({ 
+                    success: false,
+                    error: `Could not reach VenEl Kestrel backend engine: ${err.message}`,
+                    errorMessage: 'VenEl backend engine is initializing. If this is a first-time install, the required runtime is provisioning in the background. Please wait 10-15 seconds and try again.'
+                }));
             }
         });
 
