@@ -415,6 +415,7 @@ export class FileManagerPanel {
         <div class="loading-title">Starting VenEl Engine...</div>
         <div class="loading-hint">First launch takes a few moments while the engine initializes routes and scans system drives. Subsequent launches and folder navigations are instant!</div>
         <div class="loading-badge">⚡ Initialization in progress</div>
+        <button id="btn-retry-launch" onclick="retryConnection()" style="display: none; margin-top: 14px; padding: 6px 16px; background: #6c5ce7; color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">🔄 Reconnect Engine</button>
     </div>
     ${targetUrl !== '' ? `<iframe id="engine-frame" src="${targetUrl}" onload="onFrameLoad()"></iframe>` : ''}
     <script>
@@ -508,14 +509,27 @@ export class FileManagerPanel {
         function onFrameLoad() {
             const overlay = document.getElementById('loading-overlay');
             const frame = document.getElementById('engine-frame');
-            if (overlay && frame) {
-                frame.classList.add('loaded');
+            if (overlay) {
                 overlay.style.opacity = '0';
                 overlay.style.visibility = 'hidden';
             }
+            if (frame) {
+                frame.classList.add('loaded');
+            }
             sendThemeToFrame();
         }
-        setTimeout(onFrameLoad, 3500);
+        setTimeout(onFrameLoad, 3000);
+        setTimeout(function() {
+            const retryBtn = document.getElementById('btn-retry-launch');
+            const overlay = document.getElementById('loading-overlay');
+            if (retryBtn && overlay && overlay.style.visibility !== 'hidden') {
+                retryBtn.style.display = 'inline-block';
+            }
+        }, 3500);
+
+        function retryConnection() {
+            vscode.postMessage({ command: 'retry' });
+        }
     </script>
 </body>
 </html>`;

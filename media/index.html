@@ -439,6 +439,11 @@
                             <span class="menu-label">Enclosing Folder</span>
                             <span class="menu-shortcut" data-shortcut-mac="⌘↑" data-shortcut-win="Alt+↑">⌘↑</span>
                         </div>
+                        <div class="menu-entry" onclick="menuAction(enterPathEditMode)">
+                            <span class="menu-icon">🧭</span>
+                            <span class="menu-label">Go to Folder...</span>
+                            <span class="menu-shortcut" data-shortcut-mac="⌘⇧G" data-shortcut-win="Ctrl+L">⌘⇧G</span>
+                        </div>
                         <div class="menu-divider"></div>
                         <div class="menu-entry" onclick="menuAction(goHome)">
                             <span class="menu-icon">🏠</span>
@@ -1335,11 +1340,14 @@
                             <tr><td><kbd>Type A-Z</kbd></td><td><strong>Type-to-Select</strong>: Quick jump to matching file/folder (repeating cycles matches)</td></tr>
                             <tr><td><kbd>↑</kbd> / <kbd>↓</kbd> / <kbd>Home</kbd> / <kbd>End</kbd></td><td>Navigate items (Hold <kbd>Shift</kbd> to extend range selection)</td></tr>
                             <tr><td><kbd>Spacebar</kbd></td><td>Toggle <strong>Quick Look</strong> popup preview (Finder style)</td></tr>
-                            <tr><td><kbd>Alt</kbd> + <kbd>←</kbd> / <kbd>→</kbd></td><td>Navigate History Back / Forward</td></tr>
-                            <tr><td><kbd>Alt</kbd> + <kbd>↑</kbd></td><td>Navigate up one level to Parent Folder</td></tr>
-                            <tr><td><kbd>Enter</kbd></td><td>Open selected folder, or open file in VS Code editor</td></tr>
+                            <tr><td><kbd>Backspace</kbd> / <kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>⌘[</kbd></td><td>Navigate <strong>Back</strong> in History (or level up if at start)</td></tr>
+                            <tr><td><kbd>Alt</kbd>+<kbd>→</kbd> / <kbd>⌘]</kbd></td><td>Navigate <strong>Forward</strong> in History</td></tr>
+                            <tr><td><kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>⌘↑</kbd> / <kbd>⇧Backspace</kbd></td><td>Navigate <strong>Up One Level</strong> to Enclosing / Parent Folder</td></tr>
+                            <tr><td><kbd>Enter</kbd> / <kbd>⌘↓</kbd> / <kbd>⌘O</kbd></td><td><strong>Open</strong> selected folder or file</td></tr>
+                            <tr><td><kbd>⌘⇧G</kbd> / <kbd>Ctrl+L</kbd> / <kbd>Alt+D</kbd></td><td><strong>Go to Folder</strong> (Focus and edit path in Address Bar)</td></tr>
+                            <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd></td><td>Create <strong>New Folder</strong></td></tr>
                             <tr><td><kbd>F2</kbd></td><td>Rename selected item</td></tr>
-                            <tr><td><kbd>Delete</kbd></td><td>Delete selected item</td></tr>
+                            <tr><td><kbd>Delete</kbd> (Win) / <kbd>⌘Delete</kbd> (Mac)</td><td>Move selected item to <strong>Trash</strong></td></tr>
                             <tr><td><kbd>Alt</kbd> + <kbd>Enter</kbd></td><td>View detailed File/Folder Properties dialog</td></tr>
                             <tr><td><kbd>Ctrl/Cmd</kbd> + <kbd>C</kbd></td><td>Copy selected file/folder</td></tr>
                             <tr><td><kbd>Ctrl/Cmd</kbd> + <kbd>X</kbd></td><td>Cut selected file/folder</td></tr>

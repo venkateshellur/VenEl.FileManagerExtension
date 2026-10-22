@@ -13,18 +13,21 @@ export class ServerManager {
 
     public static async getServerUrl(): Promise<string> {
         const isKestrelUrl = (url?: string) => url === 'http://127.0.0.1:5050' || url === 'http://localhost:5050';
-        if (isKestrelUrl(this._activeServerUrl) && await KestrelLauncher.pingKestrel()) {
-            return this._activeServerUrl!;
-        }
-        if (this._activeServerUrl && !isKestrelUrl(this._activeServerUrl) && this._activeServerUrl !== 'http://localhost:5055' && this._activeServerUrl !== 'http://127.0.0.1:5055') {
-            const health = await this.pingUrl(this._activeServerUrl);
-            if (health.online) return this._activeServerUrl;
+
+        // 1. If currently active URL is still healthy and responsive, return immediately
+        if (this._activeServerUrl) {
+            if (isKestrelUrl(this._activeServerUrl)) {
+                if (await KestrelLauncher.pingKestrel()) return this._activeServerUrl;
+            } else {
+                const health = await this.pingUrl(this._activeServerUrl);
+                if (health.online) return this._activeServerUrl;
+            }
         }
 
         const config = vscode.workspace.getConfiguration('venel.filemanager');
         const configuredUrl = config.get<string>('serverUrl', '').replace(/\/+$/, '');
 
-        // 1. If user explicitly provided a custom remote IP/URL, test it
+        // 2. If user explicitly provided a custom remote IP/URL, test it
         if (configuredUrl && !isKestrelUrl(configuredUrl)) {
             const health = await this.pingUrl(configuredUrl);
             if (health.online) {
@@ -33,14 +36,19 @@ export class ServerManager {
             }
         }
 
-        // 2. Check if .NET Kestrel on localhost:5050 is already alive, or try to auto-start it
+        // 3. Fast check if .NET Kestrel on port 5050 is already alive, or try to auto-start it
+        if (await KestrelLauncher.pingKestrel()) {
+            this._activeServerUrl = 'http://127.0.0.1:5050';
+            return this._activeServerUrl;
+        }
+
         const kestrelUrl = await KestrelLauncher.ensureRunning();
         if (kestrelUrl) {
             this._activeServerUrl = kestrelUrl;
             return kestrelUrl;
         }
 
-        // 3. Fallback to embedded Node engine (spins up in ~50ms with zero dependencies)
+        // 4. Fallback to embedded Node engine (spins up in ~50ms with zero dependencies)
         const nodeUrl = await LocalServer.ensureRunning();
         this._activeServerUrl = nodeUrl;
         return nodeUrl;

@@ -140,6 +140,13 @@ function syncMenuShortcuts() {
         const text = isMacPlatform ? el.getAttribute('data-shortcut-mac') : el.getAttribute('data-shortcut-win');
         if (text) el.textContent = text;
     });
+
+    const btnBack = document.getElementById('btn-back');
+    if (btnBack) btnBack.title = isMacPlatform ? 'Back (⌘[ or Delete)' : 'Back (Alt+Left or Backspace)';
+    const btnForward = document.getElementById('btn-forward');
+    if (btnForward) btnForward.title = isMacPlatform ? 'Forward (⌘])' : 'Forward (Alt+Right)';
+    const btnUp = document.getElementById('btn-up');
+    if (btnUp) btnUp.title = isMacPlatform ? 'Enclosing Folder (⌘↑)' : 'Up One Level (Alt+Up)';
 }
 
 function updateViewMenuChecks() {
@@ -873,21 +880,39 @@ function goForward() {
     }
 }
 
+function canNavigateBack() {
+    if (isDualPane) {
+        const state = activePaneId === 'left' ? commanderLeftState : commanderRightState;
+        return !!(state && state.history && state.historyIndex > 0);
+    }
+    return navHistoryIndex > 0;
+}
+
+function canNavigateForward() {
+    if (isDualPane) {
+        const state = activePaneId === 'left' ? commanderLeftState : commanderRightState;
+        return !!(state && state.history && state.historyIndex < state.history.length - 1);
+    }
+    return navHistoryIndex < navHistory.length - 1;
+}
+
+function handleNativeBackOrUp(preferUp) {
+    if (preferUp) {
+        goUp();
+        return;
+    }
+    if (canNavigateBack()) {
+        goBack();
+    } else {
+        goUp();
+    }
+}
+
 function updateNavButtons() {
     const btnBack = document.getElementById('btn-back');
     const btnForward = document.getElementById('btn-forward');
-    let canBack = false;
-    let canForward = false;
-    if (isDualPane) {
-        const state = activePaneId === 'left' ? commanderLeftState : commanderRightState;
-        if (state && state.history) {
-            canBack = state.historyIndex > 0;
-            canForward = state.historyIndex < state.history.length - 1;
-        }
-    } else {
-        canBack = navHistoryIndex > 0;
-        canForward = navHistoryIndex < navHistory.length - 1;
-    }
+    const canBack = canNavigateBack();
+    const canForward = canNavigateForward();
     if (btnBack) btnBack.disabled = !canBack;
     if (btnForward) btnForward.disabled = !canForward;
     setMenuEntryDisabled('menu-go-back', !canBack);
@@ -2024,7 +2049,8 @@ function ensureItemRendered(name) {
     }
 }
 
-async function loadFiles(targetPath) {
+async function loadFiles(targetPath, retryCount = 0) {
+    const filesContainer = document.getElementById('files');
     try {
         const sftpInfo = parseSftpUrl(targetPath);
         if (sftpInfo) {
@@ -2032,6 +2058,18 @@ async function loadFiles(targetPath) {
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
                 showToast(errData.error || 'SFTP: Access denied or folder not found', '⚠️');
+                if (filesContainer) {
+                    filesContainer.innerHTML = `
+                        <div class="empty-state-card" style="grid-column: 1 / -1; padding: 48px 20px; text-align: center;">
+                            <div style="font-size: 32px; margin-bottom: 12px;">⚠️</div>
+                            <div style="font-size: 15px; font-weight: 600; color: #f1f2f6; margin-bottom: 6px;">SFTP Folder Inaccessible</div>
+                            <div style="font-size: 12px; color: #888899; margin-bottom: 18px; max-width: 360px; margin-left: auto; margin-right: auto;">${escapeHtml(errData.error || 'Remote path could not be found or access was denied.')}</div>
+                            <div style="display: flex; gap: 8px; justify-content: center;">
+                                <button class="btn-action-primary" onclick="loadFiles('${escapeHtml(targetPath)}')" style="padding: 6px 16px; border-radius: 6px; cursor: pointer; background: #6c5ce7; color: white; border: none;">🔄 Retry</button>
+                                <button class="btn-action-secondary" onclick="goHome()" style="padding: 6px 16px; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.1); color: #f1f2f6; border: 1px solid rgba(255,255,255,0.15);">🏠 Go to Home</button>
+                            </div>
+                        </div>`;
+                }
                 return;
             }
             const sftpData = await res.json();
@@ -2062,19 +2100,40 @@ async function loadFiles(targetPath) {
             return;
         }
 
-        const res = await fetch('/api/files/list?path=' + encodeURIComponent(targetPath));
+        const res = await fetch('/api/files/list?path=' + encodeURIComponent(targetPath || '.'));
         if (!res.ok) {
+            // If initial targetPath failed, and it was not Home, automatically fall back to Home!
+            if (targetPath && targetPath !== '.' && targetPath !== '/' && retryCount === 0) {
+                console.warn(`Target path "${targetPath}" returned ${res.status}. Falling back to default Home directory.`);
+                showToast(`Could not open "${getTabTitleForPath(targetPath)}", opening Home...`, '⚠️');
+                loadFiles('.', 1);
+                return;
+            }
+
             showToast('Access denied or folder not found', '⚠️');
+            if (filesContainer) {
+                filesContainer.innerHTML = `
+                    <div class="empty-state-card" style="grid-column: 1 / -1; padding: 48px 20px; text-align: center;">
+                        <div style="font-size: 32px; margin-bottom: 12px;">📁</div>
+                        <div style="font-size: 15px; font-weight: 600; color: #f1f2f6; margin-bottom: 6px;">Folder Not Found or Inaccessible</div>
+                        <div style="font-size: 12px; color: #888899; margin-bottom: 18px; max-width: 360px; margin-left: auto; margin-right: auto;">The requested path <code style="background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px;">${escapeHtml(targetPath || '')}</code> could not be accessed.</div>
+                        <div style="display: flex; gap: 8px; justify-content: center;">
+                            <button class="btn-action-primary" onclick="loadFiles('${escapeHtml(targetPath || '.')}')" style="padding: 6px 16px; border-radius: 6px; cursor: pointer; background: #6c5ce7; color: white; border: none;">🔄 Retry</button>
+                            <button class="btn-action-secondary" onclick="goHome()" style="padding: 6px 16px; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.1); color: #f1f2f6; border: 1px solid rgba(255,255,255,0.15);">🏠 Go to Home</button>
+                        </div>
+                    </div>`;
+            }
             return;
         }
+
         const data = await res.json();
-        currentPath = data.currentPath;
-        isWindows = currentPath.includes('\\');
+        currentPath = (data && typeof data.currentPath === 'string') ? data.currentPath : (targetPath || '/');
+        isWindows = typeof currentPath === 'string' && currentPath.includes('\\');
         document.getElementById('path').value = currentPath;
         renderBreadcrumbs();
         updateActiveTabAfterLoad(currentPath);
 
-        currentItems = data.items;
+        currentItems = Array.isArray(data.items) ? data.items : [];
         selectedItem = null;
         selectedItems = [];
         lastSelectedName = null;
@@ -2089,8 +2148,29 @@ async function loadFiles(targetPath) {
         fetchGitStatus(currentPath);
         renderBookmarks();
     } catch (err) {
-        console.error(err);
-        showToast('Failed to load directory', '❌');
+        console.error('Failed to load files:', err);
+        // If engine was just starting up, try automatic retry after 600ms (up to 2 retries)
+        if (retryCount < 2) {
+            console.log(`Retrying folder load (${retryCount + 1}/2)...`);
+            setTimeout(() => {
+                loadFiles(targetPath, retryCount + 1);
+            }, 600);
+            return;
+        }
+
+        showToast('Failed to connect to backend engine', '❌');
+        if (filesContainer) {
+            filesContainer.innerHTML = `
+                <div class="empty-state-card" style="grid-column: 1 / -1; padding: 48px 20px; text-align: center;">
+                    <div style="font-size: 32px; margin-bottom: 12px;">⚡</div>
+                    <div style="font-size: 15px; font-weight: 600; color: #f1f2f6; margin-bottom: 6px;">Connecting to VenEl Engine...</div>
+                    <div style="font-size: 12px; color: #888899; margin-bottom: 18px; max-width: 360px; margin-left: auto; margin-right: auto;">The file engine is warming up or temporarily restarting.</div>
+                    <div style="display: flex; gap: 8px; justify-content: center;">
+                        <button class="btn-action-primary" onclick="loadFiles('${escapeHtml(targetPath || '.')}')" style="padding: 6px 16px; border-radius: 6px; cursor: pointer; background: #6c5ce7; color: white; border: none;">🔄 Reconnect</button>
+                        <button class="btn-action-secondary" onclick="goHome()" style="padding: 6px 16px; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.1); color: #f1f2f6; border: 1px solid rgba(255,255,255,0.15);">🏠 Home Folder</button>
+                    </div>
+                </div>`;
+        }
     }
 }
 
@@ -4444,7 +4524,7 @@ function initBookmarks() {
         } else {
             // Default starting bookmark
             userBookmarks = [
-                { name: 'Home', path: defaultHomePath || '.', icon: '🏠', isDir: true, isDefault: true }
+                { name: 'Home', path: (typeof defaultHomePath !== 'undefined' ? defaultHomePath : '.') || '.', icon: '🏠', isDir: true, isDefault: true }
             ];
             saveBookmarks();
         }
@@ -7243,8 +7323,25 @@ document.addEventListener('click', function(e) {
     }
 });
 
+// 🖱️ Mouse Back & Forward Thumb Buttons (Buttons 3 & 4)
+window.addEventListener('mouseup', function(e) {
+    if (e.button === 3) {
+        e.preventDefault();
+        e.stopPropagation();
+        goBack();
+    } else if (e.button === 4) {
+        e.preventDefault();
+        e.stopPropagation();
+        goForward();
+    }
+});
+
 document.addEventListener('keydown', function(e) {
-    const isEditing = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+    const isEditing = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName) ||
+                      document.activeElement.isContentEditable ||
+                      !!document.activeElement.closest('.inline-editor-container') ||
+                      !!document.activeElement.closest('#terminal-body') ||
+                      !!document.activeElement.closest('.xterm');
 
     if (e.key === 'Escape') {
         if (isInlineEditorActive) {
@@ -7478,77 +7575,142 @@ document.addEventListener('keydown', function(e) {
         return;
     }
 
-    // Alt+Left: Back
-    if (e.altKey && e.key === 'ArrowLeft') {
-        e.preventDefault();
-        goBack();
-        return;
-    }
+    // ══════════════════════════════════════════════════════════
+    // 🧭 NATIVE OS NAVIGATION SHORTCUTS (Windows & macOS)
+    // ══════════════════════════════════════════════════════════
 
-    // Alt+Right: Forward
-    if (e.altKey && e.key === 'ArrowRight') {
-        e.preventDefault();
-        goForward();
-        return;
-    }
-
-    // Alt+Up: Up
-    if (e.altKey && e.key === 'ArrowUp') {
+    // 1. Level Up / Enclosing Folder:
+    // macOS: Cmd+Up
+    // Windows/Linux: Alt+Up
+    // Universal: Shift+Backspace or Alt+Backspace
+    const isUpShortcut = (e.metaKey && e.key === 'ArrowUp' && !e.altKey && !e.ctrlKey) ||
+                         (e.altKey && e.key === 'ArrowUp' && !e.metaKey && !e.ctrlKey) ||
+                         ((e.shiftKey || e.altKey) && e.key === 'Backspace' && !e.metaKey && !e.ctrlKey);
+    if (isUpShortcut) {
         e.preventDefault();
         goUp();
         return;
     }
 
-    // Arrow Keys Navigation & Home/End
-    if (e.key === 'ArrowDown') {
+    // 2. Back in History:
+    // macOS: Cmd+[
+    // Windows/Linux: Alt+Left
+    // Hardware / Keyboard: BrowserBack
+    const isBackShortcut = (e.metaKey && (e.key === '[' || e.code === 'BracketLeft') && !e.altKey && !e.ctrlKey) ||
+                           (e.altKey && e.key === 'ArrowLeft' && !e.metaKey && !e.ctrlKey) ||
+                           (e.key === 'BrowserBack');
+    if (isBackShortcut) {
+        e.preventDefault();
+        goBack();
+        return;
+    }
+
+    // 3. Forward in History:
+    // macOS: Cmd+]
+    // Windows/Linux: Alt+Right
+    // Hardware / Keyboard: BrowserForward
+    const isForwardShortcut = (e.metaKey && (e.key === ']' || e.code === 'BracketRight') && !e.altKey && !e.ctrlKey) ||
+                              (e.altKey && e.key === 'ArrowRight' && !e.metaKey && !e.ctrlKey) ||
+                              (e.key === 'BrowserForward');
+    if (isForwardShortcut) {
+        e.preventDefault();
+        goForward();
+        return;
+    }
+
+    // 4. Backspace Key (Plain, no modifiers):
+    // In Type-Ahead mode: edits the quick-search buffer
+    // In normal view: behaves like native OS file explorer:
+    // Navigates Back in history, or Up to parent folder if at start of history
+    if (e.key === 'Backspace' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        if (typeAheadBuffer.length > 0) {
+            e.preventDefault();
+            handleTypeAheadBackspace();
+            return;
+        }
+        e.preventDefault();
+        handleNativeBackOrUp(false);
+        return;
+    }
+
+    // 5. Open / Enter Selected Folder or File:
+    // Universal: Enter
+    // macOS: Cmd+Down or Cmd+O
+    const isOpenShortcut = (e.key === 'Enter' && !e.altKey && !e.metaKey && !e.ctrlKey) ||
+                           (e.metaKey && e.key === 'ArrowDown' && !e.altKey && !e.ctrlKey) ||
+                           (e.metaKey && (e.key === 'o' || e.key === 'O') && !e.shiftKey);
+    if (isOpenShortcut && selectedItem) {
+        e.preventDefault();
+        handleDoubleClick(selectedItem.name, selectedItem.type === 'Directory');
+        return;
+    }
+
+    // 6. Go to Folder / Focus Address Bar:
+    // macOS: Cmd+Shift+G
+    // Windows: Ctrl+L or Alt+D
+    const isGoToFolderShortcut = (e.metaKey && e.shiftKey && (e.key === 'g' || e.key === 'G')) ||
+                                 ((e.ctrlKey || e.metaKey) && (e.key === 'l' || e.key === 'L') && !e.shiftKey) ||
+                                 (e.altKey && (e.key === 'd' || e.key === 'D') && !e.ctrlKey);
+    if (isGoToFolderShortcut) {
+        e.preventDefault();
+        enterPathEditMode();
+        return;
+    }
+
+    // 7. Create New Folder:
+    // macOS: Cmd+Shift+N
+    // Windows/Linux: Ctrl+Shift+N
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'n' || e.key === 'N')) {
+        e.preventDefault();
+        showNewFolderModal();
+        return;
+    }
+
+    // 8. Arrow Keys Selection Navigation (Plain / Shift range selection):
+    if (e.key === 'ArrowDown' && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         navigateSelection(1, e.shiftKey);
         return;
     }
-    if (e.key === 'ArrowUp') {
+    if (e.key === 'ArrowUp' && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         navigateSelection(-1, e.shiftKey);
         return;
     }
-    if (!e.altKey && e.key === 'ArrowRight') {
+    if (e.key === 'ArrowRight' && !e.altKey && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         navigateSelection(1, e.shiftKey);
         return;
     }
-    if (!e.altKey && e.key === 'ArrowLeft') {
+    if (e.key === 'ArrowLeft' && !e.altKey && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         navigateSelection(-1, e.shiftKey);
         return;
     }
-    if (e.key === 'Home') {
+    if (e.key === 'Home' && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         navigateSelection('first', e.shiftKey);
         return;
     }
-    if (e.key === 'End') {
+    if (e.key === 'End' && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         navigateSelection('last', e.shiftKey);
         return;
     }
 
-    // F2: Rename
+    // 9. F2: Rename
     if (e.key === 'F2') {
         e.preventDefault();
         renameSelectedItem();
         return;
     }
 
-    // Backspace in Type-Ahead mode edits the search buffer
-    if (e.key === 'Backspace' && !e.metaKey && !e.ctrlKey) {
-        if (typeAheadBuffer.length > 0) {
-            e.preventDefault();
-            handleTypeAheadBackspace();
-            return;
-        }
-    }
-
-    // Delete: Delete / Backspace / Cmd+Backspace (Mac & Windows delete)
-    const isDeleteKey = e.key === 'Delete' || e.code === 'Delete' || e.key === 'Backspace' || ((e.metaKey || e.ctrlKey) && (e.key === 'Backspace' || e.key === 'Delete'));
+    // 10. Native Safe Deletion:
+    // macOS: Cmd+Delete / Cmd+Backspace moves item to Trash (plain delete/backspace is protected for navigation)
+    // Windows/Linux: Delete key (or Shift+Delete) moves item to Recycle Bin
+    const isDeleteKey = isMac
+        ? (e.metaKey && (e.key === 'Backspace' || e.key === 'Delete' || e.code === 'Backspace' || e.code === 'Delete'))
+        : ((e.key === 'Delete' || e.code === 'Delete') && !e.altKey && !e.metaKey);
     if (isDeleteKey) {
         const hasSelection = (selectedItems && selectedItems.length > 0) || selectedItem;
         if (hasSelection) {
@@ -7556,13 +7718,6 @@ document.addEventListener('keydown', function(e) {
             deleteSelectedItem();
             return;
         }
-    }
-
-    // Enter: Open in editor or enter folder
-    if (e.key === 'Enter' && selectedItem) {
-        e.preventDefault();
-        handleDoubleClick(selectedItem.name, selectedItem.type === 'Directory');
-        return;
     }
 
     // Alt+Enter: Properties
@@ -8916,18 +9071,24 @@ async function sendToMcpAssistant() {
 }
 
 // Initialize
-fetchRoots();
-initBookmarks();
-initSidebarSections();
-initIdeEnvironment();
-initQuickFilterAndHiddenFiles();
-initHoverCard();
-const initialTab = tabs.find(function(t) { return t.id === activeTabId; }) || tabs[0];
-const startPath = (initialTab && initialTab.path && initialTab.path !== '.') ? initialTab.path : (activeWorkingDirectory || initialTab.path || '.');
+try { fetchRoots(); } catch (e) { console.warn(e); }
+try { initBookmarks(); } catch (e) { console.warn(e); }
+try { initSidebarSections(); } catch (e) { console.warn(e); }
+try { initIdeEnvironment(); } catch (e) { console.warn(e); }
+try { initQuickFilterAndHiddenFiles(); } catch (e) { console.warn(e); }
+try { initHoverCard(); } catch (e) { console.warn(e); }
+
+const initialTab = (Array.isArray(tabs) && tabs.length > 0)
+    ? (tabs.find(function(t) { return t && t.id === activeTabId; }) || tabs[0])
+    : null;
+const startPath = (initialTab && initialTab.path && initialTab.path !== '.')
+    ? initialTab.path
+    : (activeWorkingDirectory || (initialTab ? initialTab.path : '.') || '.');
+
 navigateTo(startPath);
-setView(currentViewMode);
-setupWindowDragAndDrop();
-syncMenuShortcuts();
+try { setView(currentViewMode); } catch (e) {}
+try { setupWindowDragAndDrop(); } catch (e) {}
+try { syncMenuShortcuts(); } catch (e) {}
 
 // Restore saved panel states
 const savedSidebarCollapsed = safeStorage.getItem('venel_sidebar_collapsed') === 'true';

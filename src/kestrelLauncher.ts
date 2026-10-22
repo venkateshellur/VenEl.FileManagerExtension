@@ -115,10 +115,10 @@ export class KestrelLauncher {
                 this._process = undefined;
             });
 
-            // Poll for up to 12000ms until backend responds
+            // Poll for up to 8000ms until backend responds
             const startTime = Date.now();
-            while (Date.now() - startTime < 12000) {
-                await new Promise((r) => setTimeout(r, 200));
+            while (Date.now() - startTime < 8000) {
+                await new Promise((r) => setTimeout(r, 150));
                 if (await this.pingKestrel()) {
                     this.lastDiagnostic = 'Backend engine is online and healthy.';
                     this.log('Backend engine is successfully online and ready on http://127.0.0.1:5050');
@@ -126,7 +126,7 @@ export class KestrelLauncher {
                 }
             }
 
-            this.lastDiagnostic = 'Backend engine did not respond to health check within 12s timeout.';
+            this.lastDiagnostic = 'Backend engine did not respond to health check within 8s timeout.';
             this.log('Backend engine did not respond within timeout, falling back.');
             return undefined;
         } catch (e: any) {
