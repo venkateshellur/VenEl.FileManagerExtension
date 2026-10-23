@@ -358,7 +358,7 @@ export class FileManagerPanel {
                 return ext.packageJSON.version;
             }
         } catch {}
-        return '1.1.4';
+        return '1.3.0';
     }
 
     private getFrameHtml(serverUrl: string, initialThemeKind: string = 'dark'): string {

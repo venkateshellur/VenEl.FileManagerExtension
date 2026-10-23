@@ -137,7 +137,7 @@ export class LocalServer {
                                 }
                             }
                         } catch {}
-                        let version = '1.1.4';
+                        let version = '1.3.0';
                         try {
                             const pkgPath = path.join(__dirname, '..', 'package.json');
                             if (fs.existsSync(pkgPath)) {

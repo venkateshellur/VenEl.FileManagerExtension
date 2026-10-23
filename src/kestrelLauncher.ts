@@ -98,7 +98,7 @@ export class KestrelLauncher {
             }
             envCopy.ASPNETCORE_ENVIRONMENT = 'Production';
             envCopy.ASPNETCORE_URLS = 'http://127.0.0.1:5050;http://localhost:5050';
-            envCopy.VENEL_EXTENSION_VERSION = '1.1.4';
+            envCopy.VENEL_EXTENSION_VERSION = '1.3.0';
 
             const proc = child_process.spawn(dotnetPath, ['--roll-forward', 'LatestMajor', serverDll], {
                 cwd: path.dirname(serverDll),

@@ -64,7 +64,7 @@ let extensionVersion = (function() {
         const p = new URLSearchParams(window.location.search).get('version');
         if (p) return p;
     } catch {}
-    return '1.1.4';
+    return '1.3.0';
 })();
 let backendEngineName = 'Kestrel (.NET)';
 let activeWorkingDirectory = safeStorage.getItem('venel_working_directory') || null;
