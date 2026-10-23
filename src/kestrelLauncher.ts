@@ -14,6 +14,7 @@ export class KestrelLauncher {
     private static _isStarting = false;
     private static _isProvisioning = false;
     public static lastDiagnostic: string = 'Engine not yet initialized';
+    public static engineState: 'KESTREL_HOST' | 'KESTREL_ACQUIRED' | 'NODE_SAFE_MODE' | 'NODE_ACQUIRING' = 'NODE_SAFE_MODE';
 
     public static init(context: vscode.ExtensionContext) {
         this._extensionPath = context.extensionPath;
@@ -23,9 +24,10 @@ export class KestrelLauncher {
         return this._process !== undefined && !this._process.killed;
     }
 
-    public static async ensureRunning(): Promise<string | undefined> {
+    public static async ensureRunning(forceForeground: boolean = false): Promise<string | undefined> {
         // 1. If port 5050 is already live and answering on 127.0.0.1 or localhost, return immediately!
         if (await this.pingKestrel()) {
+            this.engineState = 'KESTREL_HOST';
             return 'http://127.0.0.1:5050';
         }
 
@@ -33,6 +35,7 @@ export class KestrelLauncher {
         const autoStart = config.get<boolean>('autoStartKestrel', true);
         if (!autoStart) {
             this.lastDiagnostic = 'Auto-start Kestrel is disabled in settings (venel.filemanager.autoStartKestrel = false).';
+            this.engineState = 'NODE_SAFE_MODE';
             return undefined;
         }
 
@@ -41,6 +44,7 @@ export class KestrelLauncher {
             for (let i = 0; i < 20; i++) {
                 await new Promise((r) => setTimeout(r, 150));
                 if (await this.pingKestrel()) {
+                    this.engineState = 'KESTREL_HOST';
                     return 'http://127.0.0.1:5050';
                 }
             }
@@ -51,15 +55,25 @@ export class KestrelLauncher {
         try {
             let dotnetPath = this.findDotnet();
             if (!dotnetPath) {
-                this.log('[VenEl] .NET runtime (dotnet) not found. Attempting automatic provisioning of .NET 8...');
-                dotnetPath = await this.autoProvisionDotnet();
+                if (forceForeground) {
+                    this.log('[VenEl] Foreground re-check: provisioning .NET runtime...');
+                    dotnetPath = await this.autoProvisionDotnet(true);
+                } else {
+                    this.log('[VenEl] .NET not found on host. Launching background acquisition; using Safe Mode (Node.js)...');
+                    this.engineState = 'NODE_ACQUIRING';
+                    this.autoProvisionDotnetBackground();
+                    this.lastDiagnostic = '.NET 8+ runtime not yet available. Zero-dependency Safe Mode (Node.js) is active.';
+                    return undefined;
+                }
             }
             if (!dotnetPath) {
                 this.lastDiagnostic = '.NET runtime (dotnet) was not found and could not be provisioned.';
+                this.engineState = 'NODE_SAFE_MODE';
                 this.log(`[VenEl] ${this.lastDiagnostic}`);
                 return undefined;
             }
 
+            this.engineState = 'KESTREL_HOST';
             const serverDll = await this.findServerDll(config.get<string>('kestrelServerPath'), dotnetPath);
             if (!serverDll) {
                 this.lastDiagnostic = 'VenEl backend engine binary was not found. Please reinstall the extension or configure "venel.filemanager.kestrelServerPath" in settings.';
@@ -84,7 +98,7 @@ export class KestrelLauncher {
             }
             envCopy.ASPNETCORE_ENVIRONMENT = 'Production';
             envCopy.ASPNETCORE_URLS = 'http://127.0.0.1:5050;http://localhost:5050';
-            envCopy.VENEL_EXTENSION_VERSION = '1.1.3';
+            envCopy.VENEL_EXTENSION_VERSION = '1.1.4';
 
             const proc = child_process.spawn(dotnetPath, ['--roll-forward', 'LatestMajor', serverDll], {
                 cwd: path.dirname(serverDll),
@@ -358,7 +372,35 @@ export class KestrelLauncher {
         return undefined;
     }
 
-    public static async autoProvisionDotnet(): Promise<string | undefined> {
+    public static autoProvisionDotnetBackground(): void {
+        if (this._isProvisioning) return;
+        setTimeout(async () => {
+            try {
+                this.log('[VenEl] Starting background portable .NET acquisition (Approach C)...');
+                const exe = await this.autoProvisionDotnet(false);
+                if (exe) {
+                    this.engineState = 'KESTREL_ACQUIRED';
+                    this.log(`[VenEl] Background acquisition successful: ${exe}`);
+                    vscode.window.showInformationMessage(
+                        '⚡ VenEl File Manager: High-performance .NET engine is now ready!',
+                        'Switch Engine'
+                    ).then((choice) => {
+                        if (choice === 'Switch Engine') {
+                            vscode.commands.executeCommand('venel.filemanager.open');
+                        }
+                    });
+                } else {
+                    this.engineState = 'NODE_SAFE_MODE';
+                }
+            } catch (err: any) {
+                this.engineState = 'NODE_SAFE_MODE';
+                this.lastDiagnostic = `Background .NET acquisition could not complete (${err?.message || err}). Safe Mode (Node.js) remains active.`;
+                this.log(`[VenEl] ${this.lastDiagnostic}`);
+            }
+        }, 800);
+    }
+
+    public static async autoProvisionDotnet(showProgress: boolean = true): Promise<string | undefined> {
         if (this._isProvisioning) {
             for (let i = 0; i < 90; i++) {
                 await new Promise((r) => setTimeout(r, 500));
@@ -374,99 +416,109 @@ export class KestrelLauncher {
         const dotnetDir = path.join(homedir, '.dotnet');
         const expectedExe = path.join(dotnetDir, isWin ? 'dotnet.exe' : 'dotnet');
 
-        try {
-            return await vscode.window.withProgress(
-                {
-                    location: vscode.ProgressLocation.Notification,
-                    title: 'VenEl File Manager: Provisioning .NET 8 runtime for high-performance engine & SFTP...',
-                    cancellable: false
-                },
-                async (progress) => {
-                    progress.report({ increment: 10, message: 'Downloading official installer...' });
-                    this.log('[VenEl] Auto-provisioning .NET 8 runtime into ' + dotnetDir);
+        const performInstall = async (reporter?: { report: (val: { increment?: number; message?: string }) => void }) => {
+            reporter?.report({ increment: 10, message: 'Downloading official installer...' });
+            this.log('[VenEl] Auto-provisioning .NET 8 runtime into ' + dotnetDir);
 
-                    if (!fs.existsSync(dotnetDir)) {
-                        fs.mkdirSync(dotnetDir, { recursive: true });
-                    }
+            if (!fs.existsSync(dotnetDir)) {
+                fs.mkdirSync(dotnetDir, { recursive: true });
+            }
 
-                    if (!isWin) {
-                        const scriptPath = path.join(os.tmpdir(), `dotnet-install-${Date.now()}.sh`);
-                        try {
-                            await this.downloadFile('https://dot.net/v1/dotnet-install.sh', scriptPath);
-                            fs.chmodSync(scriptPath, 0o755);
+            if (!isWin) {
+                const scriptPath = path.join(os.tmpdir(), `dotnet-install-${Date.now()}.sh`);
+                try {
+                    await this.downloadFile('https://dot.net/v1/dotnet-install.sh', scriptPath);
+                    fs.chmodSync(scriptPath, 0o755);
 
-                            progress.report({ increment: 30, message: 'Installing ASP.NET Core 8.0 runtime...' });
-                            this.log(`[VenEl] Executing: bash "${scriptPath}" --channel 8.0 --runtime aspnetcore --install-dir "${dotnetDir}" --no-path`);
+                    reporter?.report({ increment: 30, message: 'Installing ASP.NET Core 8.0 runtime...' });
+                    this.log(`[VenEl] Executing: bash "${scriptPath}" --channel 8.0 --runtime aspnetcore --install-dir "${dotnetDir}" --no-path`);
 
-                            await new Promise<void>((resolve, reject) => {
-                                const proc = child_process.spawn('bash', [
-                                    scriptPath,
-                                    '--channel', '8.0',
-                                    '--runtime', 'aspnetcore',
-                                    '--install-dir', dotnetDir,
-                                    '--no-path'
-                                ], { stdio: ['ignore', 'pipe', 'pipe'] });
+                    await new Promise<void>((resolve, reject) => {
+                        const proc = child_process.spawn('bash', [
+                            scriptPath,
+                            '--channel', '8.0',
+                            '--runtime', 'aspnetcore',
+                            '--install-dir', dotnetDir,
+                            '--no-path'
+                        ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
-                                proc.stdout?.on('data', (d) => this.log(`[dotnet-install] ${d.toString().trim()}`));
-                                proc.stderr?.on('data', (d) => this.log(`[dotnet-install err] ${d.toString().trim()}`));
-                                proc.on('close', (code) => {
-                                    if (code === 0) resolve();
-                                    else reject(new Error(`Installer exited with code ${code}`));
-                                });
-                                proc.on('error', reject);
-                            });
-                        } finally {
-                            try { if (fs.existsSync(scriptPath)) fs.unlinkSync(scriptPath); } catch {}
-                        }
-                    } else {
-                        progress.report({ increment: 30, message: 'Installing ASP.NET Core 8.0 runtime...' });
-                        const psCmd = `&([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing 'https://dot.net/v1/dotnet-install.ps1'))) -Channel 8.0 -Runtime aspnetcore -InstallDir '${dotnetDir}' -NoPath`;
-                        await new Promise<void>((resolve, reject) => {
-                            const proc = child_process.spawn('powershell.exe', [
-                                '-NoProfile',
-                                '-ExecutionPolicy', 'Bypass',
-                                '-Command', psCmd
-                            ], { stdio: ['ignore', 'pipe', 'pipe'] });
-
-                            proc.stdout?.on('data', (d) => this.log(`[dotnet-install] ${d.toString().trim()}`));
-                            proc.stderr?.on('data', (d) => this.log(`[dotnet-install err] ${d.toString().trim()}`));
-                            proc.on('close', (code) => {
-                                if (code === 0) resolve();
-                                else reject(new Error(`PowerShell installer exited with code ${code}`));
-                            });
-                            proc.on('error', reject);
+                        proc.stdout?.on('data', (d) => this.log(`[dotnet-install] ${d.toString().trim()}`));
+                        proc.stderr?.on('data', (d) => this.log(`[dotnet-install err] ${d.toString().trim()}`));
+                        proc.on('close', (code) => {
+                            if (code === 0) resolve();
+                            else reject(new Error(`Installer exited with code ${code}`));
                         });
-                    }
-
-                    progress.report({ increment: 50, message: 'Verifying installation...' });
-
-                    if (!isWin && fs.existsSync(expectedExe)) {
-                        try { fs.chmodSync(expectedExe, 0o755); } catch {}
-                    }
-
-                    if (fs.existsSync(expectedExe)) {
-                        this.log(`[VenEl] .NET 8 runtime successfully provisioned at: ${expectedExe}`);
-                        vscode.window.showInformationMessage('⚡ VenEl File Manager: .NET 8 engine installed successfully! High-performance indexing and SFTP are now active.');
-                        return expectedExe;
-                    }
-
-                    const checkAfter = this.findDotnet();
-                    if (checkAfter) return checkAfter;
-
-                    throw new Error('Installed binary not found at ' + expectedExe);
+                        proc.on('error', reject);
+                    });
+                } finally {
+                    try { if (fs.existsSync(scriptPath)) fs.unlinkSync(scriptPath); } catch {}
                 }
-            );
+            } else {
+                reporter?.report({ increment: 30, message: 'Installing ASP.NET Core 8.0 runtime...' });
+                const psCmd = `&([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing 'https://dot.net/v1/dotnet-install.ps1'))) -Channel 8.0 -Runtime aspnetcore -InstallDir '${dotnetDir}' -NoPath`;
+                await new Promise<void>((resolve, reject) => {
+                    const proc = child_process.spawn('powershell.exe', [
+                        '-NoProfile',
+                        '-ExecutionPolicy', 'Bypass',
+                        '-Command', psCmd
+                    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+                    proc.stdout?.on('data', (d) => this.log(`[dotnet-install] ${d.toString().trim()}`));
+                    proc.stderr?.on('data', (d) => this.log(`[dotnet-install err] ${d.toString().trim()}`));
+                    proc.on('close', (code) => {
+                        if (code === 0) resolve();
+                        else reject(new Error(`PowerShell installer exited with code ${code}`));
+                    });
+                    proc.on('error', reject);
+                });
+            }
+
+            reporter?.report({ increment: 50, message: 'Verifying installation...' });
+
+            if (!isWin && fs.existsSync(expectedExe)) {
+                try { fs.chmodSync(expectedExe, 0o755); } catch {}
+            }
+
+            if (fs.existsSync(expectedExe)) {
+                this.log(`[VenEl] .NET 8 runtime successfully provisioned at: ${expectedExe}`);
+                if (showProgress) {
+                    vscode.window.showInformationMessage('⚡ VenEl File Manager: .NET 8 engine installed successfully! High-performance indexing and SFTP are now active.');
+                }
+                return expectedExe;
+            }
+
+            const checkAfter = this.findDotnet();
+            if (checkAfter) return checkAfter;
+
+            throw new Error('Installed binary not found at ' + expectedExe);
+        };
+
+        try {
+            if (showProgress) {
+                return await vscode.window.withProgress(
+                    {
+                        location: vscode.ProgressLocation.Notification,
+                        title: 'VenEl File Manager: Provisioning .NET 8 runtime for high-performance engine & SFTP...',
+                        cancellable: false
+                    },
+                    performInstall
+                );
+            } else {
+                return await performInstall();
+            }
         } catch (err: any) {
             this.lastDiagnostic = `Could not auto-install .NET 8: ${err?.message || err}`;
             this.log(`[VenEl] ${this.lastDiagnostic}`);
-            vscode.window.showWarningMessage(
-                'VenEl File Manager: Automatic .NET 8 setup encountered an issue. Basic file browsing is active via Node.js engine.',
-                'View Help'
-            ).then((action) => {
-                if (action === 'View Help') {
-                    vscode.env.openExternal(vscode.Uri.parse('https://dotnet.microsoft.com/download/dotnet/8.0'));
-                }
-            });
+            if (showProgress) {
+                vscode.window.showWarningMessage(
+                    'VenEl File Manager: Automatic .NET 8 setup encountered an issue. Basic file browsing is active via Node.js engine.',
+                    'View Help'
+                ).then((action) => {
+                    if (action === 'View Help') {
+                        vscode.env.openExternal(vscode.Uri.parse('https://dotnet.microsoft.com/download/dotnet/8.0'));
+                    }
+                });
+            }
             return undefined;
         } finally {
             this._isProvisioning = false;

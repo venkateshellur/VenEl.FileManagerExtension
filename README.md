@@ -29,6 +29,8 @@ Standard IDE file trees are built for project codebases, but they are clunky and
 * 🧭 **Windows & Mac Dropdown Address Bar**: Navigate like Windows Explorer or Mac Finder—instantly jump to system drives (`C:\`, `/`), user roots (Home, Desktop, Documents), parent breadcrumbs, or direct subfolders with 1 click.
 * 👁️ **Live Split Preview Pane**: Single-click any file to inspect code, markdown, logs, or image assets (`.png`, `.jpg`, `.svg`, `.webp`) in real-time without leaving your folder.
 * 🚀 **1-Click Direct Full-Screen Launch**: Clicking the Activity Bar icon directly opens the full File Manager editor tab and auto-collapses the narrow primary sidebar for a seamless 100% full-width view with zero intermediate clicks.
+* 🌐 **Built-in Remote SFTP & SSH Explorer**: Connect directly to remote servers, VPS, cloud instances, and NAS storage with full in-editor browsing and remote editing.
+* ⚡ **Norton/Total Commander Dual-Pane**: Two independent active directory panels with keyboard navigation, instant side-by-side comparison, and fast file movement.
 
 ---
 
@@ -36,6 +38,9 @@ Standard IDE file trees are built for project codebases, but they are clunky and
 
 | Feature | Description |
 | :--- | :--- |
+| **🌐 Remote SFTP & SSH Explorer** | Seamless remote file browsing, inline remote editing, and transfer progress monitoring. |
+| **⚡ Commander Dual-Pane** | Norton/Total Commander split view for fast side-by-side folder management. |
+| **ℹ️ About & System Diagnostics** | Dedicated modal showing running version, engine status pill, and 1-click clipboard diagnostics. |
 | **Unified View Options** | Switch instantly between Details, List, Grid, Large Icons, and Small Icons. |
 | **Machine Agent Search** | System-level indexed search via Spotlight/PowerShell with instant folder jump. |
 | **⚖️ Visual File Diff** | Side-by-side split & unified line diffs between any two files or against Git HEAD. |
@@ -43,12 +48,14 @@ Standard IDE file trees are built for project codebases, but they are clunky and
 | **🔍 Decompiler Search** | Real-time AST symbol search with exact line jump across .NET & Java binaries. |
 | **🏷️ Smart Batch Renamer** | Find & replace, prefix/suffix, numbering, and case conversions with live preview. |
 | **🗜️ Zip & Archive Tools** | 1-click compress to `.zip` and extraction for `.zip`, `.tar.gz`, `.tgz`, and `.tar`. |
+| **🏢 Cloud Drive & OneDrive Support**| Native support for Windows OneDrive Commercial / Personal redirected special folders. |
 | **🗑️ Safe Move to Trash** | All deletes safely move items to OS Trash / Recycle Bin with recovery support. |
 | **Draggable Splitters** | Interactive splitters for custom sidebar and preview panel widths with persistence. |
 | **Drive & Root Jump** | 1-click access to all physical drives, external volumes, and special OS folders. |
 | **Folder Hierarchy** | Deep breadcrumb trail in the address bar dropdown for instant parent jumping. |
 | **Rich Previews** | Live PDF canvas viewer, Excel workbooks, Word docs, CSV tables, images, and code. |
-| **Shared Engine** | Powered by the high-performance local `VenEl.MCP.FileManager` backend. |
+| **🎨 Dark & Light Themes** | Dedicated high-contrast color schemes matching both custom and editor native aesthetics. |
+| **⚡ Multi-Tier Runtime** | Native .NET 8 / 9 / 10 Kestrel engine with automatic zero-dependency Node.js fallback. |
 
 ---
 

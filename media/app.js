@@ -64,7 +64,7 @@ let extensionVersion = (function() {
         const p = new URLSearchParams(window.location.search).get('version');
         if (p) return p;
     } catch {}
-    return '1.1.3';
+    return '1.1.4';
 })();
 let backendEngineName = 'Kestrel (.NET)';
 let activeWorkingDirectory = safeStorage.getItem('venel_working_directory') || null;
@@ -77,6 +77,7 @@ let navHistoryIndex = -1;
 
 // Sorting State
 let currentSort = { field: 'name', asc: true };
+let clipboard = null;
 
 // ══════════════════════════════════════════════════════════
 // 🧭 DESKTOP-CLASS MENU BAR LOGIC (macOS Finder / Windows Explorer)
@@ -846,19 +847,27 @@ function loadTabsState() {
 // ══════════════════════════════════════════════════════════
 // 🧭 NAVIGATION & HISTORY
 // ══════════════════════════════════════════════════════════
+function normalizeNavPath(p) {
+    if (!p || typeof p !== 'string') return p;
+    if (p === '/' || /^[a-zA-Z]:[\\/]?$/.test(p)) return p;
+    return p.replace(/[\\/]+$/, '');
+}
+
 function navigateTo(targetPath, isHistoryAction = false) {
     closePathDropdown();
     if (isDualPane) {
         loadCommanderPane(activePaneId, targetPath, isHistoryAction);
         return;
     }
-    if (!isHistoryAction && targetPath) {
+    const normTarget = normalizeNavPath(targetPath);
+    if (!isHistoryAction && normTarget) {
         // If user branched from previous history index, truncate forward history
         if (navHistoryIndex >= 0 && navHistoryIndex < navHistory.length - 1) {
             navHistory = navHistory.slice(0, navHistoryIndex + 1);
         }
-        if (navHistory[navHistory.length - 1] !== targetPath) {
-            navHistory.push(targetPath);
+        const last = navHistory.length > 0 ? normalizeNavPath(navHistory[navHistory.length - 1]) : null;
+        if (last !== normTarget) {
+            navHistory.push(normTarget);
             navHistoryIndex = navHistory.length - 1;
         }
         updateNavButtons();
@@ -881,10 +890,21 @@ function goBack() {
         }
         return;
     }
+    // Skip consecutive duplicates if any
+    while (navHistoryIndex > 0 && normalizeNavPath(navHistory[navHistoryIndex - 1]) === normalizeNavPath(currentPath)) {
+        navHistoryIndex--;
+    }
     if (navHistoryIndex > 0) {
         navHistoryIndex--;
         updateNavButtons();
+        const activeTab = tabs.find(function(t) { return t.id === activeTabId; });
+        if (activeTab) {
+            activeTab.historyIndex = navHistoryIndex;
+        }
         loadFiles(navHistory[navHistoryIndex]);
+    } else {
+        // At start of history: gracefully navigate to parent folder instead of remaining stuck
+        goUp();
     }
 }
 
@@ -901,6 +921,10 @@ function goForward() {
     if (navHistoryIndex < navHistory.length - 1) {
         navHistoryIndex++;
         updateNavButtons();
+        const activeTab = tabs.find(function(t) { return t.id === activeTabId; });
+        if (activeTab) {
+            activeTab.historyIndex = navHistoryIndex;
+        }
         loadFiles(navHistory[navHistoryIndex]);
     }
 }
@@ -910,7 +934,9 @@ function canNavigateBack() {
         const state = activePaneId === 'left' ? commanderLeftState : commanderRightState;
         return !!(state && state.history && state.historyIndex > 0);
     }
-    return navHistoryIndex > 0;
+    if (navHistoryIndex > 0) return true;
+    if (!currentPath || currentPath === '.' || currentPath === '/' || /^[a-zA-Z]:[\\/]?$/.test(currentPath)) return false;
+    return true;
 }
 
 function canNavigateForward() {
@@ -2153,10 +2179,19 @@ async function loadFiles(targetPath, retryCount = 0) {
 
         const data = await res.json();
         currentPath = (data && typeof data.currentPath === 'string') ? data.currentPath : (targetPath || '/');
+        // If initial history entry was '.' or empty, update it with true resolved path
+        if (navHistory.length > 0 && (navHistory[0] === '.' || navHistory[0] === '')) {
+            navHistory[0] = normalizeNavPath(currentPath);
+            const activeTab = tabs.find(function(t) { return t.id === activeTabId; });
+            if (activeTab) {
+                activeTab.history = [...navHistory];
+            }
+        }
         isWindows = isWindowsPlatform || (typeof currentPath === 'string' && (currentPath.includes('\\') || /^[a-zA-Z]:/.test(currentPath)));
         document.getElementById('path').value = currentPath;
         renderBreadcrumbs();
         updateActiveTabAfterLoad(currentPath);
+        updateNavButtons();
 
         currentItems = Array.isArray(data.items) ? data.items : [];
         selectedItem = null;
@@ -4926,10 +4961,14 @@ async function initIdeEnvironment() {
                 if (data.engine) {
                     backendEngineName = data.engine;
                 }
+                if (data.capabilities) {
+                    window.currentEngineCapabilities = data.capabilities;
+                }
                 if (data.ideName) {
                     updateIdeEnvironmentInfo(data.ideName, data.workspaceFolders, data.primaryWorkspace);
                 }
                 updateAboutVersionDisplay();
+                updateEngineStatusPill(data);
             }
         }
     } catch (e) {
@@ -5080,6 +5119,15 @@ function openSftpModal(profileToEdit = null, event = null) {
         event.stopPropagation();
         event.preventDefault();
     }
+
+    // If running in Safe Mode (Node.js) or SFTP capability is unavailable, display friendly guidance modal
+    const isSafeMode = (backendEngineName && backendEngineName.includes('Node')) || 
+                       (window.currentEngineCapabilities && window.currentEngineCapabilities.sftp === false);
+    if (isSafeMode) {
+        openSftpSafeModeModal();
+        return;
+    }
+
     const modal = document.getElementById('modal-sftp');
     if (!modal) return;
 
@@ -5352,6 +5400,13 @@ async function submitSftpConnect() {
 }
 
 async function connectSavedProfile(profileId) {
+    const isSafeMode = (backendEngineName && backendEngineName.includes('Node')) || 
+                       (window.currentEngineCapabilities && window.currentEngineCapabilities.sftp === false);
+    if (isSafeMode) {
+        openSftpSafeModeModal();
+        return;
+    }
+
     const prof = getSavedProfileById(profileId);
     if (!prof) return;
 
@@ -5914,6 +5969,164 @@ function fallbackCopyText(text) {
         showToast('Could not copy system info', '⚠️');
     }
 }
+
+function updateEngineStatusPill(data) {
+    const pill = document.getElementById('status-engine-pill');
+    const dot = document.getElementById('status-engine-dot');
+    const label = document.getElementById('status-engine-label');
+    if (!pill || !dot || !label) return;
+
+    const engine = (data && data.engine) || backendEngineName || 'Kestrel (.NET)';
+    const isSafeMode = engine.includes('Node') || (data && data.engineTier === 3);
+
+    if (isSafeMode) {
+        dot.style.color = '#f39c12';
+        label.textContent = 'Safe Mode (Node)';
+        pill.title = 'Running in Zero-Dependency Safe Mode. All local file operations are active. (Click to inspect or re-check)';
+    } else {
+        dot.style.color = '#2ecc71';
+        label.textContent = 'Kestrel (.NET)';
+        pill.title = 'Running on high-performance .NET Kestrel engine. (Click to inspect)';
+    }
+}
+window.updateEngineStatusPill = updateEngineStatusPill;
+
+function openExternalLink(url) {
+    if (!url) return;
+    try {
+        if (typeof window.vscode !== 'undefined' && window.vscode.postMessage) {
+            window.vscode.postMessage({ command: 'openExternalUrl', url: url });
+        }
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ command: 'openExternalUrl', url: url }, '*');
+        }
+    } catch {}
+    try {
+        window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {}
+}
+window.openExternalLink = openExternalLink;
+
+function openSftpSafeModeModal() {
+    hideContextMenu();
+    hideModals();
+    const modal = document.getElementById('modal-sftp-safe-mode');
+    if (modal) modal.style.display = 'flex';
+}
+window.openSftpSafeModeModal = openSftpSafeModeModal;
+
+async function openEngineStatusModal() {
+    hideContextMenu();
+    hideModals();
+    const modal = document.getElementById('modal-engine-status');
+    if (!modal) return;
+    modal.style.display = 'flex';
+
+    const pill = document.getElementById('engine-diag-pill');
+    const nameEl = document.getElementById('engine-diag-name');
+    const descEl = document.getElementById('engine-diag-desc');
+    const sftpCap = document.getElementById('engine-diag-sftp-cap');
+
+    try {
+        const res = await fetch('/api/env/info').catch(() => null);
+        if (res && res.ok) {
+            const data = await res.json().catch(() => null);
+            if (data) {
+                if (data.version) extensionVersion = data.version;
+                if (data.engine) backendEngineName = data.engine;
+                if (data.capabilities) window.currentEngineCapabilities = data.capabilities;
+                updateEngineStatusPill(data);
+
+                const isSafeMode = (data.engine && data.engine.includes('Node')) || (data.engineTier === 3);
+                if (isSafeMode) {
+                    if (pill) {
+                        pill.textContent = '● Safe Mode';
+                        pill.style.background = 'rgba(243, 156, 18, 0.15)';
+                        pill.style.color = '#f39c12';
+                        pill.style.borderColor = 'rgba(243, 156, 18, 0.3)';
+                    }
+                    if (nameEl) nameEl.textContent = 'Node.js (Safe Mode)';
+                    if (descEl) descEl.textContent = data.diagnosticMessage || 'Zero-dependency fallback active. All local file operations, multi-tabs, dual-pane commander, and batch tools are fully functional.';
+                    if (sftpCap) {
+                        sftpCap.textContent = '⏸️ On Standby (Requires .NET)';
+                        sftpCap.style.color = '#f39c12';
+                    }
+                } else {
+                    if (pill) {
+                        pill.textContent = '● Online (.NET)';
+                        pill.style.background = 'rgba(46, 204, 113, 0.15)';
+                        pill.style.color = '#2ecc71';
+                        pill.style.borderColor = 'rgba(46, 204, 113, 0.3)';
+                    }
+                    if (nameEl) nameEl.textContent = 'Kestrel (.NET)';
+                    if (descEl) descEl.textContent = 'High-performance native file indexing and active SFTP remote proxy.';
+                    if (sftpCap) {
+                        sftpCap.textContent = '✅ Active';
+                        sftpCap.style.color = '#2ecc71';
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('Failed to query /api/env/info for engine modal', e);
+    }
+}
+window.openEngineStatusModal = openEngineStatusModal;
+
+async function recheckEngine() {
+    const btn = document.getElementById('btn-recheck-engine');
+    const oldText = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.innerHTML = '<span>⏳</span><span>Probing Engine...</span>';
+        btn.disabled = true;
+    }
+    showToast('Probing for .NET runtime and Kestrel engine...', '⚡');
+
+    try {
+        const res = await fetch('/api/engine/retry').catch(() => null);
+        if (res && res.ok) {
+            const data = await res.json().catch(() => null);
+            if (data && data.success) {
+                backendEngineName = data.engine || 'Kestrel (.NET)';
+                showToast(data.message || '⚡ Promoted to high-performance .NET Kestrel engine!', '🚀');
+                updateEngineStatusPill({ engine: backendEngineName });
+                hideModals();
+                setTimeout(() => {
+                    refreshFiles();
+                }, 500);
+                return;
+            } else {
+                showToast('ℹ️ ' + ((data && data.message) || 'Safe Mode remains active. No .NET runtime found yet.'), '🛡️');
+            }
+        } else {
+            showToast('Safe Mode active. Could not start Kestrel engine.', '🛡️');
+        }
+    } catch (e) {
+        showToast('Engine check completed: Safe Mode remains active.', 'ℹ️');
+    } finally {
+        if (btn) {
+            btn.innerHTML = oldText;
+            btn.disabled = false;
+        }
+        const engineModal = document.getElementById('modal-engine-status');
+        if (engineModal && engineModal.classList.contains('active')) {
+            openEngineStatusModal();
+        }
+    }
+}
+window.recheckEngine = recheckEngine;
+
+// Global external link interceptor to prevent VS Code iframe swallowing
+document.addEventListener('click', function(e) {
+    const anchor = e.target && e.target.closest ? e.target.closest('a') : null;
+    if (anchor && anchor.href && /^https?:\/\//i.test(anchor.href)) {
+        if (anchor.target === '_blank' || anchor.getAttribute('target') === '_blank') {
+            e.preventDefault();
+            e.stopPropagation();
+            openExternalLink(anchor.href);
+        }
+    }
+}, true);
 
 let cachedRecentLogs = '';
 

@@ -78,7 +78,12 @@ export class LocalServer {
 
                     // 1. Dashboard UI
                     if (pathname === '/' || pathname === '/index.html') {
-                        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                        res.writeHead(200, {
+                            'Content-Type': 'text/html; charset=utf-8',
+                            'Cache-Control': 'no-cache, no-store, must-revalidate',
+                            'Pragma': 'no-cache',
+                            'Expires': '0'
+                        });
                         res.end(LocalServer.getIndexHtml());
                         return;
                     }
@@ -97,7 +102,12 @@ export class LocalServer {
                                 '.svg': 'image/svg+xml',
                                 '.ico': 'image/x-icon'
                             };
-                            res.writeHead(200, { 'Content-Type': mimeTypes[reqExt] || 'application/octet-stream' });
+                            res.writeHead(200, {
+                                'Content-Type': mimeTypes[reqExt] || 'application/octet-stream',
+                                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                                'Pragma': 'no-cache',
+                                'Expires': '0'
+                            });
                             res.end(fs.readFileSync(mediaPath));
                             return;
                         }
@@ -127,7 +137,7 @@ export class LocalServer {
                                 }
                             }
                         } catch {}
-                        let version = '1.1.3';
+                        let version = '1.1.4';
                         try {
                             const pkgPath = path.join(__dirname, '..', 'package.json');
                             if (fs.existsSync(pkgPath)) {
@@ -138,9 +148,43 @@ export class LocalServer {
                         res.end(JSON.stringify({
                             ideName,
                             version,
-                            engine: 'Node.js LocalServer',
+                            engine: 'Node.js (Safe Mode)',
+                            engineTier: 3,
+                            capabilities: {
+                                localFs: true,
+                                multiTab: true,
+                                dualPane: true,
+                                quickLook: true,
+                                batchRename: true,
+                                sftp: false
+                            },
+                            diagnosticMessage: KestrelLauncher.lastDiagnostic || 'Running in zero-dependency Safe Mode. All local file features are active.',
                             workspaceFolders,
                             primaryWorkspace: workspaceFolders.length > 0 ? workspaceFolders[0].path : undefined
+                        }));
+                        return;
+                    }
+
+                    // 1c.2 Re-check / Upgrade Engine endpoint
+                    if (pathname === '/api/engine/retry') {
+                        try {
+                            const kestrelUrl = await KestrelLauncher.ensureRunning(true);
+                            if (kestrelUrl) {
+                                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                                res.end(JSON.stringify({
+                                    success: true,
+                                    engine: 'Kestrel (.NET)',
+                                    url: kestrelUrl,
+                                    message: '.NET Kestrel engine is now active and online!'
+                                }));
+                                return;
+                            }
+                        } catch {}
+                        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                        res.end(JSON.stringify({
+                            success: false,
+                            engine: 'Node.js (Safe Mode)',
+                            message: KestrelLauncher.lastDiagnostic || 'Kestrel .NET engine could not be started. Safe Mode remains active.'
                         }));
                         return;
                     }

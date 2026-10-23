@@ -358,7 +358,7 @@ export class FileManagerPanel {
                 return ext.packageJSON.version;
             }
         } catch {}
-        return '1.1.3';
+        return '1.1.4';
     }
 
     private getFrameHtml(serverUrl: string, initialThemeKind: string = 'dark'): string {
@@ -371,7 +371,7 @@ export class FileManagerPanel {
 
         const delimiter = serverUrl.includes('?') ? '&' : '?';
         const targetUrl = serverUrl !== 'about:blank' 
-            ? `${serverUrl}${delimiter}ideTheme=${encodeURIComponent(initialThemeKind)}&ideName=${encodeURIComponent(ideName)}&workspace=${encodeURIComponent(primaryWorkspace)}&version=${encodeURIComponent(extensionVersion)}` 
+            ? `${serverUrl}${delimiter}ideTheme=${encodeURIComponent(initialThemeKind)}&ideName=${encodeURIComponent(ideName)}&workspace=${encodeURIComponent(primaryWorkspace)}&version=${encodeURIComponent(extensionVersion)}&t=${Date.now()}` 
             : '';
 
         return `<!DOCTYPE html>
