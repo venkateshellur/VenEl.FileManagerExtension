@@ -977,6 +977,19 @@ function goUp() {
     }
     if (!currentPath || currentPath === '.') return;
 
+    const cloudInfo = parseCloudUrl(currentPath);
+    if (cloudInfo) {
+        if (cloudInfo.remotePath === '/' || !cloudInfo.remotePath) return;
+        const parts = cloudInfo.remotePath.split('/').filter(function(p) { return p !== ''; });
+        if (parts.length <= 1) {
+            navigateTo(`cloud://${cloudInfo.connectionId}/`);
+            return;
+        }
+        parts.pop();
+        navigateTo(`cloud://${cloudInfo.connectionId}/` + parts.join('/'));
+        return;
+    }
+
     const sftpInfo = parseSftpUrl(currentPath);
     if (sftpInfo) {
         if (sftpInfo.remotePath === '/' || !sftpInfo.remotePath) return;
@@ -1027,6 +1040,30 @@ function renderBreadcrumbs() {
     if (!container) return;
     if (!currentPath || currentPath === '.') {
         container.innerHTML = '<span class="crumb current">Loading...</span>';
+        return;
+    }
+
+    const cloudInfo = parseCloudUrl(currentPath);
+    if (cloudInfo) {
+        let html = '';
+        const session = (typeof cloudActiveSessions !== 'undefined') ? cloudActiveSessions.find(s => s.connectionId === cloudInfo.connectionId) : null;
+        const serverLabel = session ? (session.name || `${session.provider.toUpperCase()} Bucket`) : 'Cloud Storage';
+        const rootPath = `cloud://${cloudInfo.connectionId}/`;
+        const isAtRoot = cloudInfo.remotePath === '/' || !cloudInfo.remotePath;
+        const icon = session && session.provider === 'azure' ? '🟦' : '🟧';
+        html += '<span class="crumb' + (isAtRoot ? ' current' : '') + '" onclick="event.stopPropagation(); navigateTo(\'' + escapePath(rootPath) + '\')">' +
+                `<i>${icon}</i> ` + escapeHtml(serverLabel) + '</span>';
+
+        const parts = cloudInfo.remotePath.split('/').filter(function(p) { return p !== ''; });
+        let accum = `cloud://${cloudInfo.connectionId}`;
+        for (let i = 0; i < parts.length; i++) {
+            accum += '/' + parts[i];
+            const isCurrent = (i === parts.length - 1);
+            html += '<span class="crumb-sep">›</span>';
+            html += '<span class="crumb' + (isCurrent ? ' current' : '') + '" onclick="event.stopPropagation(); navigateTo(\'' + escapePath(accum) + '\')">' +
+                    escapeHtml(parts[i]) + '</span>';
+        }
+        container.innerHTML = html;
         return;
     }
 
@@ -2151,6 +2188,55 @@ async function loadFiles(targetPath, retryCount = 0) {
             return;
         }
 
+        const cloudInfo = parseCloudUrl(targetPath);
+        if (cloudInfo) {
+            const res = await fetch(`/api/cloud/list?connectionId=${encodeURIComponent(cloudInfo.connectionId)}&path=${encodeURIComponent(cloudInfo.remotePath)}`);
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                showToast(errData.error || 'Cloud Storage: Access denied or folder not found', '⚠️');
+                if (filesContainer) {
+                    filesContainer.innerHTML = `
+                        <div class="empty-state-card" style="grid-column: 1 / -1; padding: 48px 20px; text-align: center;">
+                            <div style="font-size: 32px; margin-bottom: 12px;">☁️</div>
+                            <div style="font-size: 15px; font-weight: 600; color: #f1f2f6; margin-bottom: 6px;">Cloud Storage Folder Inaccessible</div>
+                            <div style="font-size: 12px; color: #888899; margin-bottom: 18px; max-width: 360px; margin-left: auto; margin-right: auto;">${escapeHtml(errData.error || 'Remote path could not be found or credentials expired.')}</div>
+                            <div style="display: flex; gap: 8px; justify-content: center;">
+                                <button class="btn-action-primary" onclick="loadFiles('${escapeHtml(targetPath)}')" style="padding: 6px 16px; border-radius: 6px; cursor: pointer; background: #6c5ce7; color: white; border: none;">🔄 Retry</button>
+                                <button class="btn-action-secondary" onclick="goHome()" style="padding: 6px 16px; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.1); color: #f1f2f6; border: 1px solid rgba(255,255,255,0.15);">🏠 Go to Home</button>
+                            </div>
+                        </div>`;
+                }
+                return;
+            }
+            const cloudData = await res.json();
+            currentPath = `cloud://${cloudInfo.connectionId}${cloudData.currentPath.startsWith('/') ? cloudData.currentPath : '/' + cloudData.currentPath}`;
+            isWindows = false;
+            document.getElementById('path').value = currentPath;
+            renderBreadcrumbs();
+            updateActiveTabAfterLoad(currentPath);
+
+            currentItems = (cloudData.items || []).map(item => ({
+                ...item,
+                isCloud: true,
+                connectionId: cloudInfo.connectionId,
+                path: `cloud://${cloudInfo.connectionId}${item.remotePath || (cloudData.currentPath === '/' ? '/' + item.name : cloudData.currentPath + '/' + item.name)}`
+            }));
+            selectedItem = null;
+            selectedItems = [];
+            lastSelectedName = null;
+
+            document.getElementById('search').value = '';
+            applySortAndRender();
+
+            document.getElementById('preview-content').innerHTML = 'Select a cloud file to preview.<br><br>💡 Tap <strong>Spacebar</strong> for Quick Look or double-click to view details!';
+            const previewH2 = document.querySelector('#preview-pane h2');
+            if (previewH2) previewH2.innerText = 'Cloud Storage';
+
+            renderBookmarks();
+            renderCloudSidebar();
+            return;
+        }
+
         const res = await fetch('/api/files/list?path=' + encodeURIComponent(targetPath || '.'));
         if (!res.ok) {
             // If initial targetPath failed, and it was not Home, automatically fall back to Home!
@@ -2495,10 +2581,10 @@ function handleDoubleClick(name, isDir) {
     if (isDir) {
         navigateTo(nextPath);
     } else {
-        if (nextPath.startsWith('sftp://')) {
+        if (nextPath.startsWith('sftp://') || nextPath.startsWith('cloud://')) {
             activePreviewPath = nextPath;
             activePreviewIsDir = false;
-            loadInlineEditor();
+            toggleInlineEditor();
         } else {
             smartOpenFile(nextPath);
         }
@@ -3565,12 +3651,17 @@ async function renderFilePreview(targetElem, fullPath, name, isDir, isQuickLook 
 
     const uniqueId = 'preview-' + Math.random().toString(36).substring(2, 9);
     const sftpInfo = parseSftpUrl(fullPath);
+    const cloudInfo = parseCloudUrl(fullPath);
     const rawUrl = sftpInfo
         ? `/api/sftp/download?connectionId=${encodeURIComponent(sftpInfo.connectionId)}&path=${encodeURIComponent(sftpInfo.remotePath)}`
-        : ('/api/files/raw?path=' + encodeURIComponent(fullPath));
+        : (cloudInfo
+            ? `/api/cloud/download?connectionId=${encodeURIComponent(cloudInfo.connectionId)}&path=${encodeURIComponent(cloudInfo.remotePath)}`
+            : ('/api/files/raw?path=' + encodeURIComponent(fullPath)));
     const readUrl = sftpInfo
         ? `/api/sftp/read?connectionId=${encodeURIComponent(sftpInfo.connectionId)}&path=${encodeURIComponent(sftpInfo.remotePath)}`
-        : ('/api/files/read?path=' + encodeURIComponent(fullPath));
+        : (cloudInfo
+            ? `/api/cloud/read?connectionId=${encodeURIComponent(cloudInfo.connectionId)}&path=${encodeURIComponent(cloudInfo.remotePath)}`
+            : ('/api/files/read?path=' + encodeURIComponent(fullPath)));
 
     // 1. IMAGES
     if (imgExts.includes(ext)) {
@@ -4995,6 +5086,23 @@ async function initIdeEnvironment() {
 let sftpActiveSessions = [];
 let sftpSavedProfiles = [];
 let sftpCurrentAuthMode = 'password';
+
+let cloudActiveSessions = [];
+let cloudSavedProfiles = [];
+let currentRemoteCloudProvider = 'sftp';
+
+function parseCloudUrl(url) {
+    if (!url || typeof url !== 'string' || !url.startsWith('cloud://')) return null;
+    const withoutPrefix = url.substring(8);
+    const slashIdx = withoutPrefix.indexOf('/');
+    if (slashIdx === -1) {
+        return { connectionId: withoutPrefix, remotePath: '/' };
+    }
+    return {
+        connectionId: withoutPrefix.substring(0, slashIdx),
+        remotePath: withoutPrefix.substring(slashIdx) || '/'
+    };
+}
 
 function parseSftpUrl(url) {
     if (!url || typeof url !== 'string' || !url.startsWith('sftp://')) return null;
@@ -6916,10 +7024,19 @@ async function toggleInlineEditor() {
         container.innerHTML = '<div style="padding: 30px; text-align: center;"><div class="spinner" style="margin: 0 auto 10px;"></div>Opening in-line editor...</div>';
         let text = '';
         const sftpInfo = parseSftpUrl(activePreviewPath);
+        const cloudInfo = parseCloudUrl(activePreviewPath);
         if (sftpInfo) {
             let res = await fetch(`/api/sftp/read?connectionId=${encodeURIComponent(sftpInfo.connectionId)}&path=${encodeURIComponent(sftpInfo.remotePath)}`).catch(() => null);
             if (!res || !res.ok) {
                 showToast('Unable to open remote file for editing', '⚠️');
+                handlePreview(selectedItem ? selectedItem.name : activePreviewPath, false);
+                return;
+            }
+            text = await res.text();
+        } else if (cloudInfo) {
+            let res = await fetch(`/api/cloud/read?connectionId=${encodeURIComponent(cloudInfo.connectionId)}&path=${encodeURIComponent(cloudInfo.remotePath)}`).catch(() => null);
+            if (!res || !res.ok) {
+                showToast('Unable to open cloud file for editing', '⚠️');
                 handlePreview(selectedItem ? selectedItem.name : activePreviewPath, false);
                 return;
             }
@@ -6995,6 +7112,7 @@ async function saveInlineEditor() {
     const fileName = activePreviewPath.split(sep).pop() || activePreviewPath;
 
     const sftpInfo = parseSftpUrl(activePreviewPath);
+    const cloudInfo = parseCloudUrl(activePreviewPath);
     if (sftpInfo) {
         try {
             const payload = JSON.stringify({
@@ -7020,6 +7138,37 @@ async function saveInlineEditor() {
                 updatePreviewActionButtons(activePreviewPath, false);
             } else {
                 showToast('Failed to save file to SFTP', '❌');
+            }
+        } catch (err) {
+            console.error(err);
+            showToast('Error saving file: ' + err.message, '❌');
+        }
+        return;
+    } else if (cloudInfo) {
+        try {
+            const payload = JSON.stringify({
+                connectionId: cloudInfo.connectionId,
+                remotePath: cloudInfo.remotePath,
+                content: newContent
+            });
+            const res = await fetch('/api/cloud/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: payload
+            });
+            if (res.ok) {
+                const lines = newContent.split('\n').length;
+                showToast('Saved "' + fileName + '" to Cloud Storage (' + lines + ' lines) 💾', '✅');
+                isInlineEditorActive = false;
+                inlineOriginalContent = newContent;
+                if (selectedItem) {
+                    handlePreview(selectedItem.name, false);
+                } else {
+                    renderFilePreview(document.getElementById('preview-content'), activePreviewPath, fileName, false, false);
+                }
+                updatePreviewActionButtons(activePreviewPath, false);
+            } else {
+                showToast('Failed to save file to Cloud Storage', '❌');
             }
         } catch (err) {
             console.error(err);

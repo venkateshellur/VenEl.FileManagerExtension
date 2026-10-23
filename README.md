@@ -39,8 +39,9 @@ Standard IDE file trees are built for project codebases, but they are clunky and
 | Feature | Description |
 | :--- | :--- |
 | **🌐 Remote SFTP & SSH Explorer** | Seamless remote file browsing, inline remote editing, and transfer progress monitoring. |
-| **⚡ Commander Dual-Pane** | Norton/Total Commander split view for fast side-by-side folder management. |
-| **ℹ️ About & System Diagnostics** | Dedicated modal showing running version, engine status pill, and 1-click clipboard diagnostics. |
+| **☁️ Cloud Storage (AWS S3 & Azure Blob)** | Browse, upload, download, and manage objects directly in AWS S3 (and S3-compatible like MinIO/Wasabi) and Azure Blob Storage. |
+| **⚡ Commander Dual-Pane** | Norton/Total Commander split view for fast side-by-side folder management with keyboard shortcuts. |
+| **ℹ️ About & System Diagnostics** | Dedicated modal showing running extension version, active runtime engine, host IDE, OS, and 1-click clipboard diagnostics. |
 | **Unified View Options** | Switch instantly between Details, List, Grid, Large Icons, and Small Icons. |
 | **Machine Agent Search** | System-level indexed search via Spotlight/PowerShell with instant folder jump. |
 | **⚖️ Visual File Diff** | Side-by-side split & unified line diffs between any two files or against Git HEAD. |
@@ -48,14 +49,14 @@ Standard IDE file trees are built for project codebases, but they are clunky and
 | **🔍 Decompiler Search** | Real-time AST symbol search with exact line jump across .NET & Java binaries. |
 | **🏷️ Smart Batch Renamer** | Find & replace, prefix/suffix, numbering, and case conversions with live preview. |
 | **🗜️ Zip & Archive Tools** | 1-click compress to `.zip` and extraction for `.zip`, `.tar.gz`, `.tgz`, and `.tar`. |
-| **🏢 Cloud Drive & OneDrive Support**| Native support for Windows OneDrive Commercial / Personal redirected special folders. |
+| **🏢 Windows OneDrive & Known Folders** | Seamless resolution for corporate OneDrive Commercial & Personal redirected Desktop/Documents. |
 | **🗑️ Safe Move to Trash** | All deletes safely move items to OS Trash / Recycle Bin with recovery support. |
 | **Draggable Splitters** | Interactive splitters for custom sidebar and preview panel widths with persistence. |
-| **Drive & Root Jump** | 1-click access to all physical drives, external volumes, and special OS folders. |
+| **Drive & Root Jump** | 1-click access to all physical drives, external volumes, and special OS folders (Downloads, Documents, Desktop, Home). |
 | **Folder Hierarchy** | Deep breadcrumb trail in the address bar dropdown for instant parent jumping. |
 | **Rich Previews** | Live PDF canvas viewer, Excel workbooks, Word docs, CSV tables, images, and code. |
-| **🎨 Dark & Light Themes** | Dedicated high-contrast color schemes matching both custom and editor native aesthetics. |
-| **⚡ Multi-Tier Runtime** | Native .NET 8 / 9 / 10 Kestrel engine with automatic zero-dependency Node.js fallback. |
+| **🎨 Dark & Light Themes** | Dedicated high-contrast color schemes matching both custom and editor native aesthetics with clear readability. |
+| **⚡ Multi-Tier Runtime (.NET 8/9/10 + Node)** | Native .NET Kestrel engine with `RollForward: LatestMajor` support (.NET 8, 9, 10+) and automatic zero-dependency Node.js fallback. |
 
 ---
 

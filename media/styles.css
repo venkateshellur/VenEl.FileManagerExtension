@@ -5636,4 +5636,46 @@ body.theme-light .commander-crumb.current {
     color: #74b9ff;
 }
 
+/* ☁️ Cloud Storage Badges & Remote Provider Styles */
+.remote-provider-panel {
+    display: flex;
+    flex-direction: column;
+    animation: fadeInModal 0.15s ease-in-out;
+}
+
+.cloud-provider-badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    display: inline-block;
+}
+
+.cloud-badge-s3 {
+    background: rgba(255, 153, 0, 0.2);
+    color: #ff9900;
+    border: 1px solid rgba(255, 153, 0, 0.4);
+}
+
+.cloud-badge-minio {
+    background: rgba(199, 44, 65, 0.2);
+    color: #ff6b81;
+    border: 1px solid rgba(199, 44, 65, 0.4);
+}
+
+.cloud-badge-azure {
+    background: rgba(0, 120, 212, 0.2);
+    color: #0078d4;
+    border: 1px solid rgba(0, 120, 212, 0.4);
+}
+
+.cloud-badge-r2 {
+    background: rgba(246, 130, 31, 0.2);
+    color: #f6821f;
+    border: 1px solid rgba(246, 130, 31, 0.4);
+}
+
+
 

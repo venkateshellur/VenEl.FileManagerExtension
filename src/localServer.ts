@@ -241,6 +241,13 @@ export class LocalServer {
                         return;
                     }
 
+                    // 2d. Cloud Storage (S3 / Azure Blob) Proxy to Kestrel
+                    if (pathname.startsWith('/api/cloud/')) {
+                        try { await KestrelLauncher.ensureRunning(); } catch {}
+                        await LocalServer.forwardToKestrel(req, res, reqUrl);
+                        return;
+                    }
+
                     // 3. Directory Listing
                     if (pathname === '/api/files/list') {
                         let targetPath = reqUrl.searchParams.get('path');
