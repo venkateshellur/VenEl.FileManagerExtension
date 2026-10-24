@@ -1,0 +1,944 @@
+/* ⚖️ VISUAL DIFF & COMPARISON MODAL STYLES                   */
+/* ══════════════════════════════════════════════════════════ */
+.diff-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(10px);
+    z-index: 9500;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+}
+.diff-modal.active {
+    display: flex;
+}
+.diff-card {
+    width: 95vw;
+    max-width: 1300px;
+    height: 90vh;
+    max-height: 900px;
+    background: #14141a;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+.diff-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    background: #0f0f14;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+}
+.diff-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.diff-title {
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #fff;
+}
+.diff-file-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    color: #dfe6e9;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.diff-badge-add {
+    background: rgba(46, 204, 113, 0.18);
+    color: #2ecc71;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.diff-badge-del {
+    background: rgba(235, 77, 75, 0.18);
+    color: #eb4d4b;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.diff-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 18px;
+    background: rgba(0, 0, 0, 0.25);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+    gap: 12px;
+}
+.diff-mode-toggle {
+    display: flex;
+    gap: 2px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 2px;
+}
+.diff-mode-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.diff-mode-btn.active {
+    background: #6c5ce7;
+    color: #fff;
+    font-weight: 600;
+}
+.diff-body-container {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    background: #111116;
+    position: relative;
+}
+.diff-split-view {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+.diff-pane {
+    flex: 1;
+    overflow: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    background: #111116;
+}
+.diff-pane:first-child {
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+.diff-pane-header {
+    position: sticky;
+    top: 0;
+    background: #16161e;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #a29bfe;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.diff-line-row {
+    display: flex;
+    min-width: 100%;
+    width: max-content;
+    padding: 0 4px;
+    user-select: text;
+}
+.diff-line-row.added {
+    background: rgba(46, 204, 113, 0.14);
+    border-left: 3px solid #2ecc71;
+}
+.diff-line-row.removed {
+    background: rgba(235, 77, 75, 0.14);
+    border-left: 3px solid #eb4d4b;
+}
+.diff-line-row.empty {
+    background: rgba(255, 255, 255, 0.015);
+}
+.diff-num-col {
+    width: 38px;
+    min-width: 38px;
+    text-align: right;
+    padding-right: 8px;
+    color: #4b4b58;
+    user-select: none;
+    font-size: 10px;
+}
+.diff-text-col {
+    white-space: pre;
+    tab-size: 4;
+    flex: 1;
+    color: #dfe6e9;
+    padding-left: 6px;
+}
+.diff-line-row.added .diff-text-col {
+    color: #a8e6cf;
+}
+.diff-line-row.removed .diff-text-col {
+    color: #ff8b8b;
+}
+
+/* ══════════════════════════════════════════════════════════ */
+
+/* ❓ HELP & FEATURE GUIDE MODAL STYLES                      */
+/* ══════════════════════════════════════════════════════════ */
+.help-tabs-nav {
+    display: flex;
+    gap: 6px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+    overflow-x: auto;
+    flex-shrink: 0;
+}
+.help-tab-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+.help-tab-btn:hover {
+    background: var(--hover-bg);
+    color: var(--text-main);
+}
+.help-tab-btn.active {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+}
+.help-content-container {
+    overflow-y: auto;
+    max-height: 58vh;
+    padding-right: 6px;
+    display: flex;
+    flex-direction: column;
+}
+.help-pane {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+}
+.help-pane.active {
+    display: flex;
+}
+.help-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.help-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    vertical-align: middle;
+}
+.help-table tr:hover td {
+    background: rgba(255, 255, 255, 0.03);
+}
+.help-table td:first-child {
+    width: 40%;
+    white-space: nowrap;
+}
+.help-card {
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.help-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.help-card-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+kbd {
+    background: #23232c;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.35);
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    color: #ffffff;
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    padding: 2px 6px;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+}
+.status-help-hint {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--text-muted);
+    font-size: 11px;
+    padding: 2px 9px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.status-help-hint:hover {
+    border-color: var(--accent);
+    color: #fff;
+    background: rgba(108, 92, 231, 0.2);
+    transform: scale(1.02);
+}
+
+/* Toast Notifications */
+.toast {
+    position: fixed;
+    bottom: 35px;
+    right: 25px;
+    background: #1c1c24;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 13px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 9000;
+    animation: slideUp 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+@keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* Bottom Status Bar */
+.status-bar {
+    height: 26px;
+    min-height: 26px;
+    max-height: 26px;
+    flex-shrink: 0;
+    background: var(--status-bar-bg);
+    border-top: 1px solid var(--border-color);
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-muted);
+    box-sizing: border-box;
+}
+
+/* Git Status Indicator & Badges */
+.status-git-branch {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 7px;
+    border-radius: 4px;
+    background: rgba(108, 92, 231, 0.15);
+    border: 1px solid rgba(108, 92, 231, 0.3);
+    color: #a29bfe;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+.status-git-branch:hover {
+    background: rgba(108, 92, 231, 0.25);
+    border-color: #6c5ce7;
+    color: #fff;
+}
+/* 🌿 Git Status Badges & Card Indicators */
+.git-card-pill {
+    display: none;
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 8.5px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 2px 4.5px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    z-index: 2;
+    pointer-events: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+#files.grid-view .git-card-pill,
+#files.grid-small-view .git-card-pill,
+#files.large-view .git-card-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+#files.grid-small-view .git-card-pill {
+    top: 3px;
+    right: 3px;
+    font-size: 7.5px;
+    padding: 1.5px 3.5px;
+}
+.git-card-pill.git-pill-m {
+    background: rgba(243, 156, 18, 0.22);
+    color: var(--git-m-color, #f39c12);
+    border: 1px solid rgba(243, 156, 18, 0.55);
+}
+.git-card-pill.git-pill-u {
+    background: rgba(46, 204, 113, 0.22);
+    color: var(--git-u-color, #2ecc71);
+    border: 1px solid rgba(46, 204, 113, 0.55);
+}
+.git-card-pill.git-pill-a {
+    background: rgba(52, 152, 219, 0.22);
+    color: var(--git-a-color, #3498db);
+    border: 1px solid rgba(52, 152, 219, 0.55);
+}
+.git-card-pill.git-pill-d {
+    background: rgba(231, 76, 60, 0.22);
+    color: var(--git-d-color, #e74c3c);
+    border: 1px solid rgba(231, 76, 60, 0.55);
+}
+.git-card-pill.git-pill-r {
+    background: rgba(155, 89, 182, 0.22);
+    color: var(--git-r-color, #9b59b6);
+    border: 1px solid rgba(155, 89, 182, 0.55);
+}
+
+/* File name colors based on Git status */
+.item.git-status-m .item-name,
+.commander-item.git-status-m .commander-item-name {
+    color: var(--git-m-color, #f39c12) !important;
+    font-weight: 500;
+}
+.item.git-status-u .item-name,
+.commander-item.git-status-u .commander-item-name {
+    color: var(--git-u-color, #2ecc71) !important;
+    font-weight: 500;
+}
+.item.git-status-a .item-name,
+.commander-item.git-status-a .commander-item-name {
+    color: var(--git-a-color, #3498db) !important;
+    font-weight: 500;
+}
+.item.git-status-d .item-name,
+.commander-item.git-status-d .commander-item-name {
+    color: var(--git-d-color, #e74c3c) !important;
+    text-decoration: line-through;
+    opacity: 0.8;
+}
+.item.git-status-r .item-name,
+.commander-item.git-status-r .commander-item-name {
+    color: var(--git-r-color, #9b59b6) !important;
+}
+
+/* Subtle card border & glow in Grid / Large / Small Grid views */
+#files.grid-view .item.git-status-m,
+#files.grid-small-view .item.git-status-m,
+#files.large-view .item.git-status-m {
+    border-color: rgba(243, 156, 18, 0.38);
+}
+#files.grid-view .item.git-status-m:hover,
+#files.grid-small-view .item.git-status-m:hover,
+#files.large-view .item.git-status-m:hover {
+    border-color: rgba(243, 156, 18, 0.7);
+    box-shadow: 0 2px 10px rgba(243, 156, 18, 0.18);
+}
+#files.grid-view .item.git-status-u,
+#files.grid-small-view .item.git-status-u,
+#files.large-view .item.git-status-u {
+    border-color: rgba(46, 204, 113, 0.38);
+}
+#files.grid-view .item.git-status-u:hover,
+#files.grid-small-view .item.git-status-u:hover,
+#files.large-view .item.git-status-u:hover {
+    border-color: rgba(46, 204, 113, 0.7);
+    box-shadow: 0 2px 10px rgba(46, 204, 113, 0.18);
+}
+#files.grid-view .item.git-status-a,
+#files.grid-small-view .item.git-status-a,
+#files.large-view .item.git-status-a {
+    border-color: rgba(52, 152, 219, 0.38);
+}
+#files.grid-view .item.git-status-a:hover,
+#files.grid-small-view .item.git-status-a:hover,
+#files.large-view .item.git-status-a:hover {
+    border-color: rgba(52, 152, 219, 0.7);
+    box-shadow: 0 2px 10px rgba(52, 152, 219, 0.18);
+}
+#files.grid-view .item.git-status-d,
+#files.grid-small-view .item.git-status-d,
+#files.large-view .item.git-status-d {
+    border-color: rgba(231, 76, 60, 0.38);
+}
+
+/* Subtle left border stripe in List / Details / Compact / Commander views */
+#files.list-view .item.git-status-m,
+#files.details-view .item.git-status-m,
+#files.compact-view .item.git-status-m,
+.commander-item.git-status-m {
+    border-left: 3px solid var(--git-m-color, #f39c12) !important;
+}
+#files.list-view .item.git-status-u,
+#files.details-view .item.git-status-u,
+#files.compact-view .item.git-status-u,
+.commander-item.git-status-u {
+    border-left: 3px solid var(--git-u-color, #2ecc71) !important;
+}
+#files.list-view .item.git-status-a,
+#files.details-view .item.git-status-a,
+#files.compact-view .item.git-status-a,
+.commander-item.git-status-a {
+    border-left: 3px solid var(--git-a-color, #3498db) !important;
+}
+#files.list-view .item.git-status-d,
+#files.details-view .item.git-status-d,
+#files.compact-view .item.git-status-d,
+.commander-item.git-status-d {
+    border-left: 3px solid var(--git-d-color, #e74c3c) !important;
+}
+
+/* Inline badges inside item-name-row (used in List, Details, Compact, and Commander views) */
+.git-badge {
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 3px;
+    margin-left: 6px;
+    vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+}
+.git-badge.git-m { background: rgba(243, 156, 18, 0.2); color: var(--git-m-color, #f39c12); border: 1px solid rgba(243, 156, 18, 0.4); }
+.git-badge.git-u { background: rgba(46, 204, 113, 0.2); color: var(--git-u-color, #2ecc71); border: 1px solid rgba(46, 204, 113, 0.4); }
+.git-badge.git-a { background: rgba(52, 152, 219, 0.2); color: var(--git-a-color, #3498db); border: 1px solid rgba(52, 152, 219, 0.4); }
+.git-badge.git-d { background: rgba(231, 76, 60, 0.2); color: var(--git-d-color, #e74c3c); border: 1px solid rgba(231, 76, 60, 0.4); }
+.git-badge.git-r { background: rgba(155, 89, 182, 0.2); color: var(--git-r-color, #9b59b6); border: 1px solid rgba(155, 89, 182, 0.4); }
+
+/* Hide inline badge in grid views because card pill is shown */
+#files.grid-view .item-name-row .git-badge,
+#files.grid-small-view .item-name-row .git-badge,
+#files.large-view .item-name-row .git-badge {
+    display: none;
+}
+
+/* Bookmarks Quick-Access Bar (Saved ~32px space: Pinned items now live inside Address Bar ⭐ and Path Dropdown) */
+.bookmarks-bar {
+    display: none !important;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 16px;
+    background: var(--sidebar-bg);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 11px;
+    box-sizing: border-box;
+    min-height: 32px;
+}
+.bookmarks-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-muted);
+    font-weight: 600;
+    white-space: nowrap;
+    user-select: none;
+}
+.bookmarks-chips {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.bookmarks-chips::-webkit-scrollbar { display: none; }
+.bookmark-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    cursor: pointer;
+    white-space: nowrap;
+    font-size: 11px;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+.bookmark-chip:hover {
+    background: rgba(108, 92, 231, 0.2);
+    border-color: #6c5ce7;
+    color: #fff;
+}
+.bookmark-chip.active {
+    background: rgba(108, 92, 231, 0.25);
+    border-color: #6c5ce7;
+    color: #a29bfe;
+    font-weight: 600;
+}
+.bookmark-chip .remove-pin {
+    opacity: 0.45;
+    font-size: 10px;
+    margin-left: 2px;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+.bookmark-chip .remove-pin:hover {
+    opacity: 1;
+    color: #e74c3c;
+    background: rgba(231, 76, 60, 0.2);
+}
+.btn-pin-current {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px dashed var(--border-color);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 10px;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+.btn-pin-current:hover {
+    border-color: #f1c40f;
+    color: #f1c40f;
+    background: rgba(241, 196, 15, 0.1);
+}
+.btn-pin-current.pinned {
+    border-style: solid;
+    border-color: #f1c40f;
+    color: #f1c40f;
+    background: rgba(241, 196, 15, 0.15);
+    font-weight: 600;
+}
+
+/* ══════════════════════════════════════════════════════════ */
+
+/* 🌐 SFTP REMOTE INTEGRATION STYLES                          */
+/* ══════════════════════════════════════════════════════════ */
+
+.sftp-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 8px;
+    background: rgba(108, 92, 231, 0.15);
+    border: 1px solid rgba(108, 92, 231, 0.4);
+    border-radius: 6px;
+    color: var(--text-main);
+    transition: all 0.15s ease;
+}
+
+.sftp-toolbar-btn:hover {
+    background: rgba(108, 92, 231, 0.3);
+    border-color: rgba(108, 92, 231, 0.6);
+    transform: translateY(-1px);
+}
+
+.cloud-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 8px;
+    background: rgba(9, 132, 227, 0.15);
+    border: 1px solid rgba(9, 132, 227, 0.4);
+    border-radius: 6px;
+    color: var(--text-main);
+    transition: all 0.15s ease;
+}
+
+.cloud-toolbar-btn:hover {
+    background: rgba(9, 132, 227, 0.3);
+    border-color: rgba(9, 132, 227, 0.6);
+    transform: translateY(-1px);
+}
+
+/* Sidebar Connections List */
+.sftp-connections-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.sftp-conn-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: var(--card-bg, rgba(255, 255, 255, 0.03));
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.sftp-conn-item:hover {
+    background: var(--hover-bg);
+    border-color: var(--active-border);
+    transform: translateX(2px);
+}
+
+.sftp-conn-item.active {
+    background: rgba(46, 204, 113, 0.1);
+    border-color: rgba(46, 204, 113, 0.4);
+}
+
+.sftp-conn-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+    flex: 1;
+}
+
+.sftp-conn-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sftp-conn-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #2ecc71;
+    box-shadow: 0 0 5px #2ecc71;
+    flex-shrink: 0;
+}
+
+.sftp-conn-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sftp-conn-sub {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-left: 13px;
+}
+
+.sftp-conn-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    opacity: 0.8;
+}
+
+.sftp-conn-item:hover .sftp-conn-actions {
+    opacity: 1;
+}
+
+.sftp-icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 3px 5px;
+    border-radius: 4px;
+    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.sftp-icon-btn:hover {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.sftp-icon-btn.danger:hover {
+    color: #e74c3c;
+    background: rgba(231, 76, 60, 0.15);
+}
+
+/* SFTP Modal Styling */
+.sftp-modal-box {
+    max-width: 480px;
+    width: 92%;
+    border-radius: 10px;
+    background: var(--modal-bg, var(--panel-bg));
+    border: 1px solid var(--border-color);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    padding: 18px 20px;
+    box-sizing: border-box;
+}
+
+.sftp-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sftp-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.sftp-required {
+    color: #ff7675;
+}
+
+.sftp-optional {
+    font-size: 10.5px;
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.sftp-auth-tabs {
+    display: flex;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 3px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.sftp-auth-tab {
+    flex: 1;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.sftp-auth-tab.active {
+    background: var(--active-bg, rgba(108, 92, 231, 0.3));
+    color: var(--text-main);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.sftp-browse-btn {
+    font-size: 11px;
+    padding: 2px 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-main);
+    cursor: pointer;
+}
+
+.sftp-browse-btn:hover {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.sftp-alert-success {
+    background: rgba(46, 204, 113, 0.15);
+    border: 1px solid rgba(46, 204, 113, 0.4);
+    color: #2ecc71;
+}
+
+.sftp-alert-error {
+    background: rgba(231, 76, 60, 0.15);
+    border: 1px solid rgba(231, 76, 60, 0.4);
+    color: #ff7675;
+}
+
+.sftp-alert-info {
+    background: rgba(52, 152, 219, 0.15);
+    border: 1px solid rgba(52, 152, 219, 0.4);
+    color: #74b9ff;
+}
+
+/* ☁️ Cloud Storage Badges & Remote Provider Styles */
+.remote-provider-panel {
+    display: flex;
+    flex-direction: column;
+    animation: fadeInModal 0.15s ease-in-out;
+}
+
+.cloud-provider-badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    display: inline-block;
+}
+
+.cloud-badge-s3 {
+    background: rgba(255, 153, 0, 0.2);
+    color: #ff9900;
+    border: 1px solid rgba(255, 153, 0, 0.4);
+}
+
+.cloud-badge-minio {
+    background: rgba(199, 44, 65, 0.2);
+    color: #ff6b81;
+    border: 1px solid rgba(199, 44, 65, 0.4);
+}
+
+.cloud-badge-azure {
+    background: rgba(0, 120, 212, 0.2);
+    color: #0078d4;
+    border: 1px solid rgba(0, 120, 212, 0.4);
+}
+
+.cloud-badge-r2 {
+    background: rgba(246, 130, 31, 0.2);
+    color: #f6821f;
+    border: 1px solid rgba(246, 130, 31, 0.4);
+}
+
+
+

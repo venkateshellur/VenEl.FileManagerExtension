@@ -38,6 +38,8 @@ Standard IDE file trees are built for project codebases, but they are clunky and
 
 | Feature | Description |
 | :--- | :--- |
+| **🧩 Modular Micro-UI Architecture** | Domain-bounded micro modules (`media/js/` and `media/css/`) with 100% test coverage and clean separation of concerns. |
+| **📂 Native OS Grid View Folders** | macOS Finder & Windows Fluent style folder vector graphics with transparent card layouts and OS-native selection pills. |
 | **🌐 Remote SFTP & SSH Explorer** | Seamless remote file browsing, inline remote editing, and transfer progress monitoring. |
 | **☁️ Cloud Storage (AWS S3 & Azure Blob)** | Browse, upload, download, and manage objects directly in AWS S3 (and S3-compatible like MinIO/Wasabi) and Azure Blob Storage. |
 | **⚡ Commander Dual-Pane** | Norton/Total Commander split view for fast side-by-side folder management with keyboard shortcuts. |

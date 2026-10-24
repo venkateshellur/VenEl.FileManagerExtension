@@ -1,3 +1,7 @@
+/**
+ * VenEl File Manager - Core State & Utilities
+ * Manages application state, safeStorage, and formatting helpers.
+ */
 let currentPath = '.';
 let currentItems = [];
 let displayedItems = [];
@@ -229,6 +233,63 @@ function updateViewMenuChecks() {
 }
 
 // ══════════════════════════════════════════════════════════
+
+// 🛠️ UTILITIES
+// ══════════════════════════════════════════════════════════
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+        const d = new Date(dateStr);
+        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    } catch {
+        return dateStr;
+    }
+}
+
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function escapePath(path) {
+    if (!path) return '';
+    return path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function showToast(message, icon = '💡') {
+    const existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = '<span style="font-size: 16px;">' + icon + '</span><span>' + escapeHtml(message) + '</span>';
+    document.body.appendChild(toast);
+
+    setTimeout(function() {
+        toast.style.transition = 'opacity 0.25s, transform 0.25s';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(15px)';
+        setTimeout(function() { toast.remove(); }, 250);
+    }, 2500);
+}
+
+/**
+ * VenEl File Manager - Theme Engine
+ * Manages IDE theme detection, dark/light modes, and custom palette switching.
+ */
 // 🎨 DYNAMIC IDE & SYSTEM THEME ENGINE
 // ══════════════════════════════════════════════════════════
 const _urlParams = (typeof window !== 'undefined' && window.location && window.location.search) ? new URLSearchParams(window.location.search) : null;
@@ -497,1024 +558,11 @@ function triggerSelectedExport() {
     }
 }
 // 🗂️ MULTI-TAB BROWSING STATE & MANAGEMENT
-// ══════════════════════════════════════════════════════════
-let tabs = [];
-let activeTabId = null;
-let contextMenuTabId = null;
 
-function getTabTitleForPath(p) {
-    if (!p || p === '.') return 'Folder';
-    const clean = p.replace(/[\\/]+$/, '');
-    if (!clean) return p || 'Root';
-    const sep = clean.includes('\\') ? '\\' : '/';
-    const parts = clean.split(sep).filter(Boolean);
-    return parts.length > 0 ? parts[parts.length - 1] : clean;
-}
-
-function renderTabs() {
-    const container = document.getElementById('tabs-container');
-    if (!container) return;
-
-    let html = '';
-    for (let i = 0; i < tabs.length; i++) {
-        const tab = tabs[i];
-        const isActive = (tab.id === activeTabId);
-        const title = tab.title || getTabTitleForPath(tab.path);
-        const fullPath = tab.path || '';
-
-        let icon = '📁';
-        if (fullPath === '/' || /^[a-zA-Z]:\\?$/.test(fullPath)) icon = isWindows ? '💻' : '📁';
-        else if (systemRoots.some(function(r) { return r.type === 'Home' && r.path === fullPath; })) icon = '🏠';
-
-        html += '<div class="tab-item' + (isActive ? ' active' : '') + '" ' +
-                'data-tab-id="' + tab.id + '" ' +
-                'onclick="switchToTab(\'' + tab.id + '\')" ' +
-                'onauxclick="handleTabAuxClick(event, \'' + tab.id + '\')" ' +
-                'oncontextmenu="handleTabContextMenu(event, \'' + tab.id + '\')" ' +
-                'title="' + escapeHtml(fullPath) + (i < 9 ? ' (Alt+' + (i + 1) + ')' : '') + '">' +
-                '<span class="tab-icon">' + icon + '</span>' +
-                '<span class="tab-title">' + escapeHtml(title) + '</span>' +
-                (tabs.length > 1 ? '<span class="tab-close" onclick="closeTab(\'' + tab.id + '\', event)" title="Close tab (Ctrl+W)">✕</span>' : '') +
-                '</div>';
-    }
-    container.innerHTML = html;
-}
-
-function switchToTab(tabId) {
-    if (activeTabId === tabId) return;
-
-    // 1. Save current active tab state
-    const currentTab = tabs.find(function(t) { return t.id === activeTabId; });
-    if (currentTab) {
-        currentTab.history = [...navHistory];
-        currentTab.historyIndex = navHistoryIndex;
-        currentTab.searchQuery = document.getElementById('search') ? document.getElementById('search').value : '';
-        currentTab.sort = { ...currentSort };
-    }
-
-    // 2. Set new active tab
-    activeTabId = tabId;
-    const nextTab = tabs.find(function(t) { return t.id === tabId; });
-    if (!nextTab) return;
-
-    // 3. Restore target tab state
-    navHistory = Array.isArray(nextTab.history) && nextTab.history.length > 0 ? [...nextTab.history] : [nextTab.path];
-    navHistoryIndex = typeof nextTab.historyIndex === 'number' ? nextTab.historyIndex : navHistory.length - 1;
-    updateNavButtons();
-
-    if (nextTab.sort) {
-        currentSort = { ...nextTab.sort };
-    }
-
-    const searchInput = document.getElementById('search');
-    if (searchInput) {
-        searchInput.value = nextTab.searchQuery || '';
-        const clearBtn = document.getElementById('search-clear-btn');
-        if (clearBtn) clearBtn.style.display = searchInput.value ? 'block' : 'none';
-    }
-
-    renderTabs();
-    saveTabsState();
-
-    // 4. Load directory for this tab
-    loadFiles(nextTab.path);
-}
-
-function addNewTab(initialPath) {
-    const targetPath = initialPath || currentPath || '.';
-    const newId = 'tab_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
-    const newTab = {
-        id: newId,
-        title: getTabTitleForPath(targetPath),
-        path: targetPath,
-        history: [targetPath],
-        historyIndex: 0,
-        sort: { field: 'name', asc: true },
-        searchQuery: ''
-    };
-    tabs.push(newTab);
-    renderTabs();
-    switchToTab(newId);
-
-    const container = document.getElementById('tabs-container');
-    if (container) {
-        setTimeout(function() { container.scrollLeft = container.scrollWidth; }, 40);
-    }
-}
-
-function closeTab(tabId, e) {
-    if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-    if (tabs.length <= 1) {
-        showToast('Cannot close the only open tab', 'ℹ️');
-        return;
-    }
-    const idx = tabs.findIndex(function(t) { return t.id === tabId; });
-    if (idx === -1) return;
-
-    const wasActive = (activeTabId === tabId);
-    tabs.splice(idx, 1);
-
-    if (wasActive) {
-        const nextIdx = Math.max(0, idx - 1);
-        const nextTab = tabs[nextIdx];
-        activeTabId = nextTab.id;
-        navHistory = Array.isArray(nextTab.history) ? [...nextTab.history] : [nextTab.path];
-        navHistoryIndex = typeof nextTab.historyIndex === 'number' ? nextTab.historyIndex : navHistory.length - 1;
-        updateNavButtons();
-        renderTabs();
-        saveTabsState();
-        loadFiles(nextTab.path);
-    } else {
-        renderTabs();
-        saveTabsState();
-    }
-}
-
-function closeCurrentTab() {
-    closeTab(activeTabId);
-}
-
-function handleTabAuxClick(e, tabId) {
-    if (e.button === 1) {
-        e.preventDefault();
-        e.stopPropagation();
-        closeTab(tabId);
-    }
-}
-
-function handleItemAuxClick(e, name, isDir) {
-    if (e.button === 1 && isDir) {
-        e.preventDefault();
-        e.stopPropagation();
-        const sep = isWindows ? '\\' : '/';
-        const targetPath = (selectedItem && selectedItem.path) ? selectedItem.path : (currentPath.endsWith(sep) ? currentPath + name : currentPath + sep + name);
-        addNewTab(targetPath);
-        showToast('Opened folder in new tab', '🗂️');
-    }
-}
-
-function handleTabContextMenu(e, tabId) {
-    e.preventDefault();
-    e.stopPropagation();
-    contextMenuTabId = tabId;
-    hideContextMenu();
-
-    const menu = document.getElementById('tab-context-menu');
-    if (!menu) return;
-
-    const tab = tabs.find(function(t) { return t.id === tabId; });
-    const revealLabel = document.getElementById('ctx-tab-reveal-label');
-    if (revealLabel) revealLabel.textContent = isWindows ? 'Reveal in File Explorer' : 'Reveal in Finder';
-
-    menu.style.display = 'flex';
-    const menuWidth = 200;
-    const menuHeight = 250;
-    const maxX = window.innerWidth - menuWidth - 10;
-    const maxY = window.innerHeight - menuHeight - 10;
-    menu.style.left = Math.min(e.clientX, maxX) + 'px';
-    menu.style.top = Math.min(e.clientY, maxY) + 'px';
-}
-
-function duplicateTargetTab() {
-    hideContextMenu();
-    const tab = tabs.find(function(t) { return t.id === contextMenuTabId; }) || tabs.find(function(t) { return t.id === activeTabId; });
-    if (tab) {
-        addNewTab(tab.path);
-    }
-}
-
-function openTerminalAtTargetTab() {
-    hideContextMenu();
-    const tab = tabs.find(function(t) { return t.id === contextMenuTabId; }) || tabs.find(function(t) { return t.id === activeTabId; });
-    if (!tab) return;
-    if (window.vscode) {
-        window.vscode.postMessage({ command: 'openTerminal', path: tab.path });
-    } else {
-        fetch('/api/actions/terminal', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: tab.path })
-        });
-    }
-    showToast('Opening terminal...', '💻');
-}
-
-function revealTargetTabInOS() {
-    hideContextMenu();
-    const tab = tabs.find(function(t) { return t.id === contextMenuTabId; }) || tabs.find(function(t) { return t.id === activeTabId; });
-    if (!tab) return;
-    if (window.vscode) {
-        window.vscode.postMessage({ command: 'revealInOS', path: tab.path });
-    } else {
-        fetch('/api/actions/reveal', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: tab.path })
-        });
-    }
-}
-
-function copyTargetTabPath() {
-    hideContextMenu();
-    const tab = tabs.find(function(t) { return t.id === contextMenuTabId; }) || tabs.find(function(t) { return t.id === activeTabId; });
-    if (tab && navigator.clipboard) {
-        navigator.clipboard.writeText(tab.path);
-        showToast('Path copied to clipboard', '📋');
-    }
-}
-
-function closeTargetTab() {
-    hideContextMenu();
-    if (contextMenuTabId) {
-        closeTab(contextMenuTabId);
-    } else {
-        closeCurrentTab();
-    }
-}
-
-function closeOtherTabs() {
-    hideContextMenu();
-    const targetId = contextMenuTabId || activeTabId;
-    const targetTab = tabs.find(function(t) { return t.id === targetId; });
-    if (!targetTab) return;
-    tabs = [targetTab];
-    activeTabId = targetTab.id;
-    navHistory = Array.isArray(targetTab.history) ? [...targetTab.history] : [targetTab.path];
-    navHistoryIndex = typeof targetTab.historyIndex === 'number' ? targetTab.historyIndex : navHistory.length - 1;
-    updateNavButtons();
-    renderTabs();
-    saveTabsState();
-    loadFiles(targetTab.path);
-    showToast('Closed other tabs', 'ℹ️');
-}
-
-function closeTabsToRight() {
-    hideContextMenu();
-    const targetId = contextMenuTabId || activeTabId;
-    const idx = tabs.findIndex(function(t) { return t.id === targetId; });
-    if (idx === -1 || idx >= tabs.length - 1) return;
-    tabs = tabs.slice(0, idx + 1);
-    if (!tabs.some(function(t) { return t.id === activeTabId; })) {
-        activeTabId = targetId;
-        const targetTab = tabs[idx];
-        navHistory = Array.isArray(targetTab.history) ? [...targetTab.history] : [targetTab.path];
-        navHistoryIndex = typeof targetTab.historyIndex === 'number' ? targetTab.historyIndex : navHistory.length - 1;
-        updateNavButtons();
-        loadFiles(targetTab.path);
-    }
-    renderTabs();
-    saveTabsState();
-    showToast('Closed tabs to the right', 'ℹ️');
-}
-
-function cycleTabs(direction = 1) {
-    if (tabs.length <= 1) return;
-    const currentIdx = tabs.findIndex(function(t) { return t.id === activeTabId; });
-    if (currentIdx === -1) return;
-    let nextIdx = (currentIdx + direction) % tabs.length;
-    if (nextIdx < 0) nextIdx = tabs.length - 1;
-    switchToTab(tabs[nextIdx].id);
-}
-
-function openSelectedItemInNewTab() {
-    hideContextMenu();
-    if (!selectedItem) return;
-    const sep = isWindows ? '\\' : '/';
-    const targetPath = (selectedItem && selectedItem.path) ? selectedItem.path : (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name);
-    addNewTab(targetPath);
-    showToast('Opened folder in new tab', '🗂️');
-}
-
-function updateActiveTabAfterLoad(path) {
-    const activeTab = tabs.find(function(t) { return t.id === activeTabId; });
-    if (activeTab) {
-        activeTab.path = path;
-        activeTab.title = getTabTitleForPath(path);
-        renderTabs();
-        saveTabsState();
-    }
-}
-
-function saveTabsState() {
-    try {
-        const saved = tabs.map(function(t) {
-            return {
-                id: t.id,
-                title: t.title,
-                path: t.path,
-                sort: t.sort
-            };
-        });
-        safeStorage.setItem('venel_tabs_v1', JSON.stringify({
-            activeTabId: activeTabId,
-            tabs: saved
-        }));
-    } catch (e) {
-        console.warn('Failed to save tabs state', e);
-    }
-}
-
-function loadTabsState() {
-    try {
-        const raw = safeStorage.getItem('venel_tabs_v1');
-        if (raw) {
-            const data = JSON.parse(raw);
-            if (Array.isArray(data.tabs) && data.tabs.length > 0) {
-                tabs = data.tabs.map(function(t) {
-                    return {
-                        id: t.id,
-                        title: t.title || getTabTitleForPath(t.path),
-                        path: t.path,
-                        history: [t.path],
-                        historyIndex: 0,
-                        sort: t.sort || { field: 'name', asc: true },
-                        searchQuery: ''
-                    };
-                });
-                activeTabId = tabs.some(function(t) { return t.id === data.activeTabId; }) ? data.activeTabId : tabs[0].id;
-                return true;
-            }
-        }
-    } catch (e) {
-        console.warn('Failed to restore tabs state', e);
-    }
-    return false;
-}
-
-// ══════════════════════════════════════════════════════════
-// 🧭 NAVIGATION & HISTORY
-// ══════════════════════════════════════════════════════════
-function normalizeNavPath(p) {
-    if (!p || typeof p !== 'string') return p;
-    if (p === '/' || /^[a-zA-Z]:[\\/]?$/.test(p)) return p;
-    return p.replace(/[\\/]+$/, '');
-}
-
-function navigateTo(targetPath, isHistoryAction = false) {
-    closePathDropdown();
-    if (isDualPane) {
-        loadCommanderPane(activePaneId, targetPath, isHistoryAction);
-        return;
-    }
-    const normTarget = normalizeNavPath(targetPath);
-    if (!isHistoryAction && normTarget) {
-        // If user branched from previous history index, truncate forward history
-        if (navHistoryIndex >= 0 && navHistoryIndex < navHistory.length - 1) {
-            navHistory = navHistory.slice(0, navHistoryIndex + 1);
-        }
-        const last = navHistory.length > 0 ? normalizeNavPath(navHistory[navHistory.length - 1]) : null;
-        if (last !== normTarget) {
-            navHistory.push(normTarget);
-            navHistoryIndex = navHistory.length - 1;
-        }
-        updateNavButtons();
-    }
-    const activeTab = tabs.find(function(t) { return t.id === activeTabId; });
-    if (activeTab) {
-        activeTab.history = [...navHistory];
-        activeTab.historyIndex = navHistoryIndex;
-    }
-    loadFiles(targetPath);
-}
-
-function goBack() {
-    if (isDualPane) {
-        const state = activePaneId === 'left' ? commanderLeftState : commanderRightState;
-        if (state && state.history && state.historyIndex > 0) {
-            state.historyIndex--;
-            updateNavButtons();
-            loadCommanderPane(activePaneId, state.history[state.historyIndex], true);
-        }
-        return;
-    }
-    // Skip consecutive duplicates if any
-    while (navHistoryIndex > 0 && normalizeNavPath(navHistory[navHistoryIndex - 1]) === normalizeNavPath(currentPath)) {
-        navHistoryIndex--;
-    }
-    if (navHistoryIndex > 0) {
-        navHistoryIndex--;
-        updateNavButtons();
-        const activeTab = tabs.find(function(t) { return t.id === activeTabId; });
-        if (activeTab) {
-            activeTab.historyIndex = navHistoryIndex;
-        }
-        loadFiles(navHistory[navHistoryIndex]);
-    } else {
-        // At start of history: gracefully navigate to parent folder instead of remaining stuck
-        goUp();
-    }
-}
-
-function goForward() {
-    if (isDualPane) {
-        const state = activePaneId === 'left' ? commanderLeftState : commanderRightState;
-        if (state && state.history && state.historyIndex < state.history.length - 1) {
-            state.historyIndex++;
-            updateNavButtons();
-            loadCommanderPane(activePaneId, state.history[state.historyIndex], true);
-        }
-        return;
-    }
-    if (navHistoryIndex < navHistory.length - 1) {
-        navHistoryIndex++;
-        updateNavButtons();
-        const activeTab = tabs.find(function(t) { return t.id === activeTabId; });
-        if (activeTab) {
-            activeTab.historyIndex = navHistoryIndex;
-        }
-        loadFiles(navHistory[navHistoryIndex]);
-    }
-}
-
-function canNavigateBack() {
-    if (isDualPane) {
-        const state = activePaneId === 'left' ? commanderLeftState : commanderRightState;
-        return !!(state && state.history && state.historyIndex > 0);
-    }
-    if (navHistoryIndex > 0) return true;
-    if (!currentPath || currentPath === '.' || currentPath === '/' || /^[a-zA-Z]:[\\/]?$/.test(currentPath)) return false;
-    return true;
-}
-
-function canNavigateForward() {
-    if (isDualPane) {
-        const state = activePaneId === 'left' ? commanderLeftState : commanderRightState;
-        return !!(state && state.history && state.historyIndex < state.history.length - 1);
-    }
-    return navHistoryIndex < navHistory.length - 1;
-}
-
-function handleNativeBackOrUp(preferUp) {
-    if (preferUp) {
-        goUp();
-        return;
-    }
-    if (canNavigateBack()) {
-        goBack();
-    } else {
-        goUp();
-    }
-}
-
-function updateNavButtons() {
-    const btnBack = document.getElementById('btn-back');
-    const btnForward = document.getElementById('btn-forward');
-    const canBack = canNavigateBack();
-    const canForward = canNavigateForward();
-    if (btnBack) btnBack.disabled = !canBack;
-    if (btnForward) btnForward.disabled = !canForward;
-    setMenuEntryDisabled('menu-go-back', !canBack);
-    setMenuEntryDisabled('menu-go-forward', !canForward);
-}
-
-function goUp() {
-    if (isDualPane) {
-        navigateCommanderParent(activePaneId);
-        return;
-    }
-    if (!currentPath || currentPath === '.') return;
-
-    const cloudInfo = parseCloudUrl(currentPath);
-    if (cloudInfo) {
-        if (cloudInfo.remotePath === '/' || !cloudInfo.remotePath) return;
-        const parts = cloudInfo.remotePath.split('/').filter(function(p) { return p !== ''; });
-        if (parts.length <= 1) {
-            navigateTo(`cloud://${cloudInfo.connectionId}/`);
-            return;
-        }
-        parts.pop();
-        navigateTo(`cloud://${cloudInfo.connectionId}/` + parts.join('/'));
-        return;
-    }
-
-    const sftpInfo = parseSftpUrl(currentPath);
-    if (sftpInfo) {
-        if (sftpInfo.remotePath === '/' || !sftpInfo.remotePath) return;
-        const parts = sftpInfo.remotePath.split('/').filter(function(p) { return p !== ''; });
-        if (parts.length <= 1) {
-            navigateTo(`sftp://${sftpInfo.connectionId}/`);
-            return;
-        }
-        parts.pop();
-        navigateTo(`sftp://${sftpInfo.connectionId}/` + parts.join('/'));
-        return;
-    }
-
-    const sep = isWindows ? '\\' : '/';
-    const parts = currentPath.split(sep).filter(function(p) { return p !== ''; });
-    if (parts.length <= 1) {
-        navigateTo(isWindows ? parts[0] + '\\' : '/');
-        return;
-    }
-    parts.pop();
-    const parent = isWindows ? (parts.join('\\') + (parts.length === 1 ? '\\' : '')) : ('/' + parts.join('/'));
-    navigateTo(parent);
-}
-
-function goHome() {
-    if (activeWorkingDirectory) {
-        navigateTo(activeWorkingDirectory);
-        return;
-    }
-    const homeRoot = systemRoots.find(function(r) { return r.type === 'Home'; });
-    navigateTo(homeRoot ? homeRoot.path : '.');
-}
-
-function quickNav(name) {
-    const match = systemRoots.find(function(r) { return r.type === name || r.name.toLowerCase().includes(name.toLowerCase()); });
-    if (match) {
-        navigateTo(match.path);
-    } else {
-        goHome();
-    }
-}
-
-// ══════════════════════════════════════════════════════════
-// 🍞 INTERACTIVE BREADCRUMBS
-// ══════════════════════════════════════════════════════════
-function renderBreadcrumbs() {
-    const container = document.getElementById('path-breadcrumbs');
-    if (!container) return;
-    if (!currentPath || currentPath === '.') {
-        container.innerHTML = '<span class="crumb current">Loading...</span>';
-        return;
-    }
-
-    const cloudInfo = parseCloudUrl(currentPath);
-    if (cloudInfo) {
-        let html = '';
-        const session = (typeof cloudActiveSessions !== 'undefined') ? cloudActiveSessions.find(s => s.connectionId === cloudInfo.connectionId) : null;
-        const serverLabel = session ? (session.name || `${session.provider.toUpperCase()} Bucket`) : 'Cloud Storage';
-        const rootPath = `cloud://${cloudInfo.connectionId}/`;
-        const isAtRoot = cloudInfo.remotePath === '/' || !cloudInfo.remotePath;
-        const icon = session && session.provider === 'azure' ? '🟦' : '🟧';
-        html += '<span class="crumb' + (isAtRoot ? ' current' : '') + '" onclick="event.stopPropagation(); navigateTo(\'' + escapePath(rootPath) + '\')">' +
-                `<i>${icon}</i> ` + escapeHtml(serverLabel) + '</span>';
-
-        const parts = cloudInfo.remotePath.split('/').filter(function(p) { return p !== ''; });
-        let accum = `cloud://${cloudInfo.connectionId}`;
-        for (let i = 0; i < parts.length; i++) {
-            accum += '/' + parts[i];
-            const isCurrent = (i === parts.length - 1);
-            html += '<span class="crumb-sep">›</span>';
-            html += '<span class="crumb' + (isCurrent ? ' current' : '') + '" onclick="event.stopPropagation(); navigateTo(\'' + escapePath(accum) + '\')">' +
-                    escapeHtml(parts[i]) + '</span>';
-        }
-        container.innerHTML = html;
-        return;
-    }
-
-    const sftpInfo = parseSftpUrl(currentPath);
-    if (sftpInfo) {
-        let html = '';
-        const session = sftpActiveSessions.find(s => s.connectionId === sftpInfo.connectionId);
-        const serverLabel = session ? (session.name || `${session.username}@${session.host}`) : 'SFTP Remote';
-        const rootPath = `sftp://${sftpInfo.connectionId}/`;
-        const isAtRoot = sftpInfo.remotePath === '/' || !sftpInfo.remotePath;
-        html += '<span class="crumb' + (isAtRoot ? ' current' : '') + '" onclick="event.stopPropagation(); navigateTo(\'' + escapePath(rootPath) + '\')">' +
-                '<i>🌐</i> ' + escapeHtml(serverLabel) + '</span>';
-
-        const parts = sftpInfo.remotePath.split('/').filter(function(p) { return p !== ''; });
-        let accum = `sftp://${sftpInfo.connectionId}`;
-        for (let i = 0; i < parts.length; i++) {
-            accum += '/' + parts[i];
-            const isCurrent = (i === parts.length - 1);
-            html += '<span class="crumb-sep">›</span>';
-            html += '<span class="crumb' + (isCurrent ? ' current' : '') + '" onclick="event.stopPropagation(); navigateTo(\'' + escapePath(accum) + '\')">' +
-                    escapeHtml(parts[i]) + '</span>';
-        }
-        container.innerHTML = html;
-        updateCompactWindowTitle();
-        return;
-    }
-
-    const sep = isWindows ? '\\' : '/';
-    const parts = currentPath.split(sep).filter(function(p) { return p !== ''; });
-    let html = '';
-
-    const rootPath = isWindows ? (currentPath.slice(0, 3)) : '/';
-    const rootLabel = isWindows ? rootPath : '/ (Root)';
-    html += '<span class="crumb' + (parts.length === 0 ? ' current' : '') + '" onclick="event.stopPropagation(); navigateTo(\'' + escapePath(rootPath) + '\')" ondragover="handleBreadcrumbDragOver(event, \'' + escapePath(rootPath) + '\')" ondragleave="handleBreadcrumbDragLeave(event)" ondrop="handleBreadcrumbDrop(event, \'' + escapePath(rootPath) + '\')">' +
-            '<i>' + (isWindows ? '💻' : '📁') + '</i> ' + escapeHtml(rootLabel) + '</span>';
-
-    let accum = isWindows ? rootPath : '';
-    for (let i = 0; i < parts.length; i++) {
-        if (isWindows && i === 0 && parts[0].endsWith(':')) continue;
-        accum = isWindows ? (accum.endsWith('\\') ? accum + parts[i] : accum + '\\' + parts[i]) : accum + '/' + parts[i];
-        const isCurrent = (i === parts.length - 1);
-        html += '<span class="crumb-sep">›</span>';
-        html += '<span class="crumb' + (isCurrent ? ' current' : '') + '" onclick="event.stopPropagation(); navigateTo(\'' + escapePath(accum) + '\')" ondragover="handleBreadcrumbDragOver(event, \'' + escapePath(accum) + '\')" ondragleave="handleBreadcrumbDragLeave(event)" ondrop="handleBreadcrumbDrop(event, \'' + escapePath(accum) + '\')">' +
-                escapeHtml(parts[i]) + '</span>';
-    }
-    container.innerHTML = html;
-    updateCompactWindowTitle();
-}
-
-function handlePathBarClick(e) {
-    if (e.target.id === 'btn-path-dropdown' || e.target.closest('#btn-path-dropdown')) return;
-    if (e.target.id === 'btn-pin-address-bar' || e.target.closest('#btn-pin-address-bar')) return;
-    if (e.target.classList.contains('crumb')) return;
-    enterPathEditMode();
-}
-
-function handleAddressBarPinClick(e) {
-    if (e) {
-        if (e.stopPropagation) e.stopPropagation();
-        if (e.preventDefault) e.preventDefault();
-    }
-    togglePinCurrentFolder();
-}
-
-function enterPathEditMode() {
-    const breadcrumbs = document.getElementById('path-breadcrumbs');
-    const input = document.getElementById('path');
-    if (breadcrumbs && input) {
-        breadcrumbs.style.display = 'none';
-        input.style.display = 'block';
-        input.value = currentPath;
-        input.focus();
-        input.select();
-    }
-}
-
-function exitPathEditMode() {
-    const breadcrumbs = document.getElementById('path-breadcrumbs');
-    const input = document.getElementById('path');
-    const pathBarBox = document.getElementById('path-bar-box');
-    const compactTitle = document.getElementById('compact-window-title');
-    if (breadcrumbs && input) {
-        input.style.display = 'none';
-        breadcrumbs.style.display = 'flex';
-    }
-    if (typeof isCompactBars !== 'undefined' && isCompactBars) {
-        if (pathBarBox) pathBarBox.style.display = 'none';
-        if (compactTitle) {
-            updateCompactWindowTitle();
-            compactTitle.style.display = 'flex';
-        }
-    }
-}
-
-function handlePathEnter(e) {
-    if (e.key === 'Enter') {
-        const target = document.getElementById('path').value.trim();
-        exitPathEditMode();
-        if (target) navigateTo(target);
-    }
-}
-
-
-// ══════════════════════════════════════════════════════════
-// 📐 INTERACTIVE DRAGGABLE RESIZERS (SIDEBAR & PREVIEW PANE)
-// ══════════════════════════════════════════════════════════
-function initSplitters() {
-    const mainContent = document.querySelector('.main-content');
-    const sidebar = document.getElementById('quick-access-sidebar');
-    const sidebarResizer = document.getElementById('sidebar-resizer');
-    const preview = document.getElementById('preview-pane');
-    const previewResizer = document.getElementById('preview-resizer');
-
-    if (!mainContent) return;
-
-    // Restore saved custom widths
-    const savedSidebarWidth = safeStorage.getItem('venel_sidebar_width');
-    if (savedSidebarWidth && sidebar && !sidebar.classList.contains('collapsed')) {
-        sidebar.style.width = savedSidebarWidth + 'px';
-    }
-    const savedPreviewWidth = safeStorage.getItem('venel_preview_width');
-    if (savedPreviewWidth && preview && !preview.classList.contains('collapsed')) {
-        preview.style.width = savedPreviewWidth + 'px';
-    }
-
-    // A. Left Sidebar Splitter Drag
-    if (sidebar && sidebarResizer) {
-        let isDraggingSidebar = false;
-        let startX = 0;
-        let startWidth = 0;
-
-        sidebarResizer.addEventListener('mousedown', function(e) {
-            e.preventDefault();
-            isDraggingSidebar = true;
-            startX = e.clientX;
-            startWidth = sidebar.getBoundingClientRect().width;
-            sidebarResizer.classList.add('resizing');
-            mainContent.classList.add('resizing-active');
-            document.body.style.cursor = 'col-resize';
-        });
-
-        sidebarResizer.addEventListener('dblclick', function() {
-            sidebar.style.width = '195px';
-            safeStorage.setItem('venel_sidebar_width', '195');
-            showToast('Sidebar width reset (195px)', '📐');
-        });
-
-        window.addEventListener('mousemove', function(e) {
-            if (!isDraggingSidebar) return;
-            let newWidth = startWidth + (e.clientX - startX);
-            if (newWidth < 130) newWidth = 130;
-            if (newWidth > 480) newWidth = 480;
-            sidebar.style.width = newWidth + 'px';
-            safeStorage.setItem('venel_sidebar_width', newWidth);
-        });
-
-        window.addEventListener('mouseup', function() {
-            if (isDraggingSidebar) {
-                isDraggingSidebar = false;
-                sidebarResizer.classList.remove('resizing');
-                mainContent.classList.remove('resizing-active');
-                document.body.style.cursor = '';
-            }
-        });
-    }
-
-    // B. Left Preview Pane Splitter Drag
-    if (preview && previewResizer) {
-        let isDraggingPreview = false;
-        let startX = 0;
-        let startWidth = 0;
-
-        previewResizer.addEventListener('mousedown', function(e) {
-            e.preventDefault();
-            isDraggingPreview = true;
-            startX = e.clientX;
-            startWidth = preview.getBoundingClientRect().width;
-            previewResizer.classList.add('resizing');
-            mainContent.classList.add('resizing-active');
-            document.body.style.cursor = 'col-resize';
-        });
-
-        previewResizer.addEventListener('dblclick', function() {
-            preview.style.width = '320px';
-            safeStorage.setItem('venel_preview_width', '320');
-            showToast('Preview width reset (320px)', '📐');
-        });
-
-        window.addEventListener('mousemove', function(e) {
-            if (!isDraggingPreview) return;
-            let newWidth = startWidth + (startX - e.clientX);
-            if (newWidth < 180) newWidth = 180;
-            if (newWidth > 750) newWidth = 750;
-            preview.style.width = newWidth + 'px';
-            safeStorage.setItem('venel_preview_width', newWidth);
-        });
-
-        window.addEventListener('mouseup', function() {
-            if (isDraggingPreview) {
-                isDraggingPreview = false;
-                previewResizer.classList.remove('resizing');
-                mainContent.classList.remove('resizing-active');
-                document.body.style.cursor = '';
-            }
-        });
-    }
-
-    // C. Dual-Pane Commander Resizer
-    if (typeof initDualPaneResizer === 'function') {
-        initDualPaneResizer();
-    }
-}
-
-// ══════════════════════════════════════════════════════════
-// ◧ QUICK ACCESS SIDEBAR
-// ══════════════════════════════════════════════════════════
-function toggleSidebarRail(forcedState) {
-    const sidebar = document.getElementById('quick-access-sidebar');
-    const resizer = document.getElementById('sidebar-resizer');
-    const btn = document.getElementById('btn-rail-toggle');
-    const chevron = document.getElementById('rail-toggle-chevron');
-    const label = document.getElementById('rail-toggle-label');
-    const edgeBtn = document.getElementById('sidebar-edge-toggle');
-    if (sidebar) {
-        let isNowCollapsed;
-        if (typeof forcedState === 'boolean') {
-            isNowCollapsed = forcedState;
-            sidebar.classList.toggle('collapsed', isNowCollapsed);
-        } else {
-            isNowCollapsed = sidebar.classList.toggle('collapsed');
-        }
-        safeStorage.setItem('venel_sidebar_collapsed', isNowCollapsed ? 'true' : 'false');
-        if (chevron) chevron.textContent = isNowCollapsed ? '❯' : '❮';
-        if (label) label.textContent = 'Places';
-        if (btn) {
-            btn.title = isNowCollapsed ? 'Expand Places (>)' : 'Collapse Places (<)';
-            btn.classList.toggle('active', isNowCollapsed);
-        }
-        if (edgeBtn) {
-            edgeBtn.style.display = 'none';
-        }
-        if (resizer) {
-            resizer.style.display = isNowCollapsed ? 'none' : 'block';
-        }
-    }
-    updateDockStripVisibility();
-    updateViewMenuChecks();
-}
-
-function renderQuickAccessDrives() {
-    const container = document.getElementById('quick-drives');
-    if (!container) return;
-    let html = '';
-    for (let i = 0; i < systemRoots.length; i++) {
-        const root = systemRoots[i];
-        if (root.type === 'Home' || root.type === 'Desktop' || root.type === 'Documents' || root.type === 'Downloads') continue;
-        html += '<div class="quick-item" onclick="navigateTo(\'' + escapePath(root.path) + '\')">' +
-                '<i>' + (root.type === 'Drive' ? '💻' : '📁') + '</i> ' +
-                '<span>' + escapeHtml(root.name) + '</span>' +
-                '</div>';
-    }
-    container.innerHTML = html;
-}
-
-
-// ══════════════════════════════════════════════════════════
-// 🤖 AGENT MACHINE-LEVEL SEARCH ENGINE
-// ══════════════════════════════════════════════════════════
-let searchScope = 'folder'; // 'folder' | 'machine'
-let isAgentSearchResultsActive = false;
-let originalFolderItems = [];
-let agentSearchTimer = null;
-
-function toggleSearchScope() {
-    searchScope = searchScope === 'folder' ? 'machine' : 'folder';
-    updateSearchScopeUI();
-}
-
-function updateSearchScopeUI() {
-    const pill = document.getElementById('search-scope-pill');
-    const icon = document.getElementById('scope-icon');
-    const label = document.getElementById('scope-label');
-    const input = document.getElementById('search');
-    const btnAction = document.getElementById('btn-agent-search-action');
-    const actionIcon = btnAction ? btnAction.querySelector('i') : null;
-
-    if (searchScope === 'machine') {
-        pill.classList.add('machine-mode');
-        icon.textContent = '⚡';
-        label.textContent = 'Machine';
-        input.placeholder = 'Search entire machine (e.g. *.cs)...';
-        input.classList.add('machine-focus');
-        if (btnAction) {
-            btnAction.title = 'Search Entire Machine (Enter)';
-            btnAction.classList.add('active-machine-action');
-        }
-        if (actionIcon) actionIcon.textContent = '⚡';
-        showToast('Agent Search: Machine Index active', '⚡');
-    } else {
-        pill.classList.remove('machine-mode');
-        icon.textContent = '📁';
-        label.textContent = 'Folder';
-        input.placeholder = 'Filter current folder...';
-        input.classList.remove('machine-focus');
-        if (btnAction) {
-            btnAction.title = 'Filter current folder';
-            btnAction.classList.remove('active-machine-action');
-        }
-        if (actionIcon) actionIcon.textContent = '🔍';
-        if (isAgentSearchResultsActive) exitAgentSearch();
-    }
-    input.focus();
-}
-
-function handleSearchActionClick() {
-    if (searchScope === 'machine') {
-        triggerAgentSearch();
-    } else {
-        handleSearch();
-    }
-}
-
-function handleSearchInput(e) {
-    const val = document.getElementById('search').value;
-    const clearBtn = document.getElementById('search-clear-btn');
-    if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
-
-    if (searchScope === 'folder') {
-        handleSearch();
-    }
-}
-
-function handleSearchKey(e) {
-    if (e.key === 'Enter') {
-        if (searchScope === 'machine') {
-            triggerAgentSearch();
-        }
-    } else if (e.key === 'Escape') {
-        clearSearch();
-    }
-}
-
-function clearSearch() {
-    const input = document.getElementById('search');
-    input.value = '';
-    const clearBtn = document.getElementById('search-clear-btn');
-    if (clearBtn) clearBtn.style.display = 'none';
-
-    if (isAgentSearchResultsActive) {
-        exitAgentSearch();
-    } else {
-        handleSearch();
-    }
-}
-
-async function triggerAgentSearch() {
-    const query = document.getElementById('search').value.trim();
-    if (!query) {
-        showToast('Please type a search query', '⚠️');
-        return;
-    }
-
-    const banner = document.getElementById('search-results-banner');
-    const bannerText = document.getElementById('search-banner-text');
-    const bannerMeta = document.getElementById('search-banner-meta');
-
-    if (banner) {
-        banner.style.display = 'flex';
-        bannerText.innerHTML = '🤖 Agent searching machine for "<strong>' + escapeHtml(query) + '</strong>"...';
-        bannerMeta.innerText = 'Scanning index...';
-    }
-
-    if (!isAgentSearchResultsActive) {
-        originalFolderItems = [...currentItems];
-        isAgentSearchResultsActive = true;
-    }
-
-    try {
-        const res = await fetch('/api/files/agentSearch?query=' + encodeURIComponent(query) + '&scope=machine&currentPath=' + encodeURIComponent(currentPath));
-        if (!res.ok) {
-            showToast('Agent search failed', '❌');
-            return;
-        }
-        const data = await res.json();
-
-        bannerText.innerHTML = '⚡ <strong>' + data.count + '</strong> match' + (data.count === 1 ? '' : 'es') + ' found across machine for "<strong>' + escapeHtml(query) + '</strong>"';
-        bannerMeta.innerText = (data.engine || 'Spotlight Index') + ' • ' + (data.executionTimeMs || 0) + 'ms';
-
-        currentItems = (data.items || []).map(function(item) {
-            return {
-                name: item.name,
-                path: item.path,
-                directory: item.directory,
-                type: item.type,
-                size: item.size,
-                modified: item.modified,
-                isSearchResult: true
-            };
-        });
-
-        applySortAndRender();
-        showToast('Agent Search complete: ' + data.count + ' items found in ' + data.executionTimeMs + 'ms', '⚡');
-    } catch (err) {
-        console.error(err);
-        showToast('Agent Search error', '❌');
-    }
-}
-
-function exitAgentSearch() {
-    isAgentSearchResultsActive = false;
-    const banner = document.getElementById('search-results-banner');
-    if (banner) banner.style.display = 'none';
-
-    const input = document.getElementById('search');
-    input.value = '';
-    const clearBtn = document.getElementById('search-clear-btn');
-    if (clearBtn) clearBtn.style.display = 'none';
-
-    currentItems = [...originalFolderItems];
-    applySortAndRender();
-    showToast('Returned to folder', '📁');
-}
-
-function formatLocationDisplay(dirPath) {
-    if (!dirPath) return '';
-    const sep = isWindows ? '\\' : '/';
-    const parts = dirPath.split(sep).filter(Boolean);
-    if (parts.length > 2) {
-        return '…' + sep + parts[parts.length - 2] + sep + parts[parts.length - 1];
-    } else if (parts.length > 0) {
-        return parts.join(sep);
-    }
-    return dirPath;
-}
-
-function jumpToSearchResult(directory, fileName) {
-    exitAgentSearch();
-    loadFiles(directory).then(function() {
-        setTimeout(function() {
-            const itemEls = document.querySelectorAll('.item');
-            itemEls.forEach(function(el) {
-                const nameEl = el.querySelector('.item-name');
-                if (nameEl && nameEl.innerText === fileName) {
-                    el.classList.add('selected');
-                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            });
-        }, 300);
-    });
-}
-
+/**
+ * VenEl File Manager - Folder Icons & Visuals
+ * Provides native macOS Finder and Windows Fluent SVG folder designs.
+ */
 // ══════════════════════════════════════════════════════════
 // 📂 OS NATIVE FOLDER ICONS (macOS Finder / Windows Fluent)
 // ══════════════════════════════════════════════════════════
@@ -1657,64 +705,11 @@ function getFileVisual(name, isDir) {
     }
 }
 
-// ══════════════════════════════════════════════════════════
-// 📊 COLUMN SORTING (LIST VIEW)
-// ══════════════════════════════════════════════════════════
-function handleSort(field) {
-    if (currentSort.field === field) {
-        currentSort.asc = !currentSort.asc;
-    } else {
-        currentSort.field = field;
-        currentSort.asc = true;
-    }
-    updateSortIndicators();
-    applySortAndRender();
-}
 
-function updateSortIndicators() {
-    const fields = ['name', 'modified', 'type', 'size'];
-    fields.forEach(function(f) {
-        const el = document.getElementById('sort-' + f + '-icon');
-        if (el) {
-            if (currentSort.field === f) {
-                el.innerText = currentSort.asc ? '▲' : '▼';
-            } else {
-                el.innerText = '';
-            }
-        }
-    });
-    updateViewMenuChecks();
-}
-
-function applySortAndRender() {
-    if (!currentItems) return;
-    currentItems.sort(function(a, b) {
-        const aIsDir = a.type === 'Directory';
-        const bIsDir = b.type === 'Directory';
-        // Directories always on top (like Explorer/Finder)
-        if (aIsDir && !bIsDir) return -1;
-        if (!aIsDir && bIsDir) return 1;
-
-        let valA = a[currentSort.field] || '';
-        let valB = b[currentSort.field] || '';
-
-        if (currentSort.field === 'name') {
-            return currentSort.asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        } else if (currentSort.field === 'size') {
-            return currentSort.asc ? (a.size - b.size) : (b.size - a.size);
-        } else if (currentSort.field === 'modified') {
-            const dateA = new Date(a.modified || 0).getTime();
-            const dateB = new Date(b.modified || 0).getTime();
-            return currentSort.asc ? (dateA - dateB) : (dateB - dateA);
-        } else if (currentSort.field === 'type') {
-            return currentSort.asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        }
-        return 0;
-    });
-    updateQuickFilterCounts();
-    applyFilterAndRender();
-}
-
+/**
+ * VenEl File Manager - View Modes
+ * Manages Grid, Small Grid, Large, List, Details, and Compact views.
+ */
 // ══════════════════════════════════════════════════════════
 // 🖼️ RENDER ITEMS & VIEWS
 // ══════════════════════════════════════════════════════════
@@ -1910,6 +905,70 @@ function expandPathFromCompactTitle(e) {
     }
 }
 
+
+/**
+ * VenEl File Manager - Render Engine
+ * Virtualized chunked rendering (60 FPS), sorting, and quick filtering.
+ */
+// ══════════════════════════════════════════════════════════
+// 📊 COLUMN SORTING (LIST VIEW)
+// ══════════════════════════════════════════════════════════
+function handleSort(field) {
+    if (currentSort.field === field) {
+        currentSort.asc = !currentSort.asc;
+    } else {
+        currentSort.field = field;
+        currentSort.asc = true;
+    }
+    updateSortIndicators();
+    applySortAndRender();
+}
+
+function updateSortIndicators() {
+    const fields = ['name', 'modified', 'type', 'size'];
+    fields.forEach(function(f) {
+        const el = document.getElementById('sort-' + f + '-icon');
+        if (el) {
+            if (currentSort.field === f) {
+                el.innerText = currentSort.asc ? '▲' : '▼';
+            } else {
+                el.innerText = '';
+            }
+        }
+    });
+    updateViewMenuChecks();
+}
+
+function applySortAndRender() {
+    if (!currentItems) return;
+    currentItems.sort(function(a, b) {
+        const aIsDir = a.type === 'Directory';
+        const bIsDir = b.type === 'Directory';
+        // Directories always on top (like Explorer/Finder)
+        if (aIsDir && !bIsDir) return -1;
+        if (!aIsDir && bIsDir) return 1;
+
+        let valA = a[currentSort.field] || '';
+        let valB = b[currentSort.field] || '';
+
+        if (currentSort.field === 'name') {
+            return currentSort.asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        } else if (currentSort.field === 'size') {
+            return currentSort.asc ? (a.size - b.size) : (b.size - a.size);
+        } else if (currentSort.field === 'modified') {
+            const dateA = new Date(a.modified || 0).getTime();
+            const dateB = new Date(b.modified || 0).getTime();
+            return currentSort.asc ? (dateA - dateB) : (dateB - dateA);
+        } else if (currentSort.field === 'type') {
+            return currentSort.asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+        return 0;
+    });
+    updateQuickFilterCounts();
+    applyFilterAndRender();
+}
+
+
 // ══════════════════════════════════════════════════════════
 // 🏷️ QUICK FILTERING & ITEM CATEGORIZATION
 // ══════════════════════════════════════════════════════════
@@ -2041,6 +1100,7 @@ function applyFilterAndRender() {
 function handleSearch() {
     applyFilterAndRender();
 }
+
 
 // ══════════════════════════════════════════════════════════
 // ⚡ VIRTUAL CHUNKED RENDERING ENGINE (60 FPS SCALING)
@@ -2698,6 +1758,11 @@ function handleDoubleClick(name, isDir) {
 }
 
 // ══════════════════════════════════════════════════════════
+
+/**
+ * VenEl File Manager - Selection, Drag & Drop, and Hover Cards
+ * Item selection, multi-select, keyboard navigation, and file hover tooltips.
+ */
 // ⌨️ TYPE-TO-SELECT / INCREMENTAL SEARCH & KEYBOARD NAV
 // ══════════════════════════════════════════════════════════
 function getVisibleItems() {
@@ -2903,6 +1968,2656 @@ function navigateSelection(delta, isShift) {
     selectAndScrollToItem(target);
 }
 
+
+// 🖱️ DRAG & DROP SYSTEM (Internal Move/Copy + Desktop Upload)
+// ══════════════════════════════════════════════════════════
+let draggedVenElItems = [];
+
+function handleItemDragStart(e, name, isDir) {
+    const isAlreadySelected = selectedItems.some(function(i) { return i.name === name; });
+    if (!isAlreadySelected) {
+        const item = currentItems.find(function(i) { return i.name === name; }) || { name: name, type: isDir ? 'Directory' : 'File' };
+        selectedItems = [item];
+        selectedItem = item;
+        syncItemSelectionDOM();
+        updateSelectionState();
+    }
+
+    const sep = isWindows ? '\\' : '/';
+    draggedVenElItems = selectedItems.map(function(i) {
+        return i.path || (currentPath.endsWith(sep) ? currentPath + i.name : currentPath + sep + i.name);
+    });
+
+    if (e.dataTransfer) {
+        e.dataTransfer.setData('application/json', JSON.stringify({
+            type: 'venel-internal-items',
+            items: draggedVenElItems
+        }));
+        e.dataTransfer.effectAllowed = 'copyMove';
+
+        // Developer Productivity: Drag-and-drop into VS Code editor for smart import statement or relative path insertion
+        if (draggedVenElItems.length > 0) {
+            const firstItemPath = draggedVenElItems[0];
+            const importSnippet = generateSmartImportSnippet(firstItemPath, currentPath);
+            e.dataTransfer.setData('text/plain', importSnippet);
+            e.dataTransfer.setData('text/uri-list', 'file://' + firstItemPath);
+            try {
+                e.dataTransfer.setData('application/vnd.code.uri-list', JSON.stringify(['file://' + firstItemPath]));
+            } catch {}
+        }
+    }
+
+    const elem = e.currentTarget;
+    if (elem) elem.classList.add('dragging');
+}
+
+function handleItemDragEnd(e) {
+    draggedVenElItems = [];
+    const elem = e.currentTarget;
+    if (elem) elem.classList.remove('dragging');
+    document.querySelectorAll('.drag-over').forEach(function(el) { el.classList.remove('drag-over'); });
+    document.querySelectorAll('.dragging').forEach(function(el) { el.classList.remove('dragging'); });
+}
+
+function handleFolderDragOver(e, folderName) {
+    const sep = isWindows ? '\\' : '/';
+    const targetPath = currentPath.endsWith(sep) ? currentPath + folderName : currentPath + sep + folderName;
+    if (draggedVenElItems.includes(targetPath)) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = e.altKey ? 'copy' : 'move';
+    }
+    e.currentTarget.classList.add('drag-over');
+}
+
+function handleFolderDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+}
+
+async function handleFolderDrop(e, folderName) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('drag-over');
+
+    const sep = isWindows ? '\\' : '/';
+    const destinationDir = currentPath.endsWith(sep) ? currentPath + folderName : currentPath + sep + folderName;
+
+    if (draggedVenElItems.length > 0) {
+        const itemsToTransfer = draggedVenElItems.slice();
+        draggedVenElItems = [];
+        const isCopy = e.altKey;
+        const endpoint = isCopy ? '/api/files/copy' : '/api/files/move';
+
+        try {
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: itemsToTransfer, destinationDir: destinationDir })
+            });
+            const result = await res.json();
+            if (!res.ok || result.error) {
+                showToast('Transfer failed: ' + (result.error || 'Server error'), '⚠️');
+            } else {
+                showToast((isCopy ? 'Copied ' : 'Moved ') + itemsToTransfer.length + ' item(s) to ' + folderName, '📂');
+                refreshCurrentFolder();
+            }
+        } catch (err) {
+            showToast('Transfer error: ' + (err.message || err), '⚠️');
+        }
+        return;
+    }
+
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        await uploadFileList(e.dataTransfer.files, destinationDir);
+    }
+}
+
+function handleBreadcrumbDragOver(e, targetPath) {
+    if (targetPath === currentPath) return;
+    if (draggedVenElItems.includes(targetPath)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = e.altKey ? 'copy' : 'move';
+    }
+    e.currentTarget.classList.add('drag-over');
+}
+
+function handleBreadcrumbDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+}
+
+async function handleBreadcrumbDrop(e, targetPath) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('drag-over');
+
+    if (draggedVenElItems.length > 0) {
+        const itemsToTransfer = draggedVenElItems.slice();
+        draggedVenElItems = [];
+        const isCopy = e.altKey;
+        const endpoint = isCopy ? '/api/files/copy' : '/api/files/move';
+
+        try {
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: itemsToTransfer, destinationDir: targetPath })
+            });
+            const result = await res.json();
+            if (!res.ok || result.error) {
+                showToast('Transfer failed: ' + (result.error || 'Server error'), '⚠️');
+            } else {
+                const targetName = targetPath.split(/[\/\\]/).filter(Boolean).pop() || targetPath;
+                showToast((isCopy ? 'Copied ' : 'Moved ') + itemsToTransfer.length + ' item(s) to ' + targetName, '📂');
+                refreshCurrentFolder();
+            }
+        } catch (err) {
+            showToast('Transfer error: ' + (err.message || err), '⚠️');
+        }
+        return;
+    }
+
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        await uploadFileList(e.dataTransfer.files, targetPath);
+    }
+}
+
+function handleBookmarkDragOver(e, targetPath) {
+    if (draggedVenElItems.includes(targetPath)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = e.altKey ? 'copy' : 'move';
+    }
+    e.currentTarget.classList.add('drag-over');
+}
+
+function handleBookmarkDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+}
+
+async function handleBookmarkDrop(e, targetPath) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('drag-over');
+
+    if (draggedVenElItems.length > 0) {
+        const itemsToTransfer = draggedVenElItems.slice();
+        draggedVenElItems = [];
+        const isCopy = e.altKey;
+        const endpoint = isCopy ? '/api/files/copy' : '/api/files/move';
+
+        try {
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: itemsToTransfer, destinationDir: targetPath })
+            });
+            const result = await res.json();
+            if (!res.ok || result.error) {
+                showToast('Transfer failed: ' + (result.error || 'Server error'), '⚠️');
+            } else {
+                const targetName = targetPath.split(/[\/\\]/).filter(Boolean).pop() || targetPath;
+                showToast((isCopy ? 'Copied ' : 'Moved ') + itemsToTransfer.length + ' item(s) to ' + targetName, '⭐');
+                refreshCurrentFolder();
+            }
+        } catch (err) {
+            showToast('Transfer error: ' + (err.message || err), '⚠️');
+        }
+        return;
+    }
+
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        await uploadFileList(e.dataTransfer.files, targetPath);
+    }
+}
+
+async function uploadFileList(files, targetDir) {
+    if (!files || files.length === 0) return;
+    const destDir = targetDir || currentPath;
+    showToast('Uploading ' + files.length + ' file(s)...', '⏳');
+
+    const payloadFiles = [];
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        try {
+            const base64 = await readFileAsBase64(file);
+            payloadFiles.push({
+                name: file.name,
+                contentBase64: base64
+            });
+        } catch (err) {
+            console.error('Failed to read file:', file.name, err);
+        }
+    }
+
+    if (payloadFiles.length === 0) return;
+
+    try {
+        const res = await fetch('/api/files/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ destinationDir: destDir, files: payloadFiles })
+        });
+        const result = await res.json();
+        if (!res.ok || result.error) {
+            showToast('Upload failed: ' + (result.error || 'Server error'), '⚠️');
+        } else {
+            showToast('Successfully added ' + result.count + ' file(s)!', '📂');
+            refreshCurrentFolder();
+        }
+    } catch (err) {
+        showToast('Upload error: ' + (err.message || err), '⚠️');
+    }
+}
+
+function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function() {
+            const dataUrl = reader.result;
+            const base64 = dataUrl.split(',')[1] || '';
+            resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+function setupWindowDragAndDrop() {
+    const overlay = document.getElementById('dropOverlay');
+    const targetName = document.getElementById('dropOverlayTargetName');
+    let dragCounter = 0;
+
+    window.addEventListener('dragenter', function(e) {
+        if (draggedVenElItems.length > 0) return;
+        if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
+
+        dragCounter++;
+        if (overlay) {
+            if (targetName) targetName.textContent = currentPath;
+            overlay.classList.add('active');
+        }
+    });
+
+    window.addEventListener('dragleave', function(e) {
+        if (draggedVenElItems.length > 0) return;
+        dragCounter--;
+        if (dragCounter <= 0) {
+            dragCounter = 0;
+            if (overlay) overlay.classList.remove('active');
+        }
+    });
+
+    window.addEventListener('dragover', function(e) {
+        if (draggedVenElItems.length > 0) return;
+        if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+    });
+
+    window.addEventListener('drop', async function(e) {
+        dragCounter = 0;
+        if (overlay) overlay.classList.remove('active');
+        if (draggedVenElItems.length > 0) return;
+        if (!e.dataTransfer || !e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+        await uploadFileList(e.dataTransfer.files, currentPath);
+    });
+}
+
+// ══════════════════════════════════════════════════════════
+
+// ✨ FLOATING GLASSMORPHIC HOVER CARD (TOOLTIP)
+// ══════════════════════════════════════════════════════════
+let hoverCardTimer = null;
+let hoverCardCurrentTarget = null;
+let lastMousePos = { x: 0, y: 0 };
+
+function handleItemHoverEnter(e, itemEl) {
+    hideHoverCard();
+    hoverCardCurrentTarget = itemEl;
+    lastMousePos = { x: e ? e.clientX : 0, y: e ? e.clientY : 0 };
+    hoverCardTimer = setTimeout(function() {
+        if (hoverCardCurrentTarget === itemEl) {
+            showHoverCardForItem(itemEl, lastMousePos.x, lastMousePos.y);
+        }
+    }, 280);
+}
+
+function handleItemHoverLeave(e, itemEl) {
+    if (hoverCardCurrentTarget === itemEl) {
+        hideHoverCard();
+    }
+}
+
+function handleItemHoverMove(e, itemEl) {
+    if (e) {
+        lastMousePos = { x: e.clientX, y: e.clientY };
+    }
+    const card = document.getElementById('file-hover-card');
+    if (card && card.classList.contains('visible') && hoverCardCurrentTarget === itemEl) {
+        positionHoverCard(card, lastMousePos.x, lastMousePos.y, itemEl);
+    }
+}
+
+window.triggerItemHover = function(name) {
+    const itemEl = name ? document.querySelector('.item[data-name="' + name + '"]') : document.querySelector('.item');
+    if (itemEl) {
+        hoverCardCurrentTarget = itemEl;
+        itemEl.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        showHoverCardForItem(itemEl, 0, 0);
+    }
+};
+
+function initHoverCard() {
+    const filesContainer = document.getElementById('files');
+    const card = document.getElementById('file-hover-card');
+    if (!card) return;
+
+    // Hide immediately when scrolling, clicking, dragging, or opening context menus
+    const scrollContainer = document.getElementById('file-list-container') || filesContainer;
+    if (scrollContainer) {
+        scrollContainer.addEventListener('scroll', hideHoverCard, { passive: true });
+    }
+    window.addEventListener('scroll', hideHoverCard, { passive: true });
+    window.addEventListener('resize', hideHoverCard, { passive: true });
+    window.addEventListener('contextmenu', hideHoverCard);
+    window.addEventListener('mousedown', function(e) {
+        if (e.target && e.target.closest && e.target.closest('#file-hover-card')) return;
+        hideHoverCard();
+    });
+    window.addEventListener('dragstart', hideHoverCard);
+}
+
+function hideHoverCard() {
+    if (hoverCardTimer) {
+        clearTimeout(hoverCardTimer);
+        hoverCardTimer = null;
+    }
+    hoverCardCurrentTarget = null;
+    const card = document.getElementById('file-hover-card');
+    if (card) {
+        card.classList.remove('visible');
+        card.style.display = 'none';
+    }
+}
+
+function showHoverCardForItem(itemEl, mouseX, mouseY) {
+    const card = document.getElementById('file-hover-card');
+    if (!card || !itemEl) return;
+
+    const itemPath = itemEl.getAttribute('data-path');
+    const itemName = itemEl.getAttribute('data-name');
+    if (!itemName && !itemPath) return;
+
+    // Find item in displayedItems or currentItems
+    const item = (itemPath && (displayedItems || []).find(function(it) { return it.path === itemPath; })) ||
+                 (displayedItems || []).find(function(it) { return it.name === itemName; }) ||
+                 (currentItems || []).find(function(it) { return it.name === itemName; });
+    if (!item) return;
+
+    const isDir = item.type === 'Directory';
+    const visual = getFileVisual(item.name, isDir);
+
+    // 1. Icon & Header
+    const iconEl = document.getElementById('hover-card-icon');
+    const nameEl = document.getElementById('hover-card-name');
+    const typeEl = document.getElementById('hover-card-type');
+    if (iconEl) {
+        if (visual.svg) iconEl.innerHTML = visual.svg;
+        else iconEl.textContent = visual.icon;
+    }
+    if (nameEl) nameEl.textContent = item.name;
+    if (typeEl) typeEl.textContent = visual.typeLabel || (isDir ? 'File folder' : 'File');
+
+    // 2. Size & Modified
+    const sizeEl = document.getElementById('hover-card-size');
+    const modEl = document.getElementById('hover-card-modified');
+    if (sizeEl) sizeEl.textContent = !isDir ? formatBytes(item.size) : '--';
+    if (modEl) modEl.textContent = item.modified ? formatDate(item.modified) : '--';
+
+    // 3. Git Status
+    const gitRow = document.getElementById('hover-card-git-row');
+    const gitText = document.getElementById('hover-card-git-text');
+    const gitDot = document.getElementById('hover-card-git-dot');
+    if (gitRow && gitText) {
+        const gitCode = currentGitStatuses ? currentGitStatuses[item.name] : null;
+        if (gitCode) {
+            gitRow.style.display = 'flex';
+            let gitLabel = 'Modified';
+            let dotColor = '#ffeaa7';
+            if (gitCode === 'M') { gitLabel = 'Modified (unstaged)'; dotColor = '#ffeaa7'; }
+            else if (gitCode === 'U' || gitCode === '?') { gitLabel = 'Untracked'; dotColor = '#55efc4'; }
+            else if (gitCode === 'A') { gitLabel = 'Added (staged)'; dotColor = '#00cec9'; }
+            else if (gitCode === 'D') { gitLabel = 'Deleted'; dotColor = '#ff7675'; }
+            else if (gitCode === 'R') { gitLabel = 'Renamed'; dotColor = '#74b9ff'; }
+            else { gitLabel = 'Changed'; dotColor = '#a29bfe'; }
+
+            gitText.textContent = gitLabel;
+            if (gitDot) gitDot.style.color = dotColor;
+        } else {
+            gitRow.style.display = 'none';
+        }
+    }
+
+    // 3b. AI Tokens
+    const tokensRow = document.getElementById('hover-card-tokens-row');
+    const tokenText = document.getElementById('hover-card-token-text');
+    if (tokensRow && tokenText) {
+        if (!isDir && item.size && item.size > 0 && item.size < 5 * 1024 * 1024) {
+            const approxTokens = Math.max(1, Math.round(item.size / 3.8));
+            tokenText.textContent = '✨ ~' + formatTokenCount(approxTokens);
+            tokensRow.style.display = 'flex';
+        } else {
+            tokensRow.style.display = 'none';
+        }
+    }
+
+    lastHoveredItem = item;
+
+    // 4. Location / Full Path
+    const locEl = document.getElementById('hover-card-location');
+    if (locEl) {
+        const sep = isWindows ? '\\' : '/';
+        const fullLoc = (item.isSearchResult && item.directory)
+            ? item.directory
+            : ((item.isSearchResult && item.path)
+                ? item.path.substring(0, item.path.lastIndexOf(sep))
+                : currentPath);
+        locEl.textContent = fullLoc || currentPath || '/';
+        locEl.title = fullLoc || currentPath || '/';
+    }
+
+    card.style.display = 'block';
+    positionHoverCard(card, mouseX, mouseY, itemEl);
+    requestAnimationFrame(function() {
+        card.classList.add('visible');
+    });
+}
+
+function positionHoverCard(card, mouseX, mouseY, itemEl) {
+    if (!mouseX || !mouseY || mouseX <= 0 || mouseY <= 0) {
+        if (itemEl) {
+            const r = itemEl.getBoundingClientRect();
+            mouseX = Math.round(r.left + r.width / 2);
+            mouseY = Math.round(r.bottom);
+        } else {
+            return;
+        }
+    }
+
+    const cardRect = card.getBoundingClientRect();
+    const cardWidth = cardRect.width || 280;
+    const cardHeight = cardRect.height || 140;
+
+    const padding = 12;
+    let left = mouseX + 16;
+    let top = mouseY + 16;
+
+    // Flip horizontally if it would overflow right edge
+    if (left + cardWidth > window.innerWidth - padding) {
+        left = mouseX - cardWidth - 14;
+    }
+
+    // Flip vertically if it would overflow bottom edge
+    if (top + cardHeight > window.innerHeight - padding) {
+        top = mouseY - cardHeight - 12;
+    }
+
+    // Clamp within viewport
+    left = Math.max(padding, Math.min(left, window.innerWidth - cardWidth - padding));
+    top = Math.max(padding, Math.min(top, window.innerHeight - cardHeight - padding));
+
+    card.style.left = left + 'px';
+    card.style.top = top + 'px';
+}
+
+// ══════════════════════════════════════════════════════════
+
+/**
+ * VenEl File Manager - History & Navigation
+ * Handles back, forward, up, home, directory navigation, and refresh.
+ */
+// ══════════════════════════════════════════════════════════
+// 🧭 NAVIGATION & HISTORY
+// ══════════════════════════════════════════════════════════
+function normalizeNavPath(p) {
+    if (!p || typeof p !== 'string') return p;
+    if (p === '/' || /^[a-zA-Z]:[\\/]?$/.test(p)) return p;
+    return p.replace(/[\\/]+$/, '');
+}
+
+function navigateTo(targetPath, isHistoryAction = false) {
+    closePathDropdown();
+    if (isDualPane) {
+        loadCommanderPane(activePaneId, targetPath, isHistoryAction);
+        return;
+    }
+    const normTarget = normalizeNavPath(targetPath);
+    if (!isHistoryAction && normTarget) {
+        // If user branched from previous history index, truncate forward history
+        if (navHistoryIndex >= 0 && navHistoryIndex < navHistory.length - 1) {
+            navHistory = navHistory.slice(0, navHistoryIndex + 1);
+        }
+        const last = navHistory.length > 0 ? normalizeNavPath(navHistory[navHistory.length - 1]) : null;
+        if (last !== normTarget) {
+            navHistory.push(normTarget);
+            navHistoryIndex = navHistory.length - 1;
+        }
+        updateNavButtons();
+    }
+    const activeTab = tabs.find(function(t) { return t.id === activeTabId; });
+    if (activeTab) {
+        activeTab.history = [...navHistory];
+        activeTab.historyIndex = navHistoryIndex;
+    }
+    loadFiles(targetPath);
+}
+
+function goBack() {
+    if (isDualPane) {
+        const state = activePaneId === 'left' ? commanderLeftState : commanderRightState;
+        if (state && state.history && state.historyIndex > 0) {
+            state.historyIndex--;
+            updateNavButtons();
+            loadCommanderPane(activePaneId, state.history[state.historyIndex], true);
+        }
+        return;
+    }
+    // Skip consecutive duplicates if any
+    while (navHistoryIndex > 0 && normalizeNavPath(navHistory[navHistoryIndex - 1]) === normalizeNavPath(currentPath)) {
+        navHistoryIndex--;
+    }
+    if (navHistoryIndex > 0) {
+        navHistoryIndex--;
+        updateNavButtons();
+        const activeTab = tabs.find(function(t) { return t.id === activeTabId; });
+        if (activeTab) {
+            activeTab.historyIndex = navHistoryIndex;
+        }
+        loadFiles(navHistory[navHistoryIndex]);
+    } else {
+        // At start of history: gracefully navigate to parent folder instead of remaining stuck
+        goUp();
+    }
+}
+
+function goForward() {
+    if (isDualPane) {
+        const state = activePaneId === 'left' ? commanderLeftState : commanderRightState;
+        if (state && state.history && state.historyIndex < state.history.length - 1) {
+            state.historyIndex++;
+            updateNavButtons();
+            loadCommanderPane(activePaneId, state.history[state.historyIndex], true);
+        }
+        return;
+    }
+    if (navHistoryIndex < navHistory.length - 1) {
+        navHistoryIndex++;
+        updateNavButtons();
+        const activeTab = tabs.find(function(t) { return t.id === activeTabId; });
+        if (activeTab) {
+            activeTab.historyIndex = navHistoryIndex;
+        }
+        loadFiles(navHistory[navHistoryIndex]);
+    }
+}
+
+function canNavigateBack() {
+    if (isDualPane) {
+        const state = activePaneId === 'left' ? commanderLeftState : commanderRightState;
+        return !!(state && state.history && state.historyIndex > 0);
+    }
+    if (navHistoryIndex > 0) return true;
+    if (!currentPath || currentPath === '.' || currentPath === '/' || /^[a-zA-Z]:[\\/]?$/.test(currentPath)) return false;
+    return true;
+}
+
+function canNavigateForward() {
+    if (isDualPane) {
+        const state = activePaneId === 'left' ? commanderLeftState : commanderRightState;
+        return !!(state && state.history && state.historyIndex < state.history.length - 1);
+    }
+    return navHistoryIndex < navHistory.length - 1;
+}
+
+function handleNativeBackOrUp(preferUp) {
+    if (preferUp) {
+        goUp();
+        return;
+    }
+    if (canNavigateBack()) {
+        goBack();
+    } else {
+        goUp();
+    }
+}
+
+function updateNavButtons() {
+    const btnBack = document.getElementById('btn-back');
+    const btnForward = document.getElementById('btn-forward');
+    const canBack = canNavigateBack();
+    const canForward = canNavigateForward();
+    if (btnBack) btnBack.disabled = !canBack;
+    if (btnForward) btnForward.disabled = !canForward;
+    setMenuEntryDisabled('menu-go-back', !canBack);
+    setMenuEntryDisabled('menu-go-forward', !canForward);
+}
+
+function goUp() {
+    if (isDualPane) {
+        navigateCommanderParent(activePaneId);
+        return;
+    }
+    if (!currentPath || currentPath === '.') return;
+
+    const cloudInfo = parseCloudUrl(currentPath);
+    if (cloudInfo) {
+        if (cloudInfo.remotePath === '/' || !cloudInfo.remotePath) return;
+        const parts = cloudInfo.remotePath.split('/').filter(function(p) { return p !== ''; });
+        if (parts.length <= 1) {
+            navigateTo(`cloud://${cloudInfo.connectionId}/`);
+            return;
+        }
+        parts.pop();
+        navigateTo(`cloud://${cloudInfo.connectionId}/` + parts.join('/'));
+        return;
+    }
+
+    const sftpInfo = parseSftpUrl(currentPath);
+    if (sftpInfo) {
+        if (sftpInfo.remotePath === '/' || !sftpInfo.remotePath) return;
+        const parts = sftpInfo.remotePath.split('/').filter(function(p) { return p !== ''; });
+        if (parts.length <= 1) {
+            navigateTo(`sftp://${sftpInfo.connectionId}/`);
+            return;
+        }
+        parts.pop();
+        navigateTo(`sftp://${sftpInfo.connectionId}/` + parts.join('/'));
+        return;
+    }
+
+    const sep = isWindows ? '\\' : '/';
+    const parts = currentPath.split(sep).filter(function(p) { return p !== ''; });
+    if (parts.length <= 1) {
+        navigateTo(isWindows ? parts[0] + '\\' : '/');
+        return;
+    }
+    parts.pop();
+    const parent = isWindows ? (parts.join('\\') + (parts.length === 1 ? '\\' : '')) : ('/' + parts.join('/'));
+    navigateTo(parent);
+}
+
+function goHome() {
+    if (activeWorkingDirectory) {
+        navigateTo(activeWorkingDirectory);
+        return;
+    }
+    const homeRoot = systemRoots.find(function(r) { return r.type === 'Home'; });
+    navigateTo(homeRoot ? homeRoot.path : '.');
+}
+
+function quickNav(name) {
+    const match = systemRoots.find(function(r) { return r.type === name || r.name.toLowerCase().includes(name.toLowerCase()); });
+    if (match) {
+        navigateTo(match.path);
+    } else {
+        goHome();
+    }
+}
+
+
+/**
+ * VenEl File Manager - Breadcrumbs & Address Bar
+ * Interactive breadcrumb pills, path bar editing, and folder jump dropdown.
+ */
+// ══════════════════════════════════════════════════════════
+// 🍞 INTERACTIVE BREADCRUMBS
+// ══════════════════════════════════════════════════════════
+function renderBreadcrumbs() {
+    const container = document.getElementById('path-breadcrumbs');
+    if (!container) return;
+    if (!currentPath || currentPath === '.') {
+        container.innerHTML = '<span class="crumb current">Loading...</span>';
+        return;
+    }
+
+    const cloudInfo = parseCloudUrl(currentPath);
+    if (cloudInfo) {
+        let html = '';
+        const session = (typeof cloudActiveSessions !== 'undefined') ? cloudActiveSessions.find(s => s.connectionId === cloudInfo.connectionId) : null;
+        const serverLabel = session ? (session.name || `${session.provider.toUpperCase()} Bucket`) : 'Cloud Storage';
+        const rootPath = `cloud://${cloudInfo.connectionId}/`;
+        const isAtRoot = cloudInfo.remotePath === '/' || !cloudInfo.remotePath;
+        const icon = session && session.provider === 'azure' ? '🟦' : '🟧';
+        html += '<span class="crumb' + (isAtRoot ? ' current' : '') + '" onclick="event.stopPropagation(); navigateTo(\'' + escapePath(rootPath) + '\')">' +
+                `<i>${icon}</i> ` + escapeHtml(serverLabel) + '</span>';
+
+        const parts = cloudInfo.remotePath.split('/').filter(function(p) { return p !== ''; });
+        let accum = `cloud://${cloudInfo.connectionId}`;
+        for (let i = 0; i < parts.length; i++) {
+            accum += '/' + parts[i];
+            const isCurrent = (i === parts.length - 1);
+            html += '<span class="crumb-sep">›</span>';
+            html += '<span class="crumb' + (isCurrent ? ' current' : '') + '" onclick="event.stopPropagation(); navigateTo(\'' + escapePath(accum) + '\')">' +
+                    escapeHtml(parts[i]) + '</span>';
+        }
+        container.innerHTML = html;
+        return;
+    }
+
+    const sftpInfo = parseSftpUrl(currentPath);
+    if (sftpInfo) {
+        let html = '';
+        const session = sftpActiveSessions.find(s => s.connectionId === sftpInfo.connectionId);
+        const serverLabel = session ? (session.name || `${session.username}@${session.host}`) : 'SFTP Remote';
+        const rootPath = `sftp://${sftpInfo.connectionId}/`;
+        const isAtRoot = sftpInfo.remotePath === '/' || !sftpInfo.remotePath;
+        html += '<span class="crumb' + (isAtRoot ? ' current' : '') + '" onclick="event.stopPropagation(); navigateTo(\'' + escapePath(rootPath) + '\')">' +
+                '<i>🌐</i> ' + escapeHtml(serverLabel) + '</span>';
+
+        const parts = sftpInfo.remotePath.split('/').filter(function(p) { return p !== ''; });
+        let accum = `sftp://${sftpInfo.connectionId}`;
+        for (let i = 0; i < parts.length; i++) {
+            accum += '/' + parts[i];
+            const isCurrent = (i === parts.length - 1);
+            html += '<span class="crumb-sep">›</span>';
+            html += '<span class="crumb' + (isCurrent ? ' current' : '') + '" onclick="event.stopPropagation(); navigateTo(\'' + escapePath(accum) + '\')">' +
+                    escapeHtml(parts[i]) + '</span>';
+        }
+        container.innerHTML = html;
+        updateCompactWindowTitle();
+        return;
+    }
+
+    const sep = isWindows ? '\\' : '/';
+    const parts = currentPath.split(sep).filter(function(p) { return p !== ''; });
+    let html = '';
+
+    const rootPath = isWindows ? (currentPath.slice(0, 3)) : '/';
+    const rootLabel = isWindows ? rootPath : '/ (Root)';
+    html += '<span class="crumb' + (parts.length === 0 ? ' current' : '') + '" onclick="event.stopPropagation(); navigateTo(\'' + escapePath(rootPath) + '\')" ondragover="handleBreadcrumbDragOver(event, \'' + escapePath(rootPath) + '\')" ondragleave="handleBreadcrumbDragLeave(event)" ondrop="handleBreadcrumbDrop(event, \'' + escapePath(rootPath) + '\')">' +
+            '<i>' + (isWindows ? '💻' : '📁') + '</i> ' + escapeHtml(rootLabel) + '</span>';
+
+    let accum = isWindows ? rootPath : '';
+    for (let i = 0; i < parts.length; i++) {
+        if (isWindows && i === 0 && parts[0].endsWith(':')) continue;
+        accum = isWindows ? (accum.endsWith('\\') ? accum + parts[i] : accum + '\\' + parts[i]) : accum + '/' + parts[i];
+        const isCurrent = (i === parts.length - 1);
+        html += '<span class="crumb-sep">›</span>';
+        html += '<span class="crumb' + (isCurrent ? ' current' : '') + '" onclick="event.stopPropagation(); navigateTo(\'' + escapePath(accum) + '\')" ondragover="handleBreadcrumbDragOver(event, \'' + escapePath(accum) + '\')" ondragleave="handleBreadcrumbDragLeave(event)" ondrop="handleBreadcrumbDrop(event, \'' + escapePath(accum) + '\')">' +
+                escapeHtml(parts[i]) + '</span>';
+    }
+    container.innerHTML = html;
+    updateCompactWindowTitle();
+}
+
+function handlePathBarClick(e) {
+    if (e.target.id === 'btn-path-dropdown' || e.target.closest('#btn-path-dropdown')) return;
+    if (e.target.id === 'btn-pin-address-bar' || e.target.closest('#btn-pin-address-bar')) return;
+    if (e.target.classList.contains('crumb')) return;
+    enterPathEditMode();
+}
+
+function handleAddressBarPinClick(e) {
+    if (e) {
+        if (e.stopPropagation) e.stopPropagation();
+        if (e.preventDefault) e.preventDefault();
+    }
+    togglePinCurrentFolder();
+}
+
+function enterPathEditMode() {
+    const breadcrumbs = document.getElementById('path-breadcrumbs');
+    const input = document.getElementById('path');
+    if (breadcrumbs && input) {
+        breadcrumbs.style.display = 'none';
+        input.style.display = 'block';
+        input.value = currentPath;
+        input.focus();
+        input.select();
+    }
+}
+
+function exitPathEditMode() {
+    const breadcrumbs = document.getElementById('path-breadcrumbs');
+    const input = document.getElementById('path');
+    const pathBarBox = document.getElementById('path-bar-box');
+    const compactTitle = document.getElementById('compact-window-title');
+    if (breadcrumbs && input) {
+        input.style.display = 'none';
+        breadcrumbs.style.display = 'flex';
+    }
+    if (typeof isCompactBars !== 'undefined' && isCompactBars) {
+        if (pathBarBox) pathBarBox.style.display = 'none';
+        if (compactTitle) {
+            updateCompactWindowTitle();
+            compactTitle.style.display = 'flex';
+        }
+    }
+}
+
+function handlePathEnter(e) {
+    if (e.key === 'Enter') {
+        const target = document.getElementById('path').value.trim();
+        exitPathEditMode();
+        if (target) navigateTo(target);
+    }
+}
+
+
+
+/**
+ * VenEl File Manager - Multi-Tab Strip
+ * Tab creation, switching, closing, and keyboard shortcuts.
+ */
+// ══════════════════════════════════════════════════════════
+let tabs = [];
+let activeTabId = null;
+let contextMenuTabId = null;
+
+function getTabTitleForPath(p) {
+    if (!p || p === '.') return 'Folder';
+    const clean = p.replace(/[\\/]+$/, '');
+    if (!clean) return p || 'Root';
+    const sep = clean.includes('\\') ? '\\' : '/';
+    const parts = clean.split(sep).filter(Boolean);
+    return parts.length > 0 ? parts[parts.length - 1] : clean;
+}
+
+function renderTabs() {
+    const container = document.getElementById('tabs-container');
+    if (!container) return;
+
+    let html = '';
+    for (let i = 0; i < tabs.length; i++) {
+        const tab = tabs[i];
+        const isActive = (tab.id === activeTabId);
+        const title = tab.title || getTabTitleForPath(tab.path);
+        const fullPath = tab.path || '';
+
+        let icon = '📁';
+        if (fullPath === '/' || /^[a-zA-Z]:\\?$/.test(fullPath)) icon = isWindows ? '💻' : '📁';
+        else if (systemRoots.some(function(r) { return r.type === 'Home' && r.path === fullPath; })) icon = '🏠';
+
+        html += '<div class="tab-item' + (isActive ? ' active' : '') + '" ' +
+                'data-tab-id="' + tab.id + '" ' +
+                'onclick="switchToTab(\'' + tab.id + '\')" ' +
+                'onauxclick="handleTabAuxClick(event, \'' + tab.id + '\')" ' +
+                'oncontextmenu="handleTabContextMenu(event, \'' + tab.id + '\')" ' +
+                'title="' + escapeHtml(fullPath) + (i < 9 ? ' (Alt+' + (i + 1) + ')' : '') + '">' +
+                '<span class="tab-icon">' + icon + '</span>' +
+                '<span class="tab-title">' + escapeHtml(title) + '</span>' +
+                (tabs.length > 1 ? '<span class="tab-close" onclick="closeTab(\'' + tab.id + '\', event)" title="Close tab (Ctrl+W)">✕</span>' : '') +
+                '</div>';
+    }
+    container.innerHTML = html;
+}
+
+function switchToTab(tabId) {
+    if (activeTabId === tabId) return;
+
+    // 1. Save current active tab state
+    const currentTab = tabs.find(function(t) { return t.id === activeTabId; });
+    if (currentTab) {
+        currentTab.history = [...navHistory];
+        currentTab.historyIndex = navHistoryIndex;
+        currentTab.searchQuery = document.getElementById('search') ? document.getElementById('search').value : '';
+        currentTab.sort = { ...currentSort };
+    }
+
+    // 2. Set new active tab
+    activeTabId = tabId;
+    const nextTab = tabs.find(function(t) { return t.id === tabId; });
+    if (!nextTab) return;
+
+    // 3. Restore target tab state
+    navHistory = Array.isArray(nextTab.history) && nextTab.history.length > 0 ? [...nextTab.history] : [nextTab.path];
+    navHistoryIndex = typeof nextTab.historyIndex === 'number' ? nextTab.historyIndex : navHistory.length - 1;
+    updateNavButtons();
+
+    if (nextTab.sort) {
+        currentSort = { ...nextTab.sort };
+    }
+
+    const searchInput = document.getElementById('search');
+    if (searchInput) {
+        searchInput.value = nextTab.searchQuery || '';
+        const clearBtn = document.getElementById('search-clear-btn');
+        if (clearBtn) clearBtn.style.display = searchInput.value ? 'block' : 'none';
+    }
+
+    renderTabs();
+    saveTabsState();
+
+    // 4. Load directory for this tab
+    loadFiles(nextTab.path);
+}
+
+function addNewTab(initialPath) {
+    const targetPath = initialPath || currentPath || '.';
+    const newId = 'tab_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+    const newTab = {
+        id: newId,
+        title: getTabTitleForPath(targetPath),
+        path: targetPath,
+        history: [targetPath],
+        historyIndex: 0,
+        sort: { field: 'name', asc: true },
+        searchQuery: ''
+    };
+    tabs.push(newTab);
+    renderTabs();
+    switchToTab(newId);
+
+    const container = document.getElementById('tabs-container');
+    if (container) {
+        setTimeout(function() { container.scrollLeft = container.scrollWidth; }, 40);
+    }
+}
+
+function closeTab(tabId, e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    if (tabs.length <= 1) {
+        showToast('Cannot close the only open tab', 'ℹ️');
+        return;
+    }
+    const idx = tabs.findIndex(function(t) { return t.id === tabId; });
+    if (idx === -1) return;
+
+    const wasActive = (activeTabId === tabId);
+    tabs.splice(idx, 1);
+
+    if (wasActive) {
+        const nextIdx = Math.max(0, idx - 1);
+        const nextTab = tabs[nextIdx];
+        activeTabId = nextTab.id;
+        navHistory = Array.isArray(nextTab.history) ? [...nextTab.history] : [nextTab.path];
+        navHistoryIndex = typeof nextTab.historyIndex === 'number' ? nextTab.historyIndex : navHistory.length - 1;
+        updateNavButtons();
+        renderTabs();
+        saveTabsState();
+        loadFiles(nextTab.path);
+    } else {
+        renderTabs();
+        saveTabsState();
+    }
+}
+
+function closeCurrentTab() {
+    closeTab(activeTabId);
+}
+
+function handleTabAuxClick(e, tabId) {
+    if (e.button === 1) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeTab(tabId);
+    }
+}
+
+function handleItemAuxClick(e, name, isDir) {
+    if (e.button === 1 && isDir) {
+        e.preventDefault();
+        e.stopPropagation();
+        const sep = isWindows ? '\\' : '/';
+        const targetPath = (selectedItem && selectedItem.path) ? selectedItem.path : (currentPath.endsWith(sep) ? currentPath + name : currentPath + sep + name);
+        addNewTab(targetPath);
+        showToast('Opened folder in new tab', '🗂️');
+    }
+}
+
+function handleTabContextMenu(e, tabId) {
+    e.preventDefault();
+    e.stopPropagation();
+    contextMenuTabId = tabId;
+    hideContextMenu();
+
+    const menu = document.getElementById('tab-context-menu');
+    if (!menu) return;
+
+    const tab = tabs.find(function(t) { return t.id === tabId; });
+    const revealLabel = document.getElementById('ctx-tab-reveal-label');
+    if (revealLabel) revealLabel.textContent = isWindows ? 'Reveal in File Explorer' : 'Reveal in Finder';
+
+    menu.style.display = 'flex';
+    const menuWidth = 200;
+    const menuHeight = 250;
+    const maxX = window.innerWidth - menuWidth - 10;
+    const maxY = window.innerHeight - menuHeight - 10;
+    menu.style.left = Math.min(e.clientX, maxX) + 'px';
+    menu.style.top = Math.min(e.clientY, maxY) + 'px';
+}
+
+function duplicateTargetTab() {
+    hideContextMenu();
+    const tab = tabs.find(function(t) { return t.id === contextMenuTabId; }) || tabs.find(function(t) { return t.id === activeTabId; });
+    if (tab) {
+        addNewTab(tab.path);
+    }
+}
+
+function openTerminalAtTargetTab() {
+    hideContextMenu();
+    const tab = tabs.find(function(t) { return t.id === contextMenuTabId; }) || tabs.find(function(t) { return t.id === activeTabId; });
+    if (!tab) return;
+    if (window.vscode) {
+        window.vscode.postMessage({ command: 'openTerminal', path: tab.path });
+    } else {
+        fetch('/api/actions/terminal', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: tab.path })
+        });
+    }
+    showToast('Opening terminal...', '💻');
+}
+
+function revealTargetTabInOS() {
+    hideContextMenu();
+    const tab = tabs.find(function(t) { return t.id === contextMenuTabId; }) || tabs.find(function(t) { return t.id === activeTabId; });
+    if (!tab) return;
+    if (window.vscode) {
+        window.vscode.postMessage({ command: 'revealInOS', path: tab.path });
+    } else {
+        fetch('/api/actions/reveal', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: tab.path })
+        });
+    }
+}
+
+function copyTargetTabPath() {
+    hideContextMenu();
+    const tab = tabs.find(function(t) { return t.id === contextMenuTabId; }) || tabs.find(function(t) { return t.id === activeTabId; });
+    if (tab && navigator.clipboard) {
+        navigator.clipboard.writeText(tab.path);
+        showToast('Path copied to clipboard', '📋');
+    }
+}
+
+function closeTargetTab() {
+    hideContextMenu();
+    if (contextMenuTabId) {
+        closeTab(contextMenuTabId);
+    } else {
+        closeCurrentTab();
+    }
+}
+
+function closeOtherTabs() {
+    hideContextMenu();
+    const targetId = contextMenuTabId || activeTabId;
+    const targetTab = tabs.find(function(t) { return t.id === targetId; });
+    if (!targetTab) return;
+    tabs = [targetTab];
+    activeTabId = targetTab.id;
+    navHistory = Array.isArray(targetTab.history) ? [...targetTab.history] : [targetTab.path];
+    navHistoryIndex = typeof targetTab.historyIndex === 'number' ? targetTab.historyIndex : navHistory.length - 1;
+    updateNavButtons();
+    renderTabs();
+    saveTabsState();
+    loadFiles(targetTab.path);
+    showToast('Closed other tabs', 'ℹ️');
+}
+
+function closeTabsToRight() {
+    hideContextMenu();
+    const targetId = contextMenuTabId || activeTabId;
+    const idx = tabs.findIndex(function(t) { return t.id === targetId; });
+    if (idx === -1 || idx >= tabs.length - 1) return;
+    tabs = tabs.slice(0, idx + 1);
+    if (!tabs.some(function(t) { return t.id === activeTabId; })) {
+        activeTabId = targetId;
+        const targetTab = tabs[idx];
+        navHistory = Array.isArray(targetTab.history) ? [...targetTab.history] : [targetTab.path];
+        navHistoryIndex = typeof targetTab.historyIndex === 'number' ? targetTab.historyIndex : navHistory.length - 1;
+        updateNavButtons();
+        loadFiles(targetTab.path);
+    }
+    renderTabs();
+    saveTabsState();
+    showToast('Closed tabs to the right', 'ℹ️');
+}
+
+function cycleTabs(direction = 1) {
+    if (tabs.length <= 1) return;
+    const currentIdx = tabs.findIndex(function(t) { return t.id === activeTabId; });
+    if (currentIdx === -1) return;
+    let nextIdx = (currentIdx + direction) % tabs.length;
+    if (nextIdx < 0) nextIdx = tabs.length - 1;
+    switchToTab(tabs[nextIdx].id);
+}
+
+function openSelectedItemInNewTab() {
+    hideContextMenu();
+    if (!selectedItem) return;
+    const sep = isWindows ? '\\' : '/';
+    const targetPath = (selectedItem && selectedItem.path) ? selectedItem.path : (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name);
+    addNewTab(targetPath);
+    showToast('Opened folder in new tab', '🗂️');
+}
+
+function updateActiveTabAfterLoad(path) {
+    const activeTab = tabs.find(function(t) { return t.id === activeTabId; });
+    if (activeTab) {
+        activeTab.path = path;
+        activeTab.title = getTabTitleForPath(path);
+        renderTabs();
+        saveTabsState();
+    }
+}
+
+function saveTabsState() {
+    try {
+        const saved = tabs.map(function(t) {
+            return {
+                id: t.id,
+                title: t.title,
+                path: t.path,
+                sort: t.sort
+            };
+        });
+        safeStorage.setItem('venel_tabs_v1', JSON.stringify({
+            activeTabId: activeTabId,
+            tabs: saved
+        }));
+    } catch (e) {
+        console.warn('Failed to save tabs state', e);
+    }
+}
+
+function loadTabsState() {
+    try {
+        const raw = safeStorage.getItem('venel_tabs_v1');
+        if (raw) {
+            const data = JSON.parse(raw);
+            if (Array.isArray(data.tabs) && data.tabs.length > 0) {
+                tabs = data.tabs.map(function(t) {
+                    return {
+                        id: t.id,
+                        title: t.title || getTabTitleForPath(t.path),
+                        path: t.path,
+                        history: [t.path],
+                        historyIndex: 0,
+                        sort: t.sort || { field: 'name', asc: true },
+                        searchQuery: ''
+                    };
+                });
+                activeTabId = tabs.some(function(t) { return t.id === data.activeTabId; }) ? data.activeTabId : tabs[0].id;
+                return true;
+            }
+        }
+    } catch (e) {
+        console.warn('Failed to restore tabs state', e);
+    }
+    return false;
+}
+
+// Initialize Tabs
+if (!loadTabsState()) {
+    tabs = [{
+        id: 'tab_init',
+        title: 'Loading...',
+        path: '.',
+        history: ['.'],
+        historyIndex: 0,
+        sort: { field: 'name', asc: true },
+        searchQuery: ''
+    }];
+    activeTabId = 'tab_init';
+}
+try { renderTabs(); } catch (e) {}
+
+// Mousewheel horizontal scroll on tabs bar
+const tabsBarEl = document.getElementById('tabs-bar');
+if (tabsBarEl) {
+    tabsBarEl.addEventListener('wheel', function(e) {
+        if (e.deltaY !== 0) {
+            e.preventDefault();
+            tabsBarEl.scrollLeft += e.deltaY;
+        }
+    }, { passive: false });
+}
+
+
+/**
+ * VenEl File Manager - Sidebar, Splitters & Bookmarks
+ * Pinned favorites, system drives, working directory, and resizer splitters.
+ */
+// ══════════════════════════════════════════════════════════
+// 📐 INTERACTIVE DRAGGABLE RESIZERS (SIDEBAR & PREVIEW PANE)
+// ══════════════════════════════════════════════════════════
+function initSplitters() {
+    const mainContent = document.querySelector('.main-content');
+    const sidebar = document.getElementById('quick-access-sidebar');
+    const sidebarResizer = document.getElementById('sidebar-resizer');
+    const preview = document.getElementById('preview-pane');
+    const previewResizer = document.getElementById('preview-resizer');
+
+    if (!mainContent) return;
+
+    // Restore saved custom widths
+    const savedSidebarWidth = safeStorage.getItem('venel_sidebar_width');
+    if (savedSidebarWidth && sidebar && !sidebar.classList.contains('collapsed')) {
+        sidebar.style.width = savedSidebarWidth + 'px';
+    }
+    const savedPreviewWidth = safeStorage.getItem('venel_preview_width');
+    if (savedPreviewWidth && preview && !preview.classList.contains('collapsed')) {
+        preview.style.width = savedPreviewWidth + 'px';
+    }
+
+    // A. Left Sidebar Splitter Drag
+    if (sidebar && sidebarResizer) {
+        let isDraggingSidebar = false;
+        let startX = 0;
+        let startWidth = 0;
+
+        sidebarResizer.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            isDraggingSidebar = true;
+            startX = e.clientX;
+            startWidth = sidebar.getBoundingClientRect().width;
+            sidebarResizer.classList.add('resizing');
+            mainContent.classList.add('resizing-active');
+            document.body.style.cursor = 'col-resize';
+        });
+
+        sidebarResizer.addEventListener('dblclick', function() {
+            sidebar.style.width = '195px';
+            safeStorage.setItem('venel_sidebar_width', '195');
+            showToast('Sidebar width reset (195px)', '📐');
+        });
+
+        window.addEventListener('mousemove', function(e) {
+            if (!isDraggingSidebar) return;
+            let newWidth = startWidth + (e.clientX - startX);
+            if (newWidth < 130) newWidth = 130;
+            if (newWidth > 480) newWidth = 480;
+            sidebar.style.width = newWidth + 'px';
+            safeStorage.setItem('venel_sidebar_width', newWidth);
+        });
+
+        window.addEventListener('mouseup', function() {
+            if (isDraggingSidebar) {
+                isDraggingSidebar = false;
+                sidebarResizer.classList.remove('resizing');
+                mainContent.classList.remove('resizing-active');
+                document.body.style.cursor = '';
+            }
+        });
+    }
+
+    // B. Left Preview Pane Splitter Drag
+    if (preview && previewResizer) {
+        let isDraggingPreview = false;
+        let startX = 0;
+        let startWidth = 0;
+
+        previewResizer.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            isDraggingPreview = true;
+            startX = e.clientX;
+            startWidth = preview.getBoundingClientRect().width;
+            previewResizer.classList.add('resizing');
+            mainContent.classList.add('resizing-active');
+            document.body.style.cursor = 'col-resize';
+        });
+
+        previewResizer.addEventListener('dblclick', function() {
+            preview.style.width = '320px';
+            safeStorage.setItem('venel_preview_width', '320');
+            showToast('Preview width reset (320px)', '📐');
+        });
+
+        window.addEventListener('mousemove', function(e) {
+            if (!isDraggingPreview) return;
+            let newWidth = startWidth + (startX - e.clientX);
+            if (newWidth < 180) newWidth = 180;
+            if (newWidth > 750) newWidth = 750;
+            preview.style.width = newWidth + 'px';
+            safeStorage.setItem('venel_preview_width', newWidth);
+        });
+
+        window.addEventListener('mouseup', function() {
+            if (isDraggingPreview) {
+                isDraggingPreview = false;
+                previewResizer.classList.remove('resizing');
+                mainContent.classList.remove('resizing-active');
+                document.body.style.cursor = '';
+            }
+        });
+    }
+
+    // C. Dual-Pane Commander Resizer
+    if (typeof initDualPaneResizer === 'function') {
+        initDualPaneResizer();
+    }
+}
+
+
+// ══════════════════════════════════════════════════════════
+// ◧ QUICK ACCESS SIDEBAR
+// ══════════════════════════════════════════════════════════
+function toggleSidebarRail(forcedState) {
+    const sidebar = document.getElementById('quick-access-sidebar');
+    const resizer = document.getElementById('sidebar-resizer');
+    const btn = document.getElementById('btn-rail-toggle');
+    const chevron = document.getElementById('rail-toggle-chevron');
+    const label = document.getElementById('rail-toggle-label');
+    const edgeBtn = document.getElementById('sidebar-edge-toggle');
+    if (sidebar) {
+        let isNowCollapsed;
+        if (typeof forcedState === 'boolean') {
+            isNowCollapsed = forcedState;
+            sidebar.classList.toggle('collapsed', isNowCollapsed);
+        } else {
+            isNowCollapsed = sidebar.classList.toggle('collapsed');
+        }
+        safeStorage.setItem('venel_sidebar_collapsed', isNowCollapsed ? 'true' : 'false');
+        if (chevron) chevron.textContent = isNowCollapsed ? '❯' : '❮';
+        if (label) label.textContent = 'Places';
+        if (btn) {
+            btn.title = isNowCollapsed ? 'Expand Places (>)' : 'Collapse Places (<)';
+            btn.classList.toggle('active', isNowCollapsed);
+        }
+        if (edgeBtn) {
+            edgeBtn.style.display = 'none';
+        }
+        if (resizer) {
+            resizer.style.display = isNowCollapsed ? 'none' : 'block';
+        }
+    }
+    updateDockStripVisibility();
+    updateViewMenuChecks();
+}
+
+function renderQuickAccessDrives() {
+    const container = document.getElementById('quick-drives');
+    if (!container) return;
+    let html = '';
+    for (let i = 0; i < systemRoots.length; i++) {
+        const root = systemRoots[i];
+        if (root.type === 'Home' || root.type === 'Desktop' || root.type === 'Documents' || root.type === 'Downloads') continue;
+        html += '<div class="quick-item" onclick="navigateTo(\'' + escapePath(root.path) + '\')">' +
+                '<i>' + (root.type === 'Drive' ? '💻' : '📁') + '</i> ' +
+                '<span>' + escapeHtml(root.name) + '</span>' +
+                '</div>';
+    }
+    container.innerHTML = html;
+}
+
+
+
+// ══════════════════════════════════════════════════════════
+// 🌿 GIT STATUS & VCS BADGING
+// ══════════════════════════════════════════════════════════
+let currentGitStatuses = {};
+let currentGitRepo = false;
+
+async function fetchGitStatus(dirPath) {
+    try {
+        const res = await fetch('/api/files/gitStatus?path=' + encodeURIComponent(dirPath));
+        if (!res.ok) return;
+        const data = await res.json();
+        const branchContainer = document.getElementById('status-git-branch');
+        const branchNameElem = document.getElementById('git-branch-name');
+        const syncStatusElem = document.getElementById('git-sync-status');
+
+        if (data.isRepo) {
+            currentGitRepo = true;
+            currentGitStatuses = data.statuses || {};
+            if (branchContainer) branchContainer.style.display = 'inline-flex';
+            if (branchNameElem) branchNameElem.textContent = data.branch || 'HEAD';
+            if (syncStatusElem) {
+                let syncText = '';
+                if (data.ahead > 0) syncText += ' ↑' + data.ahead;
+                if (data.behind > 0) syncText += ' ↓' + data.behind;
+                syncStatusElem.textContent = syncText;
+            }
+        } else {
+            currentGitRepo = false;
+            currentGitStatuses = {};
+            if (branchContainer) branchContainer.style.display = 'none';
+        }
+        // Re-render items with updated git badges
+        applyFilterAndRender();
+    } catch {
+        currentGitRepo = false;
+        currentGitStatuses = {};
+        const branchContainer = document.getElementById('status-git-branch');
+        if (branchContainer) branchContainer.style.display = 'none';
+    }
+}
+
+function refreshGitStatus() {
+    fetchGitStatus(currentPath);
+    showToast('Refreshing Git status...', '🌿');
+}
+
+// ══════════════════════════════════════════════════════════
+// ⭐ BOOKMARKS / FAVORITES SYSTEM
+// ══════════════════════════════════════════════════════════
+let userBookmarks = [];
+
+function initBookmarks() {
+    try {
+        const stored = safeStorage.getItem('venel_bookmarks_v1');
+        if (stored) {
+            userBookmarks = JSON.parse(stored);
+        } else {
+            // Default starting bookmark
+            userBookmarks = [
+                { name: 'Home', path: (typeof defaultHomePath !== 'undefined' ? defaultHomePath : '.') || '.', icon: '🏠', isDir: true, isDefault: true }
+            ];
+            saveBookmarks();
+        }
+    } catch {
+        userBookmarks = [];
+    }
+    renderBookmarks();
+}
+
+function saveBookmarks() {
+    try {
+        safeStorage.setItem('venel_bookmarks_v1', JSON.stringify(userBookmarks));
+    } catch {}
+}
+
+function updateAddressBarStar() {
+    const isCurrentPinned = typeof userBookmarks !== 'undefined' && userBookmarks.some(function(b) { return b.path === currentPath; });
+    const addressPinBtn = document.getElementById('btn-pin-address-bar');
+    const addressStarIcon = document.getElementById('address-star-icon');
+    if (addressPinBtn) {
+        if (isCurrentPinned) {
+            addressPinBtn.classList.add('pinned');
+            if (addressStarIcon) addressStarIcon.textContent = '★';
+            addressPinBtn.title = 'Unpin this folder from Favorites (★)';
+        } else {
+            addressPinBtn.classList.remove('pinned');
+            if (addressStarIcon) addressStarIcon.textContent = '☆';
+            addressPinBtn.title = 'Pin this folder to Favorites (☆)';
+        }
+    }
+}
+
+function renderBookmarks() {
+    const container = document.getElementById('bookmarks-chips');
+    const favList = document.getElementById('favorites-list');
+    const favCountBadge = document.getElementById('favorites-count-badge');
+    const pinBtn = document.getElementById('btn-pin-current');
+    const starIcon = document.getElementById('pin-star-icon');
+    const starLabel = document.getElementById('pin-star-label');
+    const previewPinBtn = document.getElementById('preview-pin-btn');
+
+    const isCurrentPinned = userBookmarks.some(function(b) { return b.path === currentPath; });
+    const addressPinBtn = document.getElementById('btn-pin-address-bar');
+    const addressStarIcon = document.getElementById('address-star-icon');
+    if (addressPinBtn) {
+        if (isCurrentPinned) {
+            addressPinBtn.classList.add('pinned');
+            if (addressStarIcon) addressStarIcon.textContent = '★';
+            addressPinBtn.title = 'Unpin this folder from Favorites (★)';
+        } else {
+            addressPinBtn.classList.remove('pinned');
+            if (addressStarIcon) addressStarIcon.textContent = '☆';
+            addressPinBtn.title = 'Pin this folder to Favorites (☆)';
+        }
+    }
+
+    if (pinBtn) {
+        if (isCurrentPinned) {
+            pinBtn.classList.add('pinned');
+            if (starIcon) starIcon.textContent = '★';
+            starLabel.textContent = 'Pinned';
+        } else {
+            pinBtn.classList.remove('pinned');
+            if (starIcon) starIcon.textContent = '☆';
+            starLabel.textContent = 'Pin Folder';
+        }
+    }
+
+    if (previewPinBtn && activePreviewPath) {
+        const isPrevPinned = userBookmarks.some(function(b) { return b.path === activePreviewPath; });
+        if (isPrevPinned) {
+            previewPinBtn.classList.add('pinned');
+            previewPinBtn.textContent = '★';
+            previewPinBtn.title = 'Unpin this item from Favorites';
+        } else {
+            previewPinBtn.classList.remove('pinned');
+            previewPinBtn.textContent = '☆';
+            previewPinBtn.title = 'Pin this item to Favorites';
+        }
+    }
+
+    if (favCountBadge) {
+        favCountBadge.textContent = userBookmarks.length;
+    }
+
+    // 1. Render Top Bookmarks Bar Chips
+    if (container) {
+        let html = '';
+        userBookmarks.forEach(function(b) {
+            const isActive = b.path === currentPath;
+            html += '<div class="bookmark-chip ' + (isActive ? 'active' : '') + '" onclick="navigateToBookmark(\'' + escapePath(b.path) + '\', ' + (b.isDir !== false) + ')" ondragover="handleBookmarkDragOver(event, \'' + escapePath(b.path) + '\')" ondragleave="handleBookmarkDragLeave(event)" ondrop="handleBookmarkDrop(event, \'' + escapePath(b.path) + '\')" title="' + escapeHtml(b.path) + '">' +
+                '<span>' + (b.icon || '📁') + '</span>' +
+                '<span class="chip-name">' + escapeHtml(b.name) + '</span>' +
+                (!b.isDefault ? '<span class="remove-pin" onclick="event.stopPropagation(); removeBookmark(\'' + escapePath(b.path) + '\')" title="Unpin">✕</span>' : '') +
+                '</div>';
+        });
+        container.innerHTML = html;
+    }
+
+    // 2. Render Left Places Sidebar Pinned Favorites List
+    if (favList) {
+        if (userBookmarks.length === 0) {
+            favList.innerHTML = '<div class="favorites-empty-guide">⭐ Drag folders or files here to pin for quick access</div>';
+        } else {
+            let favHtml = '';
+            userBookmarks.forEach(function(b) {
+                const isActive = b.path === currentPath || (activePreviewPath && b.path === activePreviewPath);
+                const isDir = b.isDir !== false;
+                const visual = typeof getFileVisual === 'function' ? getFileVisual(b.name, isDir) : { icon: isDir ? '📁' : '📄' };
+                const icon = b.icon || visual.icon || (isDir ? '📁' : '📄');
+                const badge = isDir ? 'DIR' : (b.ext || b.name.split('.').pop() || 'FILE').toUpperCase();
+
+                const favIconMarkup = (isDir && visual.svg) ? '<div class="fav-item-icon-svg">' + visual.svg + '</div>' : '<i class="fav-item-icon">' + icon + '</i>';
+
+                favHtml += '<div class="fav-pinned-item ' + (isActive ? 'active' : '') + '" onclick="navigateToBookmark(\'' + escapePath(b.path) + '\', ' + isDir + ')" title="' + escapeHtml(b.path) + '">' +
+                    '<div class="fav-item-main">' +
+                        favIconMarkup +
+                        '<span class="fav-item-name">' + escapeHtml(b.name) + '</span>' +
+                    '</div>' +
+                    '<div style="display: flex; align-items: center; gap: 4px;">' +
+                        '<span class="fav-item-badge">' + escapeHtml(badge) + '</span>' +
+                        '<div class="fav-item-actions">' +
+                            '<button class="fav-action-btn" onclick="event.stopPropagation(); openTerminal(\'' + escapePath(b.path) + '\')" title="Open Integrated Terminal (⌥T)">💻</button>' +
+                            (!b.isDefault ? '<button class="fav-action-btn fav-unpin-btn" onclick="event.stopPropagation(); removeBookmark(\'' + escapePath(b.path) + '\')" title="Unpin from Favorites">✕</button>' : '') +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            });
+            favList.innerHTML = favHtml;
+        }
+    }
+}
+
+function navigateToBookmark(targetPath, isDir) {
+    if (isDir !== false) {
+        navigateTo(targetPath);
+    } else {
+        const sep = isWindows ? '\\' : '/';
+        const parts = targetPath.split(sep).filter(Boolean);
+        const fileName = parts.pop();
+        const parentDir = targetPath.substring(0, targetPath.lastIndexOf(sep)) || (isWindows ? 'C:\\' : '/');
+        if (currentPath !== parentDir) {
+            navigateTo(parentDir, function() {
+                const found = currentItems.find(function(it) { return it.name === fileName; });
+                if (found) {
+                    selectItem(found, null);
+                    handlePreview(found.name, found.type === 'Directory');
+                }
+            });
+        } else {
+            const found = currentItems.find(function(it) { return it.name === fileName; });
+            if (found) {
+                selectItem(found, null);
+                handlePreview(found.name, found.type === 'Directory');
+            }
+        }
+    }
+}
+
+function toggleSidebarSection(sectionName) {
+    const body = document.getElementById(sectionName + '-section-body');
+    const chevron = document.getElementById('chevron-' + sectionName);
+    if (!body) return;
+    const isCollapsed = !body.classList.contains('collapsed');
+    if (isCollapsed) {
+        body.classList.add('collapsed');
+        if (chevron) chevron.classList.add('collapsed');
+    } else {
+        body.classList.remove('collapsed');
+        if (chevron) chevron.classList.remove('collapsed');
+    }
+    try {
+        safeStorage.setItem('venel_sec_collapsed_' + sectionName, isCollapsed ? '1' : '0');
+    } catch {}
+}
+
+function initSidebarSections() {
+    ['working-dir', 'favorites', 'places', 'sftp', 'cloud'].forEach(function(sec) {
+        try {
+            const stored = safeStorage.getItem('venel_sec_collapsed_' + sec);
+            if (stored === '1') {
+                const body = document.getElementById(sec + '-section-body');
+                const chevron = document.getElementById('chevron-' + sec);
+                if (body) body.classList.add('collapsed');
+                if (chevron) chevron.classList.add('collapsed');
+            }
+        } catch {}
+    });
+}
+
+// ══════════════════════════════════════════════════════════
+// 💼 WORKING DIRECTORY & DYNAMIC HOST IDE WORKSPACE MANAGEMENT
+// ══════════════════════════════════════════════════════════
+
+function getTargetFolderForAction(overridePath) {
+    if (overridePath && typeof overridePath === 'string') return overridePath;
+    const sep = isWindows ? '\\' : '/';
+    if (selectedItem && (selectedItem.type === 'Directory' || selectedItem.isDir)) {
+        return selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name);
+    }
+    return currentPath;
+}
+
+function updateIdeEnvironmentInfo(name, folders, primary) {
+    if (name) {
+        detectedIdeName = name;
+        const ideBadge = document.getElementById('working-dir-ide-badge');
+        if (ideBadge) {
+            ideBadge.textContent = detectedIdeName;
+            ideBadge.style.display = 'inline-block';
+        }
+        const menuOpenWs = document.getElementById('menu-label-open-workspace');
+        if (menuOpenWs) {
+            menuOpenWs.textContent = 'Open Current as ' + detectedIdeName + ' Workspace';
+        }
+        const menuOpenEd = document.getElementById('menu-label-open-editor');
+        if (menuOpenEd) {
+            menuOpenEd.textContent = 'Open in ' + detectedIdeName + ' Editor';
+        }
+        const diffIdeLabel = document.getElementById('diff-ide-btn-label');
+        if (diffIdeLabel) {
+            diffIdeLabel.textContent = detectedIdeName;
+        }
+        document.querySelectorAll('.ide-name-text').forEach(function(el) {
+            el.textContent = detectedIdeName;
+        });
+    }
+    if (Array.isArray(folders)) {
+        ideWorkspaceFolders = folders;
+    }
+    if (primary) {
+        idePrimaryWorkspace = primary;
+    } else if (ideWorkspaceFolders.length > 0 && !idePrimaryWorkspace) {
+        idePrimaryWorkspace = ideWorkspaceFolders[0].path;
+    }
+
+    if (!activeWorkingDirectory && idePrimaryWorkspace) {
+        activeWorkingDirectory = idePrimaryWorkspace;
+    }
+    renderWorkingDirectoryCard();
+}
+
+function renderWorkingDirectoryCard() {
+    const card = document.getElementById('working-dir-card');
+    if (!card) return;
+
+    if (!activeWorkingDirectory) {
+        card.innerHTML = `
+            <div style="padding: 10px; text-align: center; font-size: 11px; color: var(--text-dim, #888);">
+                <div style="margin-bottom: 6px;">No working directory pinned.</div>
+                <button class="working-dir-btn" onclick="setSelectionAsWorkingDirectory(currentPath)" title="Pin current folder as working directory">🎯 Set Current Folder</button>
+            </div>
+        `;
+        return;
+    }
+
+    const sep = isWindows ? '\\' : '/';
+    const parts = activeWorkingDirectory.replace(/[\\/]+$/, '').split(sep).filter(Boolean);
+    const folderName = parts.length > 0 ? parts[parts.length - 1] : activeWorkingDirectory;
+
+    card.innerHTML = `
+        <div class="working-dir-card-header">
+            <span class="working-dir-icon">💼</span>
+            <div class="working-dir-meta">
+                <span class="working-dir-name" title="${escapeHtml(folderName)}">${escapeHtml(folderName)}</span>
+                <span class="working-dir-path" title="${escapeHtml(activeWorkingDirectory)}">${escapeHtml(activeWorkingDirectory)}</span>
+            </div>
+        </div>
+        <div class="working-dir-actions">
+            <div class="working-dir-btn-row">
+                <button class="working-dir-btn" onclick="navigateTo('${escapePath(activeWorkingDirectory)}')" title="Navigate to Working Directory">📂 Open</button>
+                <button class="working-dir-btn" onclick="openTerminal('${escapePath(activeWorkingDirectory)}')" title="Open Terminal in Working Directory">💻 Terminal</button>
+            </div>
+            <div class="working-dir-btn-row">
+                <button class="working-dir-btn btn-ide" onclick="openSelectionAsIdeWorkspace('${escapePath(activeWorkingDirectory)}')" title="Open as ${escapeHtml(detectedIdeName)} Workspace">🚀 ${escapeHtml(detectedIdeName)}</button>
+                <button class="working-dir-btn btn-reset" onclick="resetWorkingDirectory()" title="Reset Working Directory">🔄</button>
+            </div>
+        </div>
+    `;
+}
+
+function setSelectionAsWorkingDirectory(targetPath) {
+    hideContextMenu();
+    const folder = getTargetFolderForAction(targetPath);
+    if (!folder) return;
+
+    activeWorkingDirectory = folder;
+    try {
+        safeStorage.setItem('venel_working_directory', folder);
+    } catch {}
+
+    // Post to IDE Extension
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ command: 'setWorkingDir', path: folder }, '*');
+    }
+    if (window.vscode) {
+        window.vscode.postMessage({ command: 'setWorkingDir', path: folder });
+    }
+
+    renderWorkingDirectoryCard();
+    const sep = isWindows ? '\\' : '/';
+    const parts = folder.replace(/[\\/]+$/, '').split(sep).filter(Boolean);
+    const name = parts.length > 0 ? parts[parts.length - 1] : folder;
+    showToast('Working Directory set: ' + name, '💼');
+}
+
+function openSelectionAsIdeWorkspace(targetPath, newWindow = false) {
+    hideContextMenu();
+    const folder = getTargetFolderForAction(targetPath);
+    if (!folder) return;
+
+    // Post to IDE Extension
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ command: 'openAsWorkspace', path: folder, newWindow: !!newWindow }, '*');
+    }
+    if (window.vscode) {
+        window.vscode.postMessage({ command: 'openAsWorkspace', path: folder, newWindow: !!newWindow });
+    }
+
+    showToast('Opening as ' + detectedIdeName + ' workspace...', '🚀');
+}
+
+function addSelectionToIdeWorkspace(targetPath) {
+    hideContextMenu();
+    const folder = getTargetFolderForAction(targetPath);
+    if (!folder) return;
+
+    // Post to IDE Extension
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ command: 'addToWorkspace', path: folder }, '*');
+    }
+    if (window.vscode) {
+        window.vscode.postMessage({ command: 'addToWorkspace', path: folder });
+    }
+
+    showToast('Adding to ' + detectedIdeName + ' workspace...', '➕');
+}
+
+function resetWorkingDirectory() {
+    hideContextMenu();
+    const defaultRoot = idePrimaryWorkspace || (ideWorkspaceFolders.length > 0 ? ideWorkspaceFolders[0].path : null);
+    activeWorkingDirectory = defaultRoot;
+    if (defaultRoot) {
+        safeStorage.setItem('venel_working_directory', defaultRoot);
+    } else {
+        safeStorage.removeItem('venel_working_directory');
+    }
+    renderWorkingDirectoryCard();
+    showToast('Working Directory reset', '🔄');
+}
+
+async function initIdeEnvironment() {
+    // 1. Initial URL param check
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlIde = urlParams.get('ideName');
+        if (urlIde) {
+            updateIdeEnvironmentInfo(urlIde, null, null);
+        }
+        const urlVer = urlParams.get('version');
+        if (urlVer) {
+            extensionVersion = urlVer;
+            updateAboutVersionDisplay();
+        }
+    } catch {}
+
+    // 2. Fetch server environment API
+    try {
+        const res = await fetch('/api/env/info').catch(() => null);
+        if (res && res.ok) {
+            const data = await res.json();
+            if (data) {
+                if (data.version) {
+                    extensionVersion = data.version;
+                }
+                if (data.engine) {
+                    backendEngineName = data.engine;
+                }
+                if (data.capabilities) {
+                    window.currentEngineCapabilities = data.capabilities;
+                }
+                if (data.ideName) {
+                    updateIdeEnvironmentInfo(data.ideName, data.workspaceFolders, data.primaryWorkspace);
+                }
+                updateAboutVersionDisplay();
+                updateEngineStatusPill(data);
+            }
+        }
+    } catch (e) {
+        console.warn('Could not fetch /api/env/info', e);
+    }
+
+    // 3. Request IDE info via postMessage if framed
+    try {
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ command: 'request-ide-info' }, '*');
+            setTimeout(function() {
+                try { window.parent.postMessage({ command: 'request-ide-info' }, '*'); } catch (e) {}
+            }, 250);
+        }
+    } catch (e) {}
+
+    renderWorkingDirectoryCard();
+}
+
+// ══════════════════════════════════════════════════════════
+
+/**
+ * VenEl File Manager - Machine & Folder Search Engine
+ * Full machine search, folder filtering, and instant search HUD.
+ */
+// ══════════════════════════════════════════════════════════
+// 🤖 AGENT MACHINE-LEVEL SEARCH ENGINE
+// ══════════════════════════════════════════════════════════
+let searchScope = 'folder'; // 'folder' | 'machine'
+let isAgentSearchResultsActive = false;
+let originalFolderItems = [];
+let agentSearchTimer = null;
+
+function toggleSearchScope() {
+    searchScope = searchScope === 'folder' ? 'machine' : 'folder';
+    updateSearchScopeUI();
+}
+
+function updateSearchScopeUI() {
+    const pill = document.getElementById('search-scope-pill');
+    const icon = document.getElementById('scope-icon');
+    const label = document.getElementById('scope-label');
+    const input = document.getElementById('search');
+    const btnAction = document.getElementById('btn-agent-search-action');
+    const actionIcon = btnAction ? btnAction.querySelector('i') : null;
+
+    if (searchScope === 'machine') {
+        pill.classList.add('machine-mode');
+        icon.textContent = '⚡';
+        label.textContent = 'Machine';
+        input.placeholder = 'Search entire machine (e.g. *.cs)...';
+        input.classList.add('machine-focus');
+        if (btnAction) {
+            btnAction.title = 'Search Entire Machine (Enter)';
+            btnAction.classList.add('active-machine-action');
+        }
+        if (actionIcon) actionIcon.textContent = '⚡';
+        showToast('Agent Search: Machine Index active', '⚡');
+    } else {
+        pill.classList.remove('machine-mode');
+        icon.textContent = '📁';
+        label.textContent = 'Folder';
+        input.placeholder = 'Filter current folder...';
+        input.classList.remove('machine-focus');
+        if (btnAction) {
+            btnAction.title = 'Filter current folder';
+            btnAction.classList.remove('active-machine-action');
+        }
+        if (actionIcon) actionIcon.textContent = '🔍';
+        if (isAgentSearchResultsActive) exitAgentSearch();
+    }
+    input.focus();
+}
+
+function handleSearchActionClick() {
+    if (searchScope === 'machine') {
+        triggerAgentSearch();
+    } else {
+        handleSearch();
+    }
+}
+
+function handleSearchInput(e) {
+    const val = document.getElementById('search').value;
+    const clearBtn = document.getElementById('search-clear-btn');
+    if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
+
+    if (searchScope === 'folder') {
+        handleSearch();
+    }
+}
+
+function handleSearchKey(e) {
+    if (e.key === 'Enter') {
+        if (searchScope === 'machine') {
+            triggerAgentSearch();
+        }
+    } else if (e.key === 'Escape') {
+        clearSearch();
+    }
+}
+
+function clearSearch() {
+    const input = document.getElementById('search');
+    input.value = '';
+    const clearBtn = document.getElementById('search-clear-btn');
+    if (clearBtn) clearBtn.style.display = 'none';
+
+    if (isAgentSearchResultsActive) {
+        exitAgentSearch();
+    } else {
+        handleSearch();
+    }
+}
+
+async function triggerAgentSearch() {
+    const query = document.getElementById('search').value.trim();
+    if (!query) {
+        showToast('Please type a search query', '⚠️');
+        return;
+    }
+
+    const banner = document.getElementById('search-results-banner');
+    const bannerText = document.getElementById('search-banner-text');
+    const bannerMeta = document.getElementById('search-banner-meta');
+
+    if (banner) {
+        banner.style.display = 'flex';
+        bannerText.innerHTML = '🤖 Agent searching machine for "<strong>' + escapeHtml(query) + '</strong>"...';
+        bannerMeta.innerText = 'Scanning index...';
+    }
+
+    if (!isAgentSearchResultsActive) {
+        originalFolderItems = [...currentItems];
+        isAgentSearchResultsActive = true;
+    }
+
+    try {
+        const res = await fetch('/api/files/agentSearch?query=' + encodeURIComponent(query) + '&scope=machine&currentPath=' + encodeURIComponent(currentPath));
+        if (!res.ok) {
+            showToast('Agent search failed', '❌');
+            return;
+        }
+        const data = await res.json();
+
+        bannerText.innerHTML = '⚡ <strong>' + data.count + '</strong> match' + (data.count === 1 ? '' : 'es') + ' found across machine for "<strong>' + escapeHtml(query) + '</strong>"';
+        bannerMeta.innerText = (data.engine || 'Spotlight Index') + ' • ' + (data.executionTimeMs || 0) + 'ms';
+
+        currentItems = (data.items || []).map(function(item) {
+            return {
+                name: item.name,
+                path: item.path,
+                directory: item.directory,
+                type: item.type,
+                size: item.size,
+                modified: item.modified,
+                isSearchResult: true
+            };
+        });
+
+        applySortAndRender();
+        showToast('Agent Search complete: ' + data.count + ' items found in ' + data.executionTimeMs + 'ms', '⚡');
+    } catch (err) {
+        console.error(err);
+        showToast('Agent Search error', '❌');
+    }
+}
+
+function exitAgentSearch() {
+    isAgentSearchResultsActive = false;
+    const banner = document.getElementById('search-results-banner');
+    if (banner) banner.style.display = 'none';
+
+    const input = document.getElementById('search');
+    input.value = '';
+    const clearBtn = document.getElementById('search-clear-btn');
+    if (clearBtn) clearBtn.style.display = 'none';
+
+    currentItems = [...originalFolderItems];
+    applySortAndRender();
+    showToast('Returned to folder', '📁');
+}
+
+function formatLocationDisplay(dirPath) {
+    if (!dirPath) return '';
+    const sep = isWindows ? '\\' : '/';
+    const parts = dirPath.split(sep).filter(Boolean);
+    if (parts.length > 2) {
+        return '…' + sep + parts[parts.length - 2] + sep + parts[parts.length - 1];
+    } else if (parts.length > 0) {
+        return parts.join(sep);
+    }
+    return dirPath;
+}
+
+function jumpToSearchResult(directory, fileName) {
+    exitAgentSearch();
+    loadFiles(directory).then(function() {
+        setTimeout(function() {
+            const itemEls = document.querySelectorAll('.item');
+            itemEls.forEach(function(el) {
+                const nameEl = el.querySelector('.item-name');
+                if (nameEl && nameEl.innerText === fileName) {
+                    el.classList.add('selected');
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            });
+        }, 300);
+    });
+}
+
+
+/**
+ * VenEl File Manager - Commander Dual-Pane Mode
+ * Midnight / Total Commander dual-pane workflow and file synchronization.
+ */
+// ⫴ DUAL-PANE COMMANDER MODE (MIDNIGHT / TOTAL COMMANDER)
+// ══════════════════════════════════════════════════════════
+let isDualPane = false;
+let activePaneId = 'left';
+let commanderLeftState = { path: '', items: [], selected: null, selectedItems: [], history: [], historyIndex: -1 };
+let commanderRightState = { path: '', items: [], selected: null, selectedItems: [], history: [], historyIndex: -1 };
+
+function toggleDualPaneMode(forcedState) {
+    if (typeof forcedState === 'boolean') {
+        isDualPane = forcedState;
+    } else {
+        isDualPane = !isDualPane;
+    }
+    safeStorage.setItem('venel_dual_pane', isDualPane ? 'true' : 'false');
+    const mainList = document.getElementById('file-list-container');
+    const commanderContainer = document.getElementById('dual-pane-container');
+    const toggleBtn = document.getElementById('btn-toggle-dual-pane');
+
+    if (toggleBtn) toggleBtn.classList.toggle('active', isDualPane);
+    updateViewMenuChecks();
+
+    if (isDualPane) {
+        if (mainList) mainList.style.display = 'none';
+        if (commanderContainer) commanderContainer.style.display = 'flex';
+
+        // Initialize left pane with current directory
+        if (!commanderLeftState.path) {
+            commanderLeftState.path = currentPath || '.';
+        }
+        // Initialize right pane with current directory or parent
+        if (!commanderRightState.path) {
+            const sep = isWindows ? '\\' : '/';
+            const parts = (currentPath || '.').split(sep).filter(Boolean);
+            if (parts.length > 1) {
+                parts.pop();
+                commanderRightState.path = isWindows ? (parts.join('\\') || 'C:\\') : ('/' + parts.join('/'));
+            } else {
+                commanderRightState.path = currentPath || '.';
+            }
+        }
+
+        loadCommanderPane('left', commanderLeftState.path);
+        loadCommanderPane('right', commanderRightState.path);
+        setActivePane(activePaneId || 'left');
+        showToast('Dual-Pane Commander Activated (Tab / F5 / F6)', '⫴');
+    } else {
+        if (commanderContainer) commanderContainer.style.display = 'none';
+        if (mainList) mainList.style.display = 'flex';
+
+        // Sync back currentPath from active pane
+        const activeState = activePaneId === 'left' ? commanderLeftState : commanderRightState;
+        if (activeState.path && activeState.path !== currentPath) {
+            navigateTo(activeState.path);
+        } else {
+            loadFiles(currentPath);
+        }
+        showToast('Exited Dual-Pane Commander', '✕');
+    }
+}
+
+async function loadCommanderPane(paneId, targetPath, isHistoryAction = false) {
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    if (!state.history) {
+        state.history = [];
+        state.historyIndex = -1;
+    }
+    if (!isHistoryAction && targetPath) {
+        if (state.historyIndex >= 0 && state.historyIndex < state.history.length - 1) {
+            state.history = state.history.slice(0, state.historyIndex + 1);
+        }
+        if (state.history[state.history.length - 1] !== targetPath) {
+            state.history.push(targetPath);
+            state.historyIndex = state.history.length - 1;
+        }
+    }
+    const bodyEl = document.getElementById('commander-files-' + paneId);
+    const pathEl = document.getElementById('pane-' + paneId + '-path');
+    if (!bodyEl) return;
+
+    bodyEl.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);"><div class="spinner" style="margin: 0 auto 8px;"></div>Loading...</div>';
+
+    try {
+        const sftpInfo = parseSftpUrl(targetPath);
+        if (sftpInfo) {
+            const res = await fetch(`/api/sftp/list?connectionId=${encodeURIComponent(sftpInfo.connectionId)}&path=${encodeURIComponent(sftpInfo.remotePath)}`);
+            if (!res.ok) {
+                bodyEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #ff7675;">SFTP Access Denied or Disconnected</div>';
+                return;
+            }
+            const data = await res.json();
+            state.path = `sftp://${sftpInfo.connectionId}${data.currentPath.startsWith('/') ? data.currentPath : '/' + data.currentPath}`;
+            state.items = (data.items || []).map(item => ({
+                ...item,
+                isSftp: true,
+                connectionId: sftpInfo.connectionId,
+                path: `sftp://${sftpInfo.connectionId}${item.remotePath || (data.currentPath === '/' ? '/' + item.name : data.currentPath + '/' + item.name)}`
+            }));
+            state.selected = null;
+            state.selectedItems = [];
+
+            if (pathEl) {
+                pathEl.textContent = state.path;
+                pathEl.title = state.path;
+            }
+
+            renderCommanderBreadcrumbs(paneId, state.path);
+            renderCommanderPaneItems(paneId);
+            if (paneId === activePaneId) {
+                currentPath = state.path;
+                renderBreadcrumbs();
+                updateNavButtons();
+                updateAddressBarStar();
+                updateCompactWindowTitle();
+            }
+            return;
+        }
+
+        const res = await fetch('/api/files/list?path=' + encodeURIComponent(targetPath));
+        if (!res.ok) {
+            bodyEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #ff7675;">Access Denied or Not Found</div>';
+            return;
+        }
+        const data = await res.json();
+        state.path = data.currentPath;
+        state.items = data.items || [];
+        state.selected = null;
+        state.selectedItems = [];
+
+        if (pathEl) {
+            pathEl.textContent = state.path;
+            pathEl.title = state.path;
+        }
+
+        renderCommanderBreadcrumbs(paneId, state.path);
+        renderCommanderPaneItems(paneId);
+        if (paneId === activePaneId) {
+            currentPath = state.path;
+            renderBreadcrumbs();
+            updateNavButtons();
+            updateAddressBarStar();
+            updateCompactWindowTitle();
+        }
+
+        // Asynchronously fetch Git status for Commander pane
+        fetch('/api/files/gitStatus?path=' + encodeURIComponent(state.path))
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .then(function(gData) {
+                if (gData && gData.isRepo && gData.statuses) {
+                    state.gitStatuses = gData.statuses;
+                    renderCommanderPaneItems(paneId);
+                }
+            }).catch(function() {});
+    } catch (err) {
+        console.error(err);
+        bodyEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #ff7675;">Failed to load folder</div>';
+    }
+}
+
+function renderCommanderPaneItems(paneId) {
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    const bodyEl = document.getElementById('commander-files-' + paneId);
+    const countEl = document.getElementById('pane-' + paneId + '-count');
+    const selectedEl = document.getElementById('pane-' + paneId + '-selected');
+    if (!bodyEl) return;
+
+    const items = state.items || [];
+    let html = '';
+
+    // Up row
+    html += '<div class="commander-item commander-item-parent" ondblclick="navigateCommanderParent(\'' + paneId + '\')">' +
+                '<span class="commander-item-icon">⬆️</span>' +
+                '<span class="commander-item-name">..</span>' +
+                '<span class="commander-item-size">&lt;UP&gt;</span>' +
+                '<span class="commander-item-date">Parent Folder</span>' +
+            '</div>';
+
+    items.forEach(function(item, idx) {
+        const isDir = item.type === 'Directory';
+        const visual = getFileVisual(item.name, isDir);
+        const isSelected = state.selected && state.selected.name === item.name;
+        const isInMulti = state.selectedItems.some(function(i) { return i.name === item.name; });
+
+        const gitCode = (state.gitStatuses && state.gitStatuses[item.name]) || (currentGitStatuses && currentGitStatuses[item.name]);
+        let gitBadgeHtml = '';
+        let gitClass = '';
+        if (gitCode) {
+            const codeLower = gitCode.toLowerCase();
+            const displayCode = gitCode === '?' ? 'U' : gitCode;
+            const title = gitCode === 'M' ? 'Modified in Git' : (gitCode === 'U' || gitCode === '?' ? 'Untracked in Git' : (gitCode === 'A' ? 'Added / Staged in Git' : (gitCode === 'D' ? 'Deleted in Git' : (gitCode === 'R' ? 'Renamed in Git' : 'Changed in Git'))));
+            gitClass = ' git-item git-status-' + codeLower;
+            gitBadgeHtml = '<span class="git-badge git-' + codeLower + '" title="' + title + '">' + displayCode + '</span>';
+        }
+
+        html += '<div class="commander-item ' + (isSelected || isInMulti ? 'selected' : '') + gitClass + '" ' +
+                    'data-name="' + escapeHtml(item.name) + '" ' +
+                    (gitCode ? 'data-git-status="' + escapeHtml(gitCode) + '" ' : '') +
+                    'onclick="selectCommanderItem(\'' + paneId + '\', ' + idx + ', event)" ' +
+                    'ondblclick="openCommanderItem(\'' + paneId + '\', ' + idx + ')" ' +
+                    'draggable="true" ondragstart="handleCommanderDragStart(\'' + paneId + '\', ' + idx + ', event)">' +
+                    '<span class="commander-item-icon">' + (visual.svg || visual.icon) + '</span>' +
+                    '<span class="commander-item-name" title="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</span>' +
+                    gitBadgeHtml +
+                    '<span class="commander-item-size">' + (isDir ? '&lt;DIR&gt;' : formatBytes(item.size)) + '</span>' +
+                    '<span class="commander-item-date">' + (item.modified ? formatDate(item.modified) : '') + '</span>' +
+                '</div>';
+    });
+
+    bodyEl.innerHTML = html;
+
+    if (countEl) countEl.textContent = items.length + ' items';
+    if (selectedEl) {
+        const selCount = state.selectedItems.length || (state.selected ? 1 : 0);
+        selectedEl.textContent = selCount > 0 ? (selCount + ' selected') : 'No selection';
+    }
+}
+
+function selectCommanderItem(paneId, itemIndex, event) {
+    if (event && event.stopPropagation) event.stopPropagation();
+    setActivePane(paneId);
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    const item = state.items[itemIndex];
+    if (!item) return;
+
+    if (event && (event.metaKey || event.ctrlKey)) {
+        const existingIdx = state.selectedItems.findIndex(function(i) { return i.name === item.name; });
+        if (existingIdx >= 0) {
+            state.selectedItems.splice(existingIdx, 1);
+            state.selected = state.selectedItems[state.selectedItems.length - 1] || null;
+        } else {
+            state.selectedItems.push(item);
+            state.selected = item;
+        }
+    } else {
+        state.selected = item;
+        state.selectedItems = [item];
+    }
+
+    renderCommanderPaneItems(paneId);
+
+    // Also update preview pane for selected item!
+    const sep = isWindows ? '\\' : '/';
+    const fullPath = state.path.endsWith(sep) ? state.path + item.name : state.path + sep + item.name;
+    activePreviewPath = fullPath;
+    activePreviewIsDir = (item.type === 'Directory');
+    handlePreview(item.name, activePreviewIsDir);
+}
+
+function openCommanderItem(paneId, itemIndex) {
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    const item = state.items[itemIndex];
+    if (!item) return;
+
+    const sep = isWindows ? '\\' : '/';
+    const targetPath = state.path.endsWith(sep) ? state.path + item.name : state.path + sep + item.name;
+
+    if (item.type === 'Directory') {
+        loadCommanderPane(paneId, targetPath);
+    } else {
+        smartOpenFile(targetPath);
+    }
+}
+
+function navigateCommanderParent(paneId) {
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    const sftpInfo = parseSftpUrl(state.path);
+    if (sftpInfo) {
+        if (sftpInfo.remotePath === '/' || !sftpInfo.remotePath) return;
+        const parts = sftpInfo.remotePath.split('/').filter(Boolean);
+        if (parts.length <= 1) {
+            loadCommanderPane(paneId, `sftp://${sftpInfo.connectionId}/`);
+            return;
+        }
+        parts.pop();
+        loadCommanderPane(paneId, `sftp://${sftpInfo.connectionId}/` + parts.join('/'));
+        return;
+    }
+
+    const sep = isWindows ? '\\' : '/';
+    const parts = state.path.split(sep).filter(Boolean);
+    if (parts.length > 1) {
+        parts.pop();
+        const parent = isWindows ? (parts.join('\\') || 'C:\\') : ('/' + parts.join('/'));
+        loadCommanderPane(paneId, parent);
+    } else if (parts.length === 1 && !isWindows) {
+        loadCommanderPane(paneId, '/');
+    }
+}
+
+function refreshCommanderPane(paneId) {
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    loadCommanderPane(paneId, state.path, true);
+    showToast((paneId === 'left' ? 'Left Pane' : 'Right Pane') + ' refreshed', '🔄');
+}
+
+function setActivePane(paneId, event) {
+    if (event && event.stopPropagation) event.stopPropagation();
+    activePaneId = paneId;
+    const leftPane = document.getElementById('commander-pane-left');
+    const rightPane = document.getElementById('commander-pane-right');
+    if (leftPane) leftPane.classList.toggle('active-pane', paneId === 'left');
+    if (rightPane) rightPane.classList.toggle('active-pane', paneId === 'right');
+
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    if (state && state.path) {
+        currentPath = state.path;
+        renderBreadcrumbs();
+        updateNavButtons();
+        updateAddressBarStar();
+        updateCompactWindowTitle();
+    }
+}
+
+function switchActivePane() {
+    const nextPane = activePaneId === 'left' ? 'right' : 'left';
+    setActivePane(nextPane);
+    showToast('Active: ' + (nextPane === 'left' ? 'Left Pane' : 'Right Pane'), '⫴');
+}
+
+async function commanderCopy() {
+    const sourceState = activePaneId === 'left' ? commanderLeftState : commanderRightState;
+    const targetState = activePaneId === 'left' ? commanderRightState : commanderLeftState;
+    const targetPaneId = activePaneId === 'left' ? 'right' : 'left';
+
+    const itemsToCopy = sourceState.selectedItems.length > 0 ? sourceState.selectedItems : (sourceState.selected ? [sourceState.selected] : []);
+    if (itemsToCopy.length === 0) {
+        showToast('Select item(s) in active pane to copy', '⚠️');
+        return;
+    }
+
+    if (sourceState.path === targetState.path) {
+        showToast('Target pane is identical to source pane', '⚠️');
+        return;
+    }
+
+    const sep = isWindows ? '\\' : '/';
+    let successCount = 0;
+    for (let i = 0; i < itemsToCopy.length; i++) {
+        const item = itemsToCopy[i];
+        const srcPath = item.path || (sourceState.path.endsWith(sep) ? sourceState.path + item.name : sourceState.path + sep + item.name);
+        try {
+            const res = await fetch('/api/files/copy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source: srcPath, destinationDir: targetState.path })
+            });
+            if (res.ok) successCount++;
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    if (successCount > 0) {
+        showToast('Copied ' + successCount + (successCount === 1 ? ' item' : ' items') + ' to ' + (targetPaneId === 'left' ? 'Left Pane' : 'Right Pane') + ' ➔', '📋');
+        loadCommanderPane(targetPaneId, targetState.path);
+    } else {
+        showToast('Failed to copy item(s)', '❌');
+    }
+}
+
+async function commanderMove() {
+    const sourceState = activePaneId === 'left' ? commanderLeftState : commanderRightState;
+    const targetState = activePaneId === 'left' ? commanderRightState : commanderLeftState;
+    const targetPaneId = activePaneId === 'left' ? 'right' : 'left';
+
+    const itemsToMove = sourceState.selectedItems.length > 0 ? sourceState.selectedItems : (sourceState.selected ? [sourceState.selected] : []);
+    if (itemsToMove.length === 0) {
+        showToast('Select item(s) in active pane to move', '⚠️');
+        return;
+    }
+
+    if (sourceState.path === targetState.path) {
+        showToast('Target pane is identical to source pane', '⚠️');
+        return;
+    }
+
+    const sep = isWindows ? '\\' : '/';
+    let successCount = 0;
+    for (let i = 0; i < itemsToMove.length; i++) {
+        const item = itemsToMove[i];
+        const srcPath = item.path || (sourceState.path.endsWith(sep) ? sourceState.path + item.name : sourceState.path + sep + item.name);
+        try {
+            const res = await fetch('/api/files/move', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source: srcPath, destinationDir: targetState.path })
+            });
+            if (res.ok) successCount++;
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    if (successCount > 0) {
+        showToast('Moved ' + successCount + (successCount === 1 ? ' item' : ' items') + ' to ' + (targetPaneId === 'left' ? 'Left Pane' : 'Right Pane') + ' ➔', '📦');
+        loadCommanderPane(activePaneId, sourceState.path);
+        loadCommanderPane(targetPaneId, targetState.path);
+    } else {
+        showToast('Failed to move item(s)', '❌');
+    }
+}
+
+function renderCommanderBreadcrumbs(paneId, currentPanePath) {
+    const container = document.getElementById('pane-' + paneId + '-breadcrumbs');
+    const pathEl = document.getElementById('pane-' + paneId + '-path');
+    if (pathEl) {
+        pathEl.textContent = currentPanePath || '~';
+        pathEl.title = currentPanePath || '~';
+    }
+    if (!container) return;
+    if (!currentPanePath || currentPanePath === '.') {
+        container.innerHTML = '<span class="commander-crumb current">Loading...</span>';
+        return;
+    }
+
+    const sftpInfo = parseSftpUrl(currentPanePath);
+    if (sftpInfo) {
+        let html = '';
+        const session = (typeof sftpActiveSessions !== 'undefined') ? sftpActiveSessions.find(s => s.connectionId === sftpInfo.connectionId) : null;
+        const serverLabel = session ? (session.name || `${session.username}@${session.host}`) : 'Remote';
+        const rootPath = `sftp://${sftpInfo.connectionId}/`;
+        const isAtRoot = sftpInfo.remotePath === '/' || !sftpInfo.remotePath;
+        html += '<span class="commander-crumb' + (isAtRoot ? ' current' : '') + '" onclick="event.stopPropagation(); navigateCommanderCrumb(\'' + paneId + '\', \'' + escapePath(rootPath) + '\')">' +
+                '<i>🌐</i> ' + escapeHtml(serverLabel) + '</span>';
+
+        const parts = sftpInfo.remotePath.split('/').filter(function(p) { return p !== ''; });
+        let accum = `sftp://${sftpInfo.connectionId}`;
+        for (let i = 0; i < parts.length; i++) {
+            accum += '/' + parts[i];
+            const isCurrent = (i === parts.length - 1);
+            html += '<span class="commander-crumb-sep">›</span>';
+            html += '<span class="commander-crumb' + (isCurrent ? ' current' : '') + '" onclick="event.stopPropagation(); navigateCommanderCrumb(\'' + paneId + '\', \'' + escapePath(accum) + '\')">' +
+                    escapeHtml(parts[i]) + '</span>';
+        }
+        container.innerHTML = html;
+        container.scrollLeft = container.scrollWidth;
+        return;
+    }
+
+    const sep = isWindows ? '\\' : '/';
+    const parts = currentPanePath.split(sep).filter(function(p) { return p !== ''; });
+    let html = '';
+
+    const rootPath = isWindows ? (currentPanePath.slice(0, 3)) : '/';
+    const rootLabel = isWindows ? rootPath : '/';
+    html += '<span class="commander-crumb' + (parts.length === 0 ? ' current' : '') + '" onclick="event.stopPropagation(); navigateCommanderCrumb(\'' + paneId + '\', \'' + escapePath(rootPath) + '\')">' +
+            '<i>' + (isWindows ? '💻' : '📁') + '</i> ' + escapeHtml(rootLabel) + '</span>';
+
+    let accum = isWindows ? rootPath : '';
+    for (let i = 0; i < parts.length; i++) {
+        if (isWindows && i === 0 && parts[0].endsWith(':')) continue;
+        accum = isWindows ? (accum.endsWith('\\') ? accum + parts[i] : accum + '\\' + parts[i]) : accum + '/' + parts[i];
+        const isCurrent = (i === parts.length - 1);
+        html += '<span class="commander-crumb-sep">›</span>';
+        html += '<span class="commander-crumb' + (isCurrent ? ' current' : '') + '" onclick="event.stopPropagation(); navigateCommanderCrumb(\'' + paneId + '\', \'' + escapePath(accum) + '\')">' +
+                escapeHtml(parts[i]) + '</span>';
+    }
+    container.innerHTML = html;
+    container.scrollLeft = container.scrollWidth;
+}
+
+function navigateCommanderCrumb(paneId, targetPath) {
+    setActivePane(paneId);
+    loadCommanderPane(paneId, targetPath);
+}
+
+function handleCommanderPathBarClick(paneId, event) {
+    if (event) event.stopPropagation();
+    setActivePane(paneId);
+    if (event && event.target && event.target.closest('.commander-crumb')) return;
+    enterCommanderPathEdit(paneId);
+}
+
+function enterCommanderPathEdit(paneId) {
+    const breadcrumbs = document.getElementById('pane-' + paneId + '-breadcrumbs');
+    const input = document.getElementById('pane-' + paneId + '-input');
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    if (breadcrumbs && input) {
+        breadcrumbs.style.display = 'none';
+        input.style.display = 'block';
+        input.value = state.path || '';
+        input.focus();
+        input.select();
+    }
+}
+
+function exitCommanderPathEdit(paneId) {
+    const breadcrumbs = document.getElementById('pane-' + paneId + '-breadcrumbs');
+    const input = document.getElementById('pane-' + paneId + '-input');
+    if (breadcrumbs && input) {
+        input.style.display = 'none';
+        breadcrumbs.style.display = 'flex';
+    }
+}
+
+function handleCommanderPathKeyDown(paneId, event) {
+    if (event.key === 'Enter') {
+        const input = document.getElementById('pane-' + paneId + '-input');
+        const target = input ? input.value.trim() : '';
+        exitCommanderPathEdit(paneId);
+        if (target) {
+            loadCommanderPane(paneId, target);
+        }
+    } else if (event.key === 'Escape') {
+        exitCommanderPathEdit(paneId);
+    }
+}
+
+function openTerminalAtActiveCommander(paneId) {
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    if (state && state.path) {
+        openTerminal(state.path);
+    }
+}
+
+function openTerminalAtActivePane() {
+    const state = activePaneId === 'left' ? commanderLeftState : commanderRightState;
+    if (state && state.path) {
+        openTerminal(state.path);
+    }
+}
+
+function handleCommanderDragStart(paneId, itemIndex, event) {
+    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
+    const item = state.items[itemIndex];
+    if (!item || !event.dataTransfer) return;
+    const sep = isWindows ? '\\' : '/';
+    const fullPath = state.path.endsWith(sep) ? state.path + item.name : state.path + sep + item.name;
+    event.dataTransfer.setData('text/plain', fullPath);
+    event.dataTransfer.effectAllowed = 'copyMove';
+}
+
+function initDualPaneResizer() {
+    const resizer = document.getElementById('dual-pane-resizer');
+    const leftPane = document.getElementById('commander-pane-left');
+    const rightPane = document.getElementById('commander-pane-right');
+    const wrapper = document.getElementById('dual-pane-split-wrapper');
+    if (!resizer || !leftPane || !rightPane || !wrapper) return;
+
+    let isDragging = false;
+    let startX = 0;
+    let startLeftWidth = 0;
+
+    resizer.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        isDragging = true;
+        startX = e.clientX;
+        startLeftWidth = leftPane.getBoundingClientRect().width;
+        resizer.classList.add('resizing');
+        document.body.style.cursor = 'col-resize';
+    });
+
+    resizer.addEventListener('dblclick', function() {
+        leftPane.style.flex = '1 1 50%';
+        rightPane.style.flex = '1 1 50%';
+        safeStorage.removeItem('venel_commander_left_pct');
+        showToast('Dual panes reset 50/50', '📐');
+    });
+
+    window.addEventListener('mousemove', function(e) {
+        if (!isDragging) return;
+        const totalWidth = wrapper.getBoundingClientRect().width;
+        const delta = e.clientX - startX;
+        let newLeftWidth = startLeftWidth + delta;
+        const minWidth = 180;
+        if (newLeftWidth < minWidth) newLeftWidth = minWidth;
+        if (newLeftWidth > totalWidth - minWidth) newLeftWidth = totalWidth - minWidth;
+        const leftPct = (newLeftWidth / totalWidth) * 100;
+        leftPane.style.flex = '0 0 ' + leftPct + '%';
+        rightPane.style.flex = '1 1 ' + (100 - leftPct) + '%';
+        safeStorage.setItem('venel_commander_left_pct', leftPct);
+    });
+
+    window.addEventListener('mouseup', function() {
+        if (isDragging) {
+            isDragging = false;
+            resizer.classList.remove('resizing');
+            document.body.style.cursor = '';
+        }
+    });
+
+    const savedPct = safeStorage.getItem('venel_commander_left_pct');
+    if (savedPct) {
+        const pct = parseFloat(savedPct);
+        if (pct >= 20 && pct <= 80) {
+            leftPane.style.flex = '0 0 ' + pct + '%';
+            rightPane.style.flex = '1 1 ' + (100 - pct) + '%';
+        }
+    }
+}
+
+
+// ══════════════════════════════════════════════════════════
+
+/**
+ * VenEl File Manager - Preview Pane & In-line Editor
+ * Rich preview (Markdown, Code, Media, PDF), Decompiler, and Inline Editor.
+ */
 // ══════════════════════════════════════════════════════════
 // 📊 RICH PREVIEW SYSTEM (CSV, Excel, Word, PDF, Media, Markdown)
 // ══════════════════════════════════════════════════════════
@@ -4112,6 +5827,396 @@ function closeQuickLook() {
     isQlEditorActive = false;
 }
 
+
+// 📝 IN-LINE QUICK CODE / TEXT EDITOR
+// ══════════════════════════════════════════════════════════
+let isInlineEditorActive = false;
+let isQlEditorActive = false;
+let inlineOriginalContent = '';
+let qlOriginalContent = '';
+
+function isEditableTextFile(path) {
+    if (!path) return false;
+    const lower = path.toLowerCase();
+    const exts = [
+        '.txt', '.md', '.markdown', '.json', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx',
+        '.css', '.scss', '.sass', '.less', '.html', '.htm', '.xml', '.svg',
+        '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf', '.env', '.gitignore',
+        '.sh', '.bash', '.zsh', '.bat', '.cmd', '.ps1',
+        '.py', '.cs', '.java', '.cpp', '.c', '.h', '.hpp', '.rs', '.go', '.php', '.rb',
+        '.sql', '.log', '.csv', '.tsv', '.lock', '.properties'
+    ];
+    const dotIdx = lower.lastIndexOf('.');
+    if (dotIdx === -1) return true;
+    const ext = lower.substring(dotIdx);
+    return exts.includes(ext) || lower.endsWith('dockerfile') || lower.endsWith('makefile') || lower.endsWith('license');
+}
+
+async function toggleInlineEditor() {
+    if (!activePreviewPath || activePreviewIsDir) return;
+    if (isInlineEditorActive) {
+        cancelInlineEditor();
+        return;
+    }
+    const container = document.getElementById('preview-content');
+    if (!container) return;
+
+    try {
+        container.innerHTML = '<div style="padding: 30px; text-align: center;"><div class="spinner" style="margin: 0 auto 10px;"></div>Opening in-line editor...</div>';
+        let text = '';
+        const sftpInfo = parseSftpUrl(activePreviewPath);
+        const cloudInfo = parseCloudUrl(activePreviewPath);
+        if (sftpInfo) {
+            let res = await fetch(`/api/sftp/read?connectionId=${encodeURIComponent(sftpInfo.connectionId)}&path=${encodeURIComponent(sftpInfo.remotePath)}`).catch(() => null);
+            if (!res || !res.ok) {
+                showToast('Unable to open remote file for editing', '⚠️');
+                handlePreview(selectedItem ? selectedItem.name : activePreviewPath, false);
+                return;
+            }
+            text = await res.text();
+        } else if (cloudInfo) {
+            let res = await fetch(`/api/cloud/read?connectionId=${encodeURIComponent(cloudInfo.connectionId)}&path=${encodeURIComponent(cloudInfo.remotePath)}`).catch(() => null);
+            if (!res || !res.ok) {
+                showToast('Unable to open cloud file for editing', '⚠️');
+                handlePreview(selectedItem ? selectedItem.name : activePreviewPath, false);
+                return;
+            }
+            text = await res.text();
+        } else {
+            let res = await fetch('/api/files/download?path=' + encodeURIComponent(activePreviewPath)).catch(function() { return null; });
+            if (!res || !res.ok) res = await fetch('/api/files/read?path=' + encodeURIComponent(activePreviewPath)).catch(function() { return null; });
+            if (!res || !res.ok) res = await fetch('/api/files/raw?path=' + encodeURIComponent(activePreviewPath)).catch(function() { return null; });
+            if (!res || !res.ok) {
+                showToast('Unable to open file for editing', '⚠️');
+                handlePreview(selectedItem ? selectedItem.name : activePreviewPath, false);
+                return;
+            }
+            text = await res.text();
+        }
+        inlineOriginalContent = text;
+        isInlineEditorActive = true;
+
+        const lines = text.split('\n').length;
+        const chars = text.length;
+        const estimatedTokens = Math.ceil(chars / 4);
+
+        container.innerHTML = 
+            '<div class="inline-editor-container">' +
+                '<div class="inline-editor-toolbar">' +
+                    '<div class="inline-editor-stats">' +
+                        '<span id="inline-editor-lines">' + lines + ' lines</span>' +
+                        '<span>•</span>' +
+                        '<span id="inline-editor-chars">' + chars + ' chars</span>' +
+                        '<span>•</span>' +
+                        '<span id="inline-editor-tokens" class="token-pill">✨ ~' + estimatedTokens.toLocaleString() + ' tokens</span>' +
+                    '</div>' +
+                    '<div style="display: flex; gap: 6px;">' +
+                        '<button class="preview-action-btn preview-save-btn" onclick="saveInlineEditor()" title="Save changes (⌘S / Ctrl+S)">💾 Save</button>' +
+                        '<button class="preview-action-btn preview-cancel-btn" onclick="cancelInlineEditor()" title="Cancel editing (Esc)">✕ Cancel</button>' +
+                    '</div>' +
+                '</div>' +
+                '<textarea id="inline-editor-textarea" class="inline-editor-textarea" spellcheck="false" placeholder="Enter file content..."></textarea>' +
+            '</div>';
+
+        const textarea = document.getElementById('inline-editor-textarea');
+        if (textarea) {
+            textarea.value = text;
+            textarea.addEventListener('input', function() {
+                const val = textarea.value;
+                const lineCount = val.split('\n').length;
+                const charCount = val.length;
+                const tokenCount = Math.ceil(charCount / 4);
+                const linesEl = document.getElementById('inline-editor-lines');
+                const charsEl = document.getElementById('inline-editor-chars');
+                const tokensEl = document.getElementById('inline-editor-tokens');
+                if (linesEl) linesEl.textContent = lineCount + ' lines';
+                if (charsEl) charsEl.textContent = charCount + ' chars';
+                if (tokensEl) tokensEl.textContent = '✨ ~' + tokenCount.toLocaleString() + ' tokens';
+            });
+            textarea.focus();
+        }
+        updatePreviewActionButtons(activePreviewPath, false);
+    } catch (err) {
+        console.error(err);
+        showToast('Failed to load file for editing', '❌');
+        isInlineEditorActive = false;
+        if (selectedItem) handlePreview(selectedItem.name, false);
+    }
+}
+
+async function saveInlineEditor() {
+    if (!activePreviewPath) return;
+    const textarea = document.getElementById('inline-editor-textarea');
+    if (!textarea) return;
+    const newContent = textarea.value;
+    const sep = isWindows ? '\\' : '/';
+    const fileName = activePreviewPath.split(sep).pop() || activePreviewPath;
+
+    const sftpInfo = parseSftpUrl(activePreviewPath);
+    const cloudInfo = parseCloudUrl(activePreviewPath);
+    if (sftpInfo) {
+        try {
+            const payload = JSON.stringify({
+                connectionId: sftpInfo.connectionId,
+                remotePath: sftpInfo.remotePath,
+                content: newContent
+            });
+            const res = await fetch('/api/sftp/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: payload
+            });
+            if (res.ok) {
+                const lines = newContent.split('\n').length;
+                showToast('Saved "' + fileName + '" to SFTP (' + lines + ' lines) 💾', '✅');
+                isInlineEditorActive = false;
+                inlineOriginalContent = newContent;
+                if (selectedItem) {
+                    handlePreview(selectedItem.name, false);
+                } else {
+                    renderFilePreview(document.getElementById('preview-content'), activePreviewPath, fileName, false, false);
+                }
+                updatePreviewActionButtons(activePreviewPath, false);
+            } else {
+                showToast('Failed to save file to SFTP', '❌');
+            }
+        } catch (err) {
+            console.error(err);
+            showToast('Error saving file: ' + err.message, '❌');
+        }
+        return;
+    } else if (cloudInfo) {
+        try {
+            const payload = JSON.stringify({
+                connectionId: cloudInfo.connectionId,
+                remotePath: cloudInfo.remotePath,
+                content: newContent
+            });
+            const res = await fetch('/api/cloud/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: payload
+            });
+            if (res.ok) {
+                const lines = newContent.split('\n').length;
+                showToast('Saved "' + fileName + '" to Cloud Storage (' + lines + ' lines) 💾', '✅');
+                isInlineEditorActive = false;
+                inlineOriginalContent = newContent;
+                if (selectedItem) {
+                    handlePreview(selectedItem.name, false);
+                } else {
+                    renderFilePreview(document.getElementById('preview-content'), activePreviewPath, fileName, false, false);
+                }
+                updatePreviewActionButtons(activePreviewPath, false);
+            } else {
+                showToast('Failed to save file to Cloud Storage', '❌');
+            }
+        } catch (err) {
+            console.error(err);
+            showToast('Error saving file: ' + err.message, '❌');
+        }
+        return;
+    }
+
+    try {
+        const payload = JSON.stringify({ path: activePreviewPath, content: newContent });
+        const res = await fetch('/api/files/saveFile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload
+        });
+
+        if (typeof window.vscode !== 'undefined' && window.vscode.postMessage) {
+            window.vscode.postMessage({ command: 'saveFile', path: activePreviewPath, content: newContent });
+        }
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ command: 'saveFile', path: activePreviewPath, content: newContent }, '*');
+        }
+
+        if (res.ok) {
+            const lines = newContent.split('\n').length;
+            showToast('Saved "' + fileName + '" (' + lines + ' lines) 💾', '✅');
+            isInlineEditorActive = false;
+            inlineOriginalContent = newContent;
+            fetchGitStatus(currentPath);
+            if (selectedItem) {
+                handlePreview(selectedItem.name, false);
+            } else {
+                renderFilePreview(document.getElementById('preview-content'), activePreviewPath, fileName, false, false);
+            }
+            updatePreviewActionButtons(activePreviewPath, false);
+        } else {
+            showToast('Failed to save file', '❌');
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Error saving file: ' + err.message, '❌');
+    }
+}
+
+function cancelInlineEditor() {
+    isInlineEditorActive = false;
+    updatePreviewActionButtons(activePreviewPath, false);
+    const sep = isWindows ? '\\' : '/';
+    const fileName = activePreviewPath ? (activePreviewPath.split(sep).pop() || activePreviewPath) : '';
+    if (selectedItem) {
+        handlePreview(selectedItem.name, false);
+    } else if (activePreviewPath) {
+        renderFilePreview(document.getElementById('preview-content'), activePreviewPath, fileName, false, false);
+    }
+}
+
+async function toggleQuickLookEditor() {
+    if (!selectedItem || selectedItem.type === 'Directory') return;
+    const qlBody = document.getElementById('ql-body');
+    const qlEditBtn = document.getElementById('ql-edit-btn');
+    const qlSaveBtn = document.getElementById('ql-save-btn');
+    if (!qlBody) return;
+
+    const sep = isWindows ? '\\' : '/';
+    const sftpInfo = parseSftpUrl(currentPath);
+    let fullPath;
+    if (sftpInfo) {
+        fullPath = `sftp://${sftpInfo.connectionId}${sftpInfo.remotePath === '/' ? '/' + selectedItem.name : sftpInfo.remotePath + '/' + selectedItem.name}`;
+    } else {
+        fullPath = (selectedItem && selectedItem.path) ? selectedItem.path : (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name);
+    }
+
+    if (isQlEditorActive) {
+        isQlEditorActive = false;
+        if (qlEditBtn) qlEditBtn.textContent = '✏️ Edit';
+        if (qlSaveBtn) qlSaveBtn.style.display = 'none';
+        renderFilePreview(qlBody, fullPath, selectedItem.name, false, true);
+        return;
+    }
+
+    try {
+        qlBody.innerHTML = '<div style="padding: 30px; text-align: center;"><div class="spinner" style="margin: 0 auto 10px;"></div>Loading editor...</div>';
+        let text = '';
+        const fileSftp = parseSftpUrl(fullPath);
+        if (fileSftp) {
+            let res = await fetch(`/api/sftp/read?connectionId=${encodeURIComponent(fileSftp.connectionId)}&path=${encodeURIComponent(fileSftp.remotePath)}`).catch(() => null);
+            if (!res || !res.ok) {
+                showToast('Unable to open remote file for editing', '⚠️');
+                renderFilePreview(qlBody, fullPath, selectedItem.name, false, true);
+                return;
+            }
+            text = await res.text();
+        } else {
+            let res = await fetch('/api/files/download?path=' + encodeURIComponent(fullPath)).catch(function() { return null; });
+            if (!res || !res.ok) res = await fetch('/api/files/read?path=' + encodeURIComponent(fullPath)).catch(function() { return null; });
+            if (!res || !res.ok) res = await fetch('/api/files/raw?path=' + encodeURIComponent(fullPath)).catch(function() { return null; });
+            if (!res || !res.ok) {
+                showToast('Unable to open file for editing', '⚠️');
+                renderFilePreview(qlBody, fullPath, selectedItem.name, false, true);
+                return;
+            }
+            text = await res.text();
+        }
+        qlOriginalContent = text;
+        isQlEditorActive = true;
+        if (qlEditBtn) qlEditBtn.textContent = '✕ Discard';
+        if (qlSaveBtn) qlSaveBtn.style.display = 'inline-flex';
+
+        qlBody.innerHTML = 
+            '<div class="inline-editor-container" style="height: 100%;">' +
+                '<textarea id="ql-editor-textarea" class="inline-editor-textarea" style="height: calc(100% - 10px); min-height: 380px;" spellcheck="false"></textarea>' +
+            '</div>';
+
+        const textarea = document.getElementById('ql-editor-textarea');
+        if (textarea) {
+            textarea.value = text;
+            textarea.focus();
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Failed to load file for editing', '❌');
+        isQlEditorActive = false;
+        renderFilePreview(qlBody, fullPath, selectedItem.name, false, true);
+    }
+}
+
+async function saveQuickLookEditor() {
+    if (!selectedItem) return;
+    const textarea = document.getElementById('ql-editor-textarea');
+    if (!textarea) return;
+    const newContent = textarea.value;
+    const sep = isWindows ? '\\' : '/';
+    const sftpInfo = parseSftpUrl(currentPath);
+    let fullPath;
+    if (sftpInfo) {
+        fullPath = `sftp://${sftpInfo.connectionId}${sftpInfo.remotePath === '/' ? '/' + selectedItem.name : sftpInfo.remotePath + '/' + selectedItem.name}`;
+    } else {
+        fullPath = (selectedItem && selectedItem.path) ? selectedItem.path : (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name);
+    }
+
+    const fileSftp = parseSftpUrl(fullPath);
+    if (fileSftp) {
+        try {
+            const payload = JSON.stringify({
+                connectionId: fileSftp.connectionId,
+                remotePath: fileSftp.remotePath,
+                content: newContent
+            });
+            const res = await fetch('/api/sftp/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: payload
+            });
+            if (res.ok) {
+                const lines = newContent.split('\n').length;
+                showToast('Saved "' + selectedItem.name + '" to SFTP (' + lines + ' lines) 💾', '✅');
+                isQlEditorActive = false;
+                const qlEditBtn = document.getElementById('ql-edit-btn');
+                const qlSaveBtn = document.getElementById('ql-save-btn');
+                if (qlEditBtn) qlEditBtn.textContent = '✏️ Edit';
+                if (qlSaveBtn) qlSaveBtn.style.display = 'none';
+                renderFilePreview(document.getElementById('ql-body'), fullPath, selectedItem.name, false, true);
+            } else {
+                showToast('Failed to save file to SFTP', '❌');
+            }
+        } catch (err) {
+            console.error(err);
+            showToast('Error saving: ' + err.message, '❌');
+        }
+        return;
+    }
+
+    try {
+        const payload = JSON.stringify({ path: fullPath, content: newContent });
+        const res = await fetch('/api/files/saveFile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload
+        });
+        if (typeof window.vscode !== 'undefined' && window.vscode.postMessage) {
+            window.vscode.postMessage({ command: 'saveFile', path: fullPath, content: newContent });
+        }
+        if (res.ok) {
+            const lines = newContent.split('\n').length;
+            showToast('Saved "' + selectedItem.name + '" (' + lines + ' lines) 💾', '✅');
+            isQlEditorActive = false;
+            fetchGitStatus(currentPath);
+            const qlEditBtn = document.getElementById('ql-edit-btn');
+            const qlSaveBtn = document.getElementById('ql-save-btn');
+            if (qlEditBtn) qlEditBtn.textContent = '✏️ Edit';
+            if (qlSaveBtn) qlSaveBtn.style.display = 'none';
+            renderFilePreview(document.getElementById('ql-body'), fullPath, selectedItem.name, false, true);
+        } else {
+            showToast('Failed to save file', '❌');
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Error saving: ' + err.message, '❌');
+    }
+}
+
+// ══════════════════════════════════════════════════════════
+
+/**
+ * VenEl File Manager - File Operations & Modals
+ * CRUD (New, Rename, Delete), Batch Rename, Diff Viewer, and Archive utilities.
+ */
 // ══════════════════════════════════════════════════════════
 // ℹ️ PROPERTIES / GET INFO
 // ══════════════════════════════════════════════════════════
@@ -4161,6 +6266,7 @@ function copyPathToClipboard(pathStr) {
     navigator.clipboard.writeText(pathStr);
     showToast('Full path copied to clipboard!', '📋');
 }
+
 
 // ══════════════════════════════════════════════════════════
 // 💻 OPEN IN TERMINAL & EDITOR
@@ -4347,6 +6453,7 @@ function openTerminalFromHover(e) {
     openTerminal(p);
 }
 
+
 // ══════════════════════════════════════════════════════════
 // 💻 TERMINAL, FINDER & CLIPBOARD ACTIONS
 // ══════════════════════════════════════════════════════════
@@ -4360,6 +6467,7 @@ function revealSelectedItemInOS() {
     fetch('/api/files/revealInOS?path=' + encodeURIComponent(p)).catch(() => {});
     showToast(isWindows ? 'Revealed in File Explorer' : 'Revealed in Finder', '📂');
 }
+
 
 // ══════════════════════════════════════════════════════════
 // ⚖️ VISUAL FILE DIFF & COMPARISON
@@ -4726,1730 +6834,7 @@ function copyMarkdownRefAtSelection() {
     showToast('Copied Markdown reference: ' + md, '🔗');
 }
 
-// ══════════════════════════════════════════════════════════
-// 🌿 GIT STATUS & VCS BADGING
-// ══════════════════════════════════════════════════════════
-let currentGitStatuses = {};
-let currentGitRepo = false;
 
-async function fetchGitStatus(dirPath) {
-    try {
-        const res = await fetch('/api/files/gitStatus?path=' + encodeURIComponent(dirPath));
-        if (!res.ok) return;
-        const data = await res.json();
-        const branchContainer = document.getElementById('status-git-branch');
-        const branchNameElem = document.getElementById('git-branch-name');
-        const syncStatusElem = document.getElementById('git-sync-status');
-
-        if (data.isRepo) {
-            currentGitRepo = true;
-            currentGitStatuses = data.statuses || {};
-            if (branchContainer) branchContainer.style.display = 'inline-flex';
-            if (branchNameElem) branchNameElem.textContent = data.branch || 'HEAD';
-            if (syncStatusElem) {
-                let syncText = '';
-                if (data.ahead > 0) syncText += ' ↑' + data.ahead;
-                if (data.behind > 0) syncText += ' ↓' + data.behind;
-                syncStatusElem.textContent = syncText;
-            }
-        } else {
-            currentGitRepo = false;
-            currentGitStatuses = {};
-            if (branchContainer) branchContainer.style.display = 'none';
-        }
-        // Re-render items with updated git badges
-        applyFilterAndRender();
-    } catch {
-        currentGitRepo = false;
-        currentGitStatuses = {};
-        const branchContainer = document.getElementById('status-git-branch');
-        if (branchContainer) branchContainer.style.display = 'none';
-    }
-}
-
-function refreshGitStatus() {
-    fetchGitStatus(currentPath);
-    showToast('Refreshing Git status...', '🌿');
-}
-
-// ══════════════════════════════════════════════════════════
-// ⭐ BOOKMARKS / FAVORITES SYSTEM
-// ══════════════════════════════════════════════════════════
-let userBookmarks = [];
-
-function initBookmarks() {
-    try {
-        const stored = safeStorage.getItem('venel_bookmarks_v1');
-        if (stored) {
-            userBookmarks = JSON.parse(stored);
-        } else {
-            // Default starting bookmark
-            userBookmarks = [
-                { name: 'Home', path: (typeof defaultHomePath !== 'undefined' ? defaultHomePath : '.') || '.', icon: '🏠', isDir: true, isDefault: true }
-            ];
-            saveBookmarks();
-        }
-    } catch {
-        userBookmarks = [];
-    }
-    renderBookmarks();
-}
-
-function saveBookmarks() {
-    try {
-        safeStorage.setItem('venel_bookmarks_v1', JSON.stringify(userBookmarks));
-    } catch {}
-}
-
-function updateAddressBarStar() {
-    const isCurrentPinned = typeof userBookmarks !== 'undefined' && userBookmarks.some(function(b) { return b.path === currentPath; });
-    const addressPinBtn = document.getElementById('btn-pin-address-bar');
-    const addressStarIcon = document.getElementById('address-star-icon');
-    if (addressPinBtn) {
-        if (isCurrentPinned) {
-            addressPinBtn.classList.add('pinned');
-            if (addressStarIcon) addressStarIcon.textContent = '★';
-            addressPinBtn.title = 'Unpin this folder from Favorites (★)';
-        } else {
-            addressPinBtn.classList.remove('pinned');
-            if (addressStarIcon) addressStarIcon.textContent = '☆';
-            addressPinBtn.title = 'Pin this folder to Favorites (☆)';
-        }
-    }
-}
-
-function renderBookmarks() {
-    const container = document.getElementById('bookmarks-chips');
-    const favList = document.getElementById('favorites-list');
-    const favCountBadge = document.getElementById('favorites-count-badge');
-    const pinBtn = document.getElementById('btn-pin-current');
-    const starIcon = document.getElementById('pin-star-icon');
-    const starLabel = document.getElementById('pin-star-label');
-    const previewPinBtn = document.getElementById('preview-pin-btn');
-
-    const isCurrentPinned = userBookmarks.some(function(b) { return b.path === currentPath; });
-    const addressPinBtn = document.getElementById('btn-pin-address-bar');
-    const addressStarIcon = document.getElementById('address-star-icon');
-    if (addressPinBtn) {
-        if (isCurrentPinned) {
-            addressPinBtn.classList.add('pinned');
-            if (addressStarIcon) addressStarIcon.textContent = '★';
-            addressPinBtn.title = 'Unpin this folder from Favorites (★)';
-        } else {
-            addressPinBtn.classList.remove('pinned');
-            if (addressStarIcon) addressStarIcon.textContent = '☆';
-            addressPinBtn.title = 'Pin this folder to Favorites (☆)';
-        }
-    }
-
-    if (pinBtn) {
-        if (isCurrentPinned) {
-            pinBtn.classList.add('pinned');
-            if (starIcon) starIcon.textContent = '★';
-            starLabel.textContent = 'Pinned';
-        } else {
-            pinBtn.classList.remove('pinned');
-            if (starIcon) starIcon.textContent = '☆';
-            starLabel.textContent = 'Pin Folder';
-        }
-    }
-
-    if (previewPinBtn && activePreviewPath) {
-        const isPrevPinned = userBookmarks.some(function(b) { return b.path === activePreviewPath; });
-        if (isPrevPinned) {
-            previewPinBtn.classList.add('pinned');
-            previewPinBtn.textContent = '★';
-            previewPinBtn.title = 'Unpin this item from Favorites';
-        } else {
-            previewPinBtn.classList.remove('pinned');
-            previewPinBtn.textContent = '☆';
-            previewPinBtn.title = 'Pin this item to Favorites';
-        }
-    }
-
-    if (favCountBadge) {
-        favCountBadge.textContent = userBookmarks.length;
-    }
-
-    // 1. Render Top Bookmarks Bar Chips
-    if (container) {
-        let html = '';
-        userBookmarks.forEach(function(b) {
-            const isActive = b.path === currentPath;
-            html += '<div class="bookmark-chip ' + (isActive ? 'active' : '') + '" onclick="navigateToBookmark(\'' + escapePath(b.path) + '\', ' + (b.isDir !== false) + ')" ondragover="handleBookmarkDragOver(event, \'' + escapePath(b.path) + '\')" ondragleave="handleBookmarkDragLeave(event)" ondrop="handleBookmarkDrop(event, \'' + escapePath(b.path) + '\')" title="' + escapeHtml(b.path) + '">' +
-                '<span>' + (b.icon || '📁') + '</span>' +
-                '<span class="chip-name">' + escapeHtml(b.name) + '</span>' +
-                (!b.isDefault ? '<span class="remove-pin" onclick="event.stopPropagation(); removeBookmark(\'' + escapePath(b.path) + '\')" title="Unpin">✕</span>' : '') +
-                '</div>';
-        });
-        container.innerHTML = html;
-    }
-
-    // 2. Render Left Places Sidebar Pinned Favorites List
-    if (favList) {
-        if (userBookmarks.length === 0) {
-            favList.innerHTML = '<div class="favorites-empty-guide">⭐ Drag folders or files here to pin for quick access</div>';
-        } else {
-            let favHtml = '';
-            userBookmarks.forEach(function(b) {
-                const isActive = b.path === currentPath || (activePreviewPath && b.path === activePreviewPath);
-                const isDir = b.isDir !== false;
-                const visual = typeof getFileVisual === 'function' ? getFileVisual(b.name, isDir) : { icon: isDir ? '📁' : '📄' };
-                const icon = b.icon || visual.icon || (isDir ? '📁' : '📄');
-                const badge = isDir ? 'DIR' : (b.ext || b.name.split('.').pop() || 'FILE').toUpperCase();
-
-                const favIconMarkup = (isDir && visual.svg) ? '<div class="fav-item-icon-svg">' + visual.svg + '</div>' : '<i class="fav-item-icon">' + icon + '</i>';
-
-                favHtml += '<div class="fav-pinned-item ' + (isActive ? 'active' : '') + '" onclick="navigateToBookmark(\'' + escapePath(b.path) + '\', ' + isDir + ')" title="' + escapeHtml(b.path) + '">' +
-                    '<div class="fav-item-main">' +
-                        favIconMarkup +
-                        '<span class="fav-item-name">' + escapeHtml(b.name) + '</span>' +
-                    '</div>' +
-                    '<div style="display: flex; align-items: center; gap: 4px;">' +
-                        '<span class="fav-item-badge">' + escapeHtml(badge) + '</span>' +
-                        '<div class="fav-item-actions">' +
-                            '<button class="fav-action-btn" onclick="event.stopPropagation(); openTerminal(\'' + escapePath(b.path) + '\')" title="Open Integrated Terminal (⌥T)">💻</button>' +
-                            (!b.isDefault ? '<button class="fav-action-btn fav-unpin-btn" onclick="event.stopPropagation(); removeBookmark(\'' + escapePath(b.path) + '\')" title="Unpin from Favorites">✕</button>' : '') +
-                        '</div>' +
-                    '</div>' +
-                '</div>';
-            });
-            favList.innerHTML = favHtml;
-        }
-    }
-}
-
-function navigateToBookmark(targetPath, isDir) {
-    if (isDir !== false) {
-        navigateTo(targetPath);
-    } else {
-        const sep = isWindows ? '\\' : '/';
-        const parts = targetPath.split(sep).filter(Boolean);
-        const fileName = parts.pop();
-        const parentDir = targetPath.substring(0, targetPath.lastIndexOf(sep)) || (isWindows ? 'C:\\' : '/');
-        if (currentPath !== parentDir) {
-            navigateTo(parentDir, function() {
-                const found = currentItems.find(function(it) { return it.name === fileName; });
-                if (found) {
-                    selectItem(found, null);
-                    handlePreview(found.name, found.type === 'Directory');
-                }
-            });
-        } else {
-            const found = currentItems.find(function(it) { return it.name === fileName; });
-            if (found) {
-                selectItem(found, null);
-                handlePreview(found.name, found.type === 'Directory');
-            }
-        }
-    }
-}
-
-function toggleSidebarSection(sectionName) {
-    const body = document.getElementById(sectionName + '-section-body');
-    const chevron = document.getElementById('chevron-' + sectionName);
-    if (!body) return;
-    const isCollapsed = !body.classList.contains('collapsed');
-    if (isCollapsed) {
-        body.classList.add('collapsed');
-        if (chevron) chevron.classList.add('collapsed');
-    } else {
-        body.classList.remove('collapsed');
-        if (chevron) chevron.classList.remove('collapsed');
-    }
-    try {
-        safeStorage.setItem('venel_sec_collapsed_' + sectionName, isCollapsed ? '1' : '0');
-    } catch {}
-}
-
-function initSidebarSections() {
-    ['working-dir', 'favorites', 'places', 'sftp', 'cloud'].forEach(function(sec) {
-        try {
-            const stored = safeStorage.getItem('venel_sec_collapsed_' + sec);
-            if (stored === '1') {
-                const body = document.getElementById(sec + '-section-body');
-                const chevron = document.getElementById('chevron-' + sec);
-                if (body) body.classList.add('collapsed');
-                if (chevron) chevron.classList.add('collapsed');
-            }
-        } catch {}
-    });
-}
-
-// ══════════════════════════════════════════════════════════
-// 💼 WORKING DIRECTORY & DYNAMIC HOST IDE WORKSPACE MANAGEMENT
-// ══════════════════════════════════════════════════════════
-
-function getTargetFolderForAction(overridePath) {
-    if (overridePath && typeof overridePath === 'string') return overridePath;
-    const sep = isWindows ? '\\' : '/';
-    if (selectedItem && (selectedItem.type === 'Directory' || selectedItem.isDir)) {
-        return selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name);
-    }
-    return currentPath;
-}
-
-function updateIdeEnvironmentInfo(name, folders, primary) {
-    if (name) {
-        detectedIdeName = name;
-        const ideBadge = document.getElementById('working-dir-ide-badge');
-        if (ideBadge) {
-            ideBadge.textContent = detectedIdeName;
-            ideBadge.style.display = 'inline-block';
-        }
-        const menuOpenWs = document.getElementById('menu-label-open-workspace');
-        if (menuOpenWs) {
-            menuOpenWs.textContent = 'Open Current as ' + detectedIdeName + ' Workspace';
-        }
-        const menuOpenEd = document.getElementById('menu-label-open-editor');
-        if (menuOpenEd) {
-            menuOpenEd.textContent = 'Open in ' + detectedIdeName + ' Editor';
-        }
-        const diffIdeLabel = document.getElementById('diff-ide-btn-label');
-        if (diffIdeLabel) {
-            diffIdeLabel.textContent = detectedIdeName;
-        }
-        document.querySelectorAll('.ide-name-text').forEach(function(el) {
-            el.textContent = detectedIdeName;
-        });
-    }
-    if (Array.isArray(folders)) {
-        ideWorkspaceFolders = folders;
-    }
-    if (primary) {
-        idePrimaryWorkspace = primary;
-    } else if (ideWorkspaceFolders.length > 0 && !idePrimaryWorkspace) {
-        idePrimaryWorkspace = ideWorkspaceFolders[0].path;
-    }
-
-    if (!activeWorkingDirectory && idePrimaryWorkspace) {
-        activeWorkingDirectory = idePrimaryWorkspace;
-    }
-    renderWorkingDirectoryCard();
-}
-
-function renderWorkingDirectoryCard() {
-    const card = document.getElementById('working-dir-card');
-    if (!card) return;
-
-    if (!activeWorkingDirectory) {
-        card.innerHTML = `
-            <div style="padding: 10px; text-align: center; font-size: 11px; color: var(--text-dim, #888);">
-                <div style="margin-bottom: 6px;">No working directory pinned.</div>
-                <button class="working-dir-btn" onclick="setSelectionAsWorkingDirectory(currentPath)" title="Pin current folder as working directory">🎯 Set Current Folder</button>
-            </div>
-        `;
-        return;
-    }
-
-    const sep = isWindows ? '\\' : '/';
-    const parts = activeWorkingDirectory.replace(/[\\/]+$/, '').split(sep).filter(Boolean);
-    const folderName = parts.length > 0 ? parts[parts.length - 1] : activeWorkingDirectory;
-
-    card.innerHTML = `
-        <div class="working-dir-card-header">
-            <span class="working-dir-icon">💼</span>
-            <div class="working-dir-meta">
-                <span class="working-dir-name" title="${escapeHtml(folderName)}">${escapeHtml(folderName)}</span>
-                <span class="working-dir-path" title="${escapeHtml(activeWorkingDirectory)}">${escapeHtml(activeWorkingDirectory)}</span>
-            </div>
-        </div>
-        <div class="working-dir-actions">
-            <div class="working-dir-btn-row">
-                <button class="working-dir-btn" onclick="navigateTo('${escapePath(activeWorkingDirectory)}')" title="Navigate to Working Directory">📂 Open</button>
-                <button class="working-dir-btn" onclick="openTerminal('${escapePath(activeWorkingDirectory)}')" title="Open Terminal in Working Directory">💻 Terminal</button>
-            </div>
-            <div class="working-dir-btn-row">
-                <button class="working-dir-btn btn-ide" onclick="openSelectionAsIdeWorkspace('${escapePath(activeWorkingDirectory)}')" title="Open as ${escapeHtml(detectedIdeName)} Workspace">🚀 ${escapeHtml(detectedIdeName)}</button>
-                <button class="working-dir-btn btn-reset" onclick="resetWorkingDirectory()" title="Reset Working Directory">🔄</button>
-            </div>
-        </div>
-    `;
-}
-
-function setSelectionAsWorkingDirectory(targetPath) {
-    hideContextMenu();
-    const folder = getTargetFolderForAction(targetPath);
-    if (!folder) return;
-
-    activeWorkingDirectory = folder;
-    try {
-        safeStorage.setItem('venel_working_directory', folder);
-    } catch {}
-
-    // Post to IDE Extension
-    if (window.parent && window.parent !== window) {
-        window.parent.postMessage({ command: 'setWorkingDir', path: folder }, '*');
-    }
-    if (window.vscode) {
-        window.vscode.postMessage({ command: 'setWorkingDir', path: folder });
-    }
-
-    renderWorkingDirectoryCard();
-    const sep = isWindows ? '\\' : '/';
-    const parts = folder.replace(/[\\/]+$/, '').split(sep).filter(Boolean);
-    const name = parts.length > 0 ? parts[parts.length - 1] : folder;
-    showToast('Working Directory set: ' + name, '💼');
-}
-
-function openSelectionAsIdeWorkspace(targetPath, newWindow = false) {
-    hideContextMenu();
-    const folder = getTargetFolderForAction(targetPath);
-    if (!folder) return;
-
-    // Post to IDE Extension
-    if (window.parent && window.parent !== window) {
-        window.parent.postMessage({ command: 'openAsWorkspace', path: folder, newWindow: !!newWindow }, '*');
-    }
-    if (window.vscode) {
-        window.vscode.postMessage({ command: 'openAsWorkspace', path: folder, newWindow: !!newWindow });
-    }
-
-    showToast('Opening as ' + detectedIdeName + ' workspace...', '🚀');
-}
-
-function addSelectionToIdeWorkspace(targetPath) {
-    hideContextMenu();
-    const folder = getTargetFolderForAction(targetPath);
-    if (!folder) return;
-
-    // Post to IDE Extension
-    if (window.parent && window.parent !== window) {
-        window.parent.postMessage({ command: 'addToWorkspace', path: folder }, '*');
-    }
-    if (window.vscode) {
-        window.vscode.postMessage({ command: 'addToWorkspace', path: folder });
-    }
-
-    showToast('Adding to ' + detectedIdeName + ' workspace...', '➕');
-}
-
-function resetWorkingDirectory() {
-    hideContextMenu();
-    const defaultRoot = idePrimaryWorkspace || (ideWorkspaceFolders.length > 0 ? ideWorkspaceFolders[0].path : null);
-    activeWorkingDirectory = defaultRoot;
-    if (defaultRoot) {
-        safeStorage.setItem('venel_working_directory', defaultRoot);
-    } else {
-        safeStorage.removeItem('venel_working_directory');
-    }
-    renderWorkingDirectoryCard();
-    showToast('Working Directory reset', '🔄');
-}
-
-async function initIdeEnvironment() {
-    // 1. Initial URL param check
-    try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlIde = urlParams.get('ideName');
-        if (urlIde) {
-            updateIdeEnvironmentInfo(urlIde, null, null);
-        }
-        const urlVer = urlParams.get('version');
-        if (urlVer) {
-            extensionVersion = urlVer;
-            updateAboutVersionDisplay();
-        }
-    } catch {}
-
-    // 2. Fetch server environment API
-    try {
-        const res = await fetch('/api/env/info').catch(() => null);
-        if (res && res.ok) {
-            const data = await res.json();
-            if (data) {
-                if (data.version) {
-                    extensionVersion = data.version;
-                }
-                if (data.engine) {
-                    backendEngineName = data.engine;
-                }
-                if (data.capabilities) {
-                    window.currentEngineCapabilities = data.capabilities;
-                }
-                if (data.ideName) {
-                    updateIdeEnvironmentInfo(data.ideName, data.workspaceFolders, data.primaryWorkspace);
-                }
-                updateAboutVersionDisplay();
-                updateEngineStatusPill(data);
-            }
-        }
-    } catch (e) {
-        console.warn('Could not fetch /api/env/info', e);
-    }
-
-    // 3. Request IDE info via postMessage if framed
-    try {
-        if (window.parent && window.parent !== window) {
-            window.parent.postMessage({ command: 'request-ide-info' }, '*');
-            setTimeout(function() {
-                try { window.parent.postMessage({ command: 'request-ide-info' }, '*'); } catch (e) {}
-            }, 250);
-        }
-    } catch (e) {}
-
-    renderWorkingDirectoryCard();
-}
-
-// ══════════════════════════════════════════════════════════
-// 🌐 SFTP REMOTE MANAGER (Sessions, Quick Connect, Saved Profiles)
-// ══════════════════════════════════════════════════════════
-
-let sftpActiveSessions = [];
-let sftpSavedProfiles = [];
-let sftpCurrentAuthMode = 'password';
-
-let cloudActiveSessions = [];
-let cloudSavedProfiles = [];
-let currentCloudProvider = 's3';
-
-function parseCloudUrl(url) {
-    if (!url || typeof url !== 'string' || !url.startsWith('cloud://')) return null;
-    const withoutPrefix = url.substring(8);
-    const slashIdx = withoutPrefix.indexOf('/');
-    if (slashIdx === -1) {
-        return { connectionId: withoutPrefix, remotePath: '/' };
-    }
-    return {
-        connectionId: withoutPrefix.substring(0, slashIdx),
-        remotePath: withoutPrefix.substring(slashIdx) || '/'
-    };
-}
-
-function parseSftpUrl(url) {
-    if (!url || typeof url !== 'string' || !url.startsWith('sftp://')) return null;
-    const withoutPrefix = url.substring(7);
-    const slashIdx = withoutPrefix.indexOf('/');
-    if (slashIdx === -1) {
-        return { connectionId: withoutPrefix, remotePath: '/' };
-    }
-    return {
-        connectionId: withoutPrefix.substring(0, slashIdx),
-        remotePath: withoutPrefix.substring(slashIdx) || '/'
-    };
-}
-
-function loadSftpSavedProfiles() {
-    try {
-        const raw = safeStorage.getItem('venel_sftp_profiles');
-        sftpSavedProfiles = raw ? JSON.parse(raw) : [];
-        if (!Array.isArray(sftpSavedProfiles)) sftpSavedProfiles = [];
-    } catch {
-        sftpSavedProfiles = [];
-    }
-}
-
-function saveSftpProfilesToStorage() {
-    try {
-        safeStorage.setItem('venel_sftp_profiles', JSON.stringify(sftpSavedProfiles));
-    } catch {}
-}
-
-async function refreshSftpSessionsList() {
-    loadSftpSavedProfiles();
-    try {
-        const res = await fetch('/api/sftp/sessions').catch(() => null);
-        if (res && res.ok) {
-            sftpActiveSessions = await res.json();
-            if (!Array.isArray(sftpActiveSessions)) sftpActiveSessions = [];
-        } else {
-            sftpActiveSessions = [];
-        }
-    } catch {
-        sftpActiveSessions = [];
-    }
-
-    renderSftpSidebar();
-}
-
-function renderSftpSidebar() {
-    const listEl = document.getElementById('sftp-connections-list');
-    const badgeEl = document.getElementById('sftp-active-count-badge');
-    if (!listEl) return;
-
-    if (badgeEl) {
-        const count = sftpActiveSessions.length;
-        badgeEl.textContent = count;
-        badgeEl.style.display = count > 0 ? 'inline-block' : 'none';
-    }
-
-    let html = '';
-
-    // 1. Active Connected Sessions
-    if (sftpActiveSessions.length > 0) {
-        sftpActiveSessions.forEach(session => {
-            const isCurrent = currentPath.startsWith('sftp://' + session.connectionId);
-            const targetUrl = `sftp://${session.connectionId}${session.initialPath || '/'}`;
-            html += `<div class="sftp-conn-item active ${isCurrent ? 'selected' : ''}" onclick="navigateTo('${escapePath(targetUrl)}')">` +
-                '<div class="sftp-conn-info">' +
-                    '<div class="sftp-conn-title-row">' +
-                        '<span class="sftp-conn-dot" title="Active SSH Session"></span>' +
-                        `<span class="sftp-conn-name" title="${escapeHtml(session.name)}">${escapeHtml(session.name)}</span>` +
-                    '</div>' +
-                    `<div class="sftp-conn-sub">${escapeHtml(session.username)}@${escapeHtml(session.host)}:${session.port}</div>` +
-                '</div>' +
-                '<div class="sftp-conn-actions">' +
-                    `<button class="sftp-icon-btn danger" onclick="disconnectSftpSession('${session.connectionId}', event)" title="Disconnect SSH Tunnel">⏏️</button>` +
-                '</div>' +
-            '</div>';
-        });
-    }
-
-    // 2. Saved Connection Profiles (not currently connected)
-    const activeHosts = new Set(sftpActiveSessions.map(s => `${s.username}@${s.host}:${s.port}`));
-    const inactiveProfiles = sftpSavedProfiles.filter(p => !activeHosts.has(`${p.username}@${p.host}:${p.port || 22}`));
-
-    if (inactiveProfiles.length > 0) {
-        inactiveProfiles.forEach(prof => {
-            html += `<div class="sftp-conn-item" onclick="connectSavedProfile('${prof.id}')" title="Click to Connect">` +
-                '<div class="sftp-conn-info">' +
-                    '<div class="sftp-conn-title-row">' +
-                        '<span style="font-size: 13px;">⚡</span>' +
-                        `<span class="sftp-conn-name" title="${escapeHtml(prof.name || prof.host)}">${escapeHtml(prof.name || prof.host)}</span>` +
-                    '</div>' +
-                    `<div class="sftp-conn-sub">${escapeHtml(prof.username)}@${escapeHtml(prof.host)}:${prof.port || 22}</div>` +
-                '</div>' +
-                '<div class="sftp-conn-actions">' +
-                    `<button class="sftp-icon-btn" onclick="openSftpModal(getSavedProfileById('${prof.id}'), event)" title="Edit Profile">✏️</button>` +
-                    `<button class="sftp-icon-btn danger" onclick="deleteSavedSftpProfile('${prof.id}', event)" title="Delete Profile">✕</button>` +
-                '</div>' +
-            '</div>';
-        });
-    }
-
-    if (sftpActiveSessions.length === 0 && sftpSavedProfiles.length === 0) {
-        html = '<div style="padding: 10px 8px; font-size: 11px; color: var(--text-muted); text-align: center; line-height: 1.4;">' +
-            'No remote connections.<br><button class="sftp-browse-btn" onclick="openSftpModal()" style="margin-top: 6px;">+ Connect to SFTP</button>' +
-        '</div>';
-    }
-
-    listEl.innerHTML = html;
-}
-
-function getSavedProfileById(id) {
-    return sftpSavedProfiles.find(p => p.id === id);
-}
-
-function openSftpModal(profileToEdit = null, event = null) {
-    if (profileToEdit && (profileToEdit instanceof Event || profileToEdit.target)) {
-        event = profileToEdit;
-        profileToEdit = null;
-    }
-    if (event) {
-        event.stopPropagation();
-        event.preventDefault();
-    }
-
-    // If running in Safe Mode (Node.js) or SFTP capability is unavailable, display friendly guidance modal
-    const isSafeMode = (backendEngineName && backendEngineName.includes('Node')) || 
-                       (window.currentEngineCapabilities && window.currentEngineCapabilities.sftp === false);
-    if (isSafeMode) {
-        openSftpSafeModeModal();
-        return;
-    }
-
-    const modal = document.getElementById('modal-sftp');
-    if (!modal) return;
-
-    const alertEl = document.getElementById('sftp-status-alert');
-    if (alertEl) alertEl.style.display = 'none';
-
-    // Populate or reset form fields
-    const nameInput = document.getElementById('sftp-input-name');
-    const hostInput = document.getElementById('sftp-input-host');
-    const portInput = document.getElementById('sftp-input-port');
-    const userInput = document.getElementById('sftp-input-user');
-    const pwdInput = document.getElementById('sftp-input-password');
-    const keyInput = document.getElementById('sftp-input-key');
-    const passInput = document.getElementById('sftp-input-passphrase');
-    const pathInput = document.getElementById('sftp-input-path');
-    const saveChk = document.getElementById('sftp-chk-save-profile');
-    const rememberChk = document.getElementById('sftp-chk-remember-creds');
-    const titleEl = document.getElementById('sftp-modal-title');
-
-    if (profileToEdit) {
-        if (titleEl) titleEl.textContent = 'Edit SFTP Connection';
-        modal.setAttribute('data-edit-id', profileToEdit.id);
-        if (nameInput) nameInput.value = profileToEdit.name || '';
-        if (hostInput) hostInput.value = profileToEdit.host || '';
-        if (portInput) portInput.value = profileToEdit.port || 22;
-        if (userInput) userInput.value = profileToEdit.username || '';
-        if (pathInput) pathInput.value = profileToEdit.initialPath || '';
-        if (pwdInput) pwdInput.value = profileToEdit.password || '';
-        if (keyInput) keyInput.value = profileToEdit.privateKeyContent || '';
-        if (passInput) passInput.value = profileToEdit.privateKeyPassphrase || '';
-        switchSftpAuthMode(profileToEdit.authType || 'password');
-        if (saveChk) saveChk.checked = true;
-        if (rememberChk) rememberChk.checked = Boolean(profileToEdit.password || profileToEdit.privateKeyContent);
-    } else {
-        if (titleEl) titleEl.textContent = 'Connect to SFTP Server';
-        modal.removeAttribute('data-edit-id');
-        if (nameInput) nameInput.value = '';
-        if (hostInput) hostInput.value = '';
-        if (portInput) portInput.value = 22;
-        if (userInput) userInput.value = '';
-        if (pathInput) pathInput.value = '/';
-        if (pwdInput) pwdInput.value = '';
-        if (keyInput) keyInput.value = '';
-        if (passInput) passInput.value = '';
-        switchSftpAuthMode('password');
-        if (saveChk) saveChk.checked = true;
-        if (rememberChk) rememberChk.checked = true;
-    }
-
-    modal.style.display = 'flex';
-    setTimeout(() => {
-        if (hostInput && !hostInput.value) hostInput.focus();
-    }, 50);
-}
-
-function closeSftpModal(e = null) {
-    if (e && e.target && e.target.id !== 'modal-sftp' && !e.target.classList.contains('modal-close-x') && !e.target.closest('.modal-close-x') && !e.target.classList.contains('cancel') && !e.target.closest('.cancel')) {
-        return;
-    }
-    const modal = document.getElementById('modal-sftp');
-    if (modal) modal.style.display = 'none';
-}
-
-function switchSftpAuthMode(mode) {
-    sftpCurrentAuthMode = mode;
-    const tabPwd = document.getElementById('btn-auth-tab-password');
-    const tabKey = document.getElementById('btn-auth-tab-key');
-    const panelPwd = document.getElementById('sftp-auth-panel-password');
-    const panelKey = document.getElementById('sftp-auth-panel-key');
-
-    if (tabPwd) tabPwd.classList.toggle('active', mode === 'password');
-    if (tabKey) tabKey.classList.toggle('active', mode === 'key');
-
-    if (panelPwd) panelPwd.style.display = mode === 'password' ? 'block' : 'none';
-    if (panelKey) panelKey.style.display = mode === 'key' ? 'block' : 'none';
-}
-
-function toggleSftpPasswordVisibility() {
-    const pwd = document.getElementById('sftp-input-password');
-    const btn = document.getElementById('btn-toggle-sftp-pwd');
-    if (!pwd) return;
-    if (pwd.type === 'password') {
-        pwd.type = 'text';
-        if (btn) btn.textContent = '🔒';
-    } else {
-        pwd.type = 'password';
-        if (btn) btn.textContent = '👁️';
-    }
-}
-
-function handleSftpKeyFileSelected(e) {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(evt) {
-        const text = evt.target.result;
-        const keyInput = document.getElementById('sftp-input-key');
-        if (keyInput) keyInput.value = text;
-        showToast('Loaded private key: ' + file.name, '🔑');
-    };
-    reader.readAsText(file);
-}
-
-function handleSftpSaveCheckboxChange() {
-    const saveChk = document.getElementById('sftp-chk-save-profile');
-    const remLabel = document.getElementById('sftp-lbl-remember-creds');
-    if (remLabel && saveChk) {
-        remLabel.style.display = saveChk.checked ? 'flex' : 'none';
-    }
-}
-
-function getSftpFormData() {
-    const name = (document.getElementById('sftp-input-name')?.value || '').trim();
-    const host = (document.getElementById('sftp-input-host')?.value || '').trim();
-    const port = parseInt(document.getElementById('sftp-input-port')?.value || '22', 10);
-    const username = (document.getElementById('sftp-input-user')?.value || '').trim();
-    const password = document.getElementById('sftp-input-password')?.value || '';
-    const privateKeyContent = (document.getElementById('sftp-input-key')?.value || '').trim();
-    const privateKeyPassphrase = document.getElementById('sftp-input-passphrase')?.value || '';
-    const initialPath = (document.getElementById('sftp-input-path')?.value || '').trim();
-
-    return {
-        connectionName: name,
-        host,
-        port: isNaN(port) || port <= 0 ? 22 : port,
-        username,
-        authType: sftpCurrentAuthMode,
-        password: sftpCurrentAuthMode === 'password' ? password : null,
-        privateKeyContent: sftpCurrentAuthMode === 'key' ? privateKeyContent : null,
-        privateKeyPassphrase: sftpCurrentAuthMode === 'key' ? privateKeyPassphrase : null,
-        initialPath: initialPath || '/'
-    };
-}
-
-function showSftpAlert(message, type = 'info') {
-    const alertEl = document.getElementById('sftp-status-alert');
-    if (!alertEl) return;
-    alertEl.className = 'sftp-alert-' + type;
-    alertEl.textContent = message;
-    alertEl.style.display = 'block';
-}
-
-async function testSftpConnection() {
-    const data = getSftpFormData();
-    if (!data.host) {
-        showSftpAlert('Please enter a server host / IP address.', 'error');
-        return;
-    }
-    if (!data.username) {
-        showSftpAlert('Please enter a username.', 'error');
-        return;
-    }
-
-    const testBtn = document.getElementById('btn-sftp-test');
-    const spinner = document.getElementById('sftp-test-btn-spinner');
-    const btnText = document.getElementById('sftp-test-btn-text');
-
-    if (testBtn) testBtn.disabled = true;
-    if (spinner) spinner.style.display = 'inline-block';
-    if (btnText) btnText.textContent = 'Testing...';
-    showSftpAlert('Initiating SSH handshake and testing credentials...', 'info');
-
-    try {
-        const res = await fetch('/api/sftp/test', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        let result = {};
-        try {
-            result = await res.json();
-        } catch {
-            result = { success: false, errorMessage: `Server returned HTTP ${res.status}` };
-        }
-        if (result.success) {
-            showSftpAlert(`✅ Connected successfully! (Latency: ${result.latencyMs}ms, Server: ${result.serverVersion || 'SSH-2.0'})`, 'success');
-        } else {
-            showSftpAlert(`❌ Connection failed: ${result.errorMessage || result.error || 'Unknown error'}`, 'error');
-        }
-    } catch (err) {
-        showSftpAlert(`❌ Connection test error: ${err.message}`, 'error');
-    } finally {
-        if (testBtn) testBtn.disabled = false;
-        if (spinner) spinner.style.display = 'none';
-        if (btnText) btnText.textContent = '⚡ Test Connection';
-    }
-}
-
-async function submitSftpConnect() {
-    const data = getSftpFormData();
-    if (!data.host) {
-        showSftpAlert('Please enter a server host / IP address.', 'error');
-        return;
-    }
-    if (!data.username) {
-        showSftpAlert('Please enter a username.', 'error');
-        return;
-    }
-
-    const connectBtn = document.getElementById('btn-sftp-connect');
-    const spinner = document.getElementById('sftp-connect-btn-spinner');
-    const btnText = document.getElementById('sftp-connect-btn-text');
-
-    if (connectBtn) connectBtn.disabled = true;
-    if (spinner) spinner.style.display = 'inline-block';
-    if (btnText) btnText.textContent = 'Connecting...';
-    showSftpAlert('Connecting to SFTP server...', 'info');
-
-    try {
-        const res = await fetch('/api/sftp/connect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        let result = {};
-        try {
-            result = await res.json();
-        } catch {
-            result = { success: false, errorMessage: `Server returned HTTP ${res.status}` };
-        }
-        if (!result.success) {
-            showSftpAlert(`❌ Connect failed: ${result.errorMessage || result.error || 'Check credentials and host.'}`, 'error');
-            return;
-        }
-
-        // Save connection profile if requested
-        const saveChk = document.getElementById('sftp-chk-save-profile');
-        const rememberChk = document.getElementById('sftp-chk-remember-creds');
-        const modal = document.getElementById('modal-sftp');
-        const editId = modal ? modal.getAttribute('data-edit-id') : null;
-
-        if (saveChk && saveChk.checked) {
-            const shouldRemember = rememberChk && rememberChk.checked;
-            const profile = {
-                id: editId || `prof_${Date.now()}`,
-                name: data.connectionName || `${data.username}@${data.host}`,
-                host: data.host,
-                port: data.port,
-                username: data.username,
-                authType: data.authType,
-                initialPath: data.initialPath,
-                password: shouldRemember ? data.password : null,
-                privateKeyContent: shouldRemember ? data.privateKeyContent : null,
-                privateKeyPassphrase: shouldRemember ? data.privateKeyPassphrase : null
-            };
-
-            const existingIdx = sftpSavedProfiles.findIndex(p => p.id === profile.id);
-            if (existingIdx >= 0) {
-                sftpSavedProfiles[existingIdx] = profile;
-            } else {
-                sftpSavedProfiles.push(profile);
-            }
-            saveSftpProfilesToStorage();
-        }
-
-        closeSftpModal();
-        await refreshSftpSessionsList();
-
-        // Navigate to the remote directory
-        const sftpPath = `sftp://${result.connectionId}${result.currentPath || '/'}`;
-        navigateTo(sftpPath);
-        showToast(`Connected to ${result.name || data.host} 🌐`, '✅');
-    } catch (err) {
-        showSftpAlert(`❌ Connect error: ${err.message}`, 'error');
-    } finally {
-        if (connectBtn) connectBtn.disabled = false;
-        if (spinner) spinner.style.display = 'none';
-        if (btnText) btnText.textContent = 'Connect';
-    }
-}
-
-async function connectSavedProfile(profileId) {
-    const isSafeMode = (backendEngineName && backendEngineName.includes('Node')) || 
-                       (window.currentEngineCapabilities && window.currentEngineCapabilities.sftp === false);
-    if (isSafeMode) {
-        openSftpSafeModeModal();
-        return;
-    }
-
-    const prof = getSavedProfileById(profileId);
-    if (!prof) return;
-
-    // If credentials are saved, connect directly
-    const hasCreds = (prof.authType === 'password' && prof.password) ||
-                     (prof.authType === 'key' && prof.privateKeyContent);
-
-    if (hasCreds) {
-        showToast(`Connecting to ${prof.name}... ⏳`, '🌐');
-        try {
-            const res = await fetch('/api/sftp/connect', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    connectionName: prof.name,
-                    host: prof.host,
-                    port: prof.port,
-                    username: prof.username,
-                    authType: prof.authType,
-                    password: prof.password,
-                    privateKeyContent: prof.privateKeyContent,
-                    privateKeyPassphrase: prof.privateKeyPassphrase,
-                    initialPath: prof.initialPath
-                })
-            });
-            let result = {};
-            try {
-                result = await res.json();
-            } catch {
-                result = { success: false, errorMessage: `Server returned HTTP ${res.status}` };
-            }
-            if (result.success) {
-                await refreshSftpSessionsList();
-                const sftpPath = `sftp://${result.connectionId}${result.currentPath || '/'}`;
-                navigateTo(sftpPath);
-                showToast(`Connected to ${prof.name} 🌐`, '✅');
-                return;
-            } else {
-                showToast(`Connect failed: ${result.errorMessage || result.error || 'Server unavailable'}`, '⚠️');
-            }
-        } catch (err) {
-            showToast(`Connection failed: ${err.message}`, '❌');
-        }
-    }
-
-    // Prompt user for credentials by opening pre-filled modal
-    openSftpModal(prof);
-}
-
-async function disconnectSftpSession(connectionId, e) {
-    if (e) {
-        e.stopPropagation();
-        e.preventDefault();
-    }
-    try {
-        await fetch('/api/sftp/disconnect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ connectionId })
-        });
-        showToast('SFTP session disconnected ⏏️', 'ℹ️');
-        await refreshSftpSessionsList();
-
-        // If active view is on this session, go back home
-        if (currentPath.startsWith('sftp://' + connectionId)) {
-            goHome();
-        }
-    } catch (err) {
-        console.error(err);
-    }
-}
-
-function deleteSavedSftpProfile(profileId, e) {
-    if (e) {
-        e.stopPropagation();
-        e.preventDefault();
-    }
-    sftpSavedProfiles = sftpSavedProfiles.filter(p => p.id !== profileId);
-    saveSftpProfilesToStorage();
-    renderSftpSidebar();
-    showToast('Saved SFTP connection removed', '🗑️');
-}
-
-// ══════════════════════════════════════════════════════════
-// ☁️ CLOUD STORAGE MANAGER (AWS S3, MinIO, Azure Blob)
-// ══════════════════════════════════════════════════════════
-
-function loadCloudSavedProfiles() {
-    try {
-        const raw = safeStorage.getItem('venel_cloud_profiles');
-        cloudSavedProfiles = raw ? JSON.parse(raw) : [];
-        if (!Array.isArray(cloudSavedProfiles)) cloudSavedProfiles = [];
-    } catch {
-        cloudSavedProfiles = [];
-    }
-}
-
-function saveCloudProfilesToStorage() {
-    try {
-        safeStorage.setItem('venel_cloud_profiles', JSON.stringify(cloudSavedProfiles));
-    } catch {}
-}
-
-async function refreshCloudSessionsList() {
-    loadCloudSavedProfiles();
-    try {
-        const res = await fetch('/api/cloud/sessions').catch(() => null);
-        if (res && res.ok) {
-            cloudActiveSessions = await res.json();
-            if (!Array.isArray(cloudActiveSessions)) cloudActiveSessions = [];
-        } else {
-            cloudActiveSessions = [];
-        }
-    } catch {
-        cloudActiveSessions = [];
-    }
-
-    renderCloudSidebar();
-}
-
-function renderCloudSidebar() {
-    const listEl = document.getElementById('cloud-connections-list');
-    const badgeEl = document.getElementById('cloud-active-count-badge');
-    if (!listEl) return;
-
-    if (badgeEl) {
-        const count = cloudActiveSessions.length;
-        badgeEl.textContent = count;
-        badgeEl.style.display = count > 0 ? 'inline-block' : 'none';
-    }
-
-    let html = '';
-
-    // 1. Active Connected Cloud Sessions
-    if (cloudActiveSessions.length > 0) {
-        cloudActiveSessions.forEach(session => {
-            const isCurrent = currentPath.startsWith('cloud://' + session.connectionId);
-            const targetUrl = `cloud://${session.connectionId}/`;
-            const provBadgeClass = session.provider === 'azure_blob' ? 'cloud-badge-azure' : ((session.endpoint && session.endpoint.includes('minio')) ? 'cloud-badge-minio' : 'cloud-badge-s3');
-            const provLabel = session.provider === 'azure_blob' ? 'Azure' : ((session.endpoint && session.endpoint.includes('minio')) ? 'MinIO' : 'S3');
-
-            html += `<div class="sftp-conn-item active ${isCurrent ? 'selected' : ''}" onclick="navigateTo('${escapePath(targetUrl)}')">` +
-                '<div class="sftp-conn-info">' +
-                    '<div class="sftp-conn-title-row">' +
-                        '<span class="sftp-conn-dot" title="Active Cloud Session"></span>' +
-                        `<span class="sftp-conn-name" title="${escapeHtml(session.name || session.bucketOrContainer)}">${escapeHtml(session.name || session.bucketOrContainer)}</span>` +
-                        `<span class="cloud-provider-badge ${provBadgeClass}">${provLabel}</span>` +
-                    '</div>' +
-                    `<div class="sftp-conn-sub">${escapeHtml(session.bucketOrContainer || session.endpoint || 'Root')}</div>` +
-                '</div>' +
-                '<div class="sftp-conn-actions">' +
-                    `<button class="sftp-icon-btn danger" onclick="disconnectCloudSession('${session.connectionId}', event)" title="Disconnect Cloud Storage">⏏️</button>` +
-                '</div>' +
-            '</div>';
-        });
-    }
-
-    // 2. Saved Connection Profiles (not currently connected)
-    const activeIds = new Set(cloudActiveSessions.map(s => s.connectionId));
-    const inactiveProfiles = cloudSavedProfiles.filter(p => !activeIds.has(p.id));
-
-    if (inactiveProfiles.length > 0) {
-        inactiveProfiles.forEach(prof => {
-            const provBadgeClass = prof.provider === 'azure_blob' ? 'cloud-badge-azure' : ((prof.endpoint && prof.endpoint.includes('minio')) ? 'cloud-badge-minio' : 'cloud-badge-s3');
-            const provLabel = prof.provider === 'azure_blob' ? 'Azure' : ((prof.endpoint && prof.endpoint.includes('minio')) ? 'MinIO' : 'S3');
-
-            html += `<div class="sftp-conn-item" onclick="connectSavedCloudProfile('${prof.id}')" title="Click to Connect">` +
-                '<div class="sftp-conn-info">' +
-                    '<div class="sftp-conn-title-row">' +
-                        '<span style="font-size: 13px;">⚡</span>' +
-                        `<span class="sftp-conn-name" title="${escapeHtml(prof.name || prof.bucketName)}">${escapeHtml(prof.name || prof.bucketName)}</span>` +
-                        `<span class="cloud-provider-badge ${provBadgeClass}">${provLabel}</span>` +
-                    '</div>' +
-                    `<div class="sftp-conn-sub">${escapeHtml(prof.bucketName || prof.endpoint || 'Cloud')}</div>` +
-                '</div>' +
-                '<div class="sftp-conn-actions">' +
-                    `<button class="sftp-icon-btn" onclick="openCloudModal(getSavedCloudProfileById('${prof.id}'), event)" title="Edit Profile">✏️</button>` +
-                    `<button class="sftp-icon-btn danger" onclick="deleteSavedCloudProfile('${prof.id}', event)" title="Delete Profile">✕</button>` +
-                '</div>' +
-            '</div>';
-        });
-    }
-
-    if (cloudActiveSessions.length === 0 && cloudSavedProfiles.length === 0) {
-        html = '<div style="padding: 10px 8px; font-size: 11px; color: var(--text-muted); text-align: center; line-height: 1.4;">' +
-            'No cloud storage connected.<br><button class="sftp-browse-btn" onclick="openCloudModal()" style="margin-top: 6px;">+ Connect to Cloud</button>' +
-        '</div>';
-    }
-
-    listEl.innerHTML = html;
-}
-
-function getSavedCloudProfileById(id) {
-    return cloudSavedProfiles.find(p => p.id === id);
-}
-
-function openCloudModal(profileToEdit = null, event = null, initialProvider = 's3') {
-    if (profileToEdit && (profileToEdit instanceof Event || profileToEdit.target)) {
-        event = profileToEdit;
-        profileToEdit = null;
-    }
-    if (event) {
-        event.stopPropagation();
-        event.preventDefault();
-    }
-
-    const modal = document.getElementById('modal-cloud');
-    if (!modal) return;
-
-    const alertEl = document.getElementById('cloud-status-alert');
-    if (alertEl) alertEl.style.display = 'none';
-
-    const titleEl = document.getElementById('cloud-modal-title');
-    const s3Name = document.getElementById('cloud-s3-input-name');
-    const s3Bucket = document.getElementById('cloud-s3-input-bucket');
-    const s3Region = document.getElementById('cloud-s3-input-region');
-    const s3Endpoint = document.getElementById('cloud-s3-input-endpoint');
-    const s3AccessKey = document.getElementById('cloud-s3-input-access-key');
-    const s3SecretKey = document.getElementById('cloud-s3-input-secret-key');
-    const s3Prefix = document.getElementById('cloud-s3-input-prefix');
-    const s3PathStyle = document.getElementById('cloud-s3-chk-path-style');
-
-    const azName = document.getElementById('cloud-azure-input-name');
-    const azConnStr = document.getElementById('cloud-azure-input-connection-string');
-    const azContainer = document.getElementById('cloud-azure-input-container');
-    const azPrefix = document.getElementById('cloud-azure-input-prefix');
-
-    const saveChk = document.getElementById('cloud-chk-save-profile');
-    const rememberChk = document.getElementById('cloud-chk-remember-creds');
-
-    if (profileToEdit) {
-        modal.setAttribute('data-edit-id', profileToEdit.id);
-        if (titleEl) titleEl.textContent = 'Edit Cloud Connection';
-        const prov = (profileToEdit.provider === 'azure_blob' || profileToEdit.provider === 'azure') ? 'azure' : 's3';
-        switchCloudProvider(prov);
-
-        if (prov === 's3') {
-            if (s3Name) s3Name.value = profileToEdit.name || '';
-            if (s3Bucket) s3Bucket.value = profileToEdit.bucketName || '';
-            if (s3Region) s3Region.value = profileToEdit.region || 'us-east-1';
-            if (s3Endpoint) s3Endpoint.value = profileToEdit.endpoint || '';
-            if (s3AccessKey) s3AccessKey.value = profileToEdit.accessKey || '';
-            if (s3SecretKey) s3SecretKey.value = profileToEdit.secretKey || '';
-            if (s3Prefix) s3Prefix.value = profileToEdit.initialPrefix || '';
-            if (s3PathStyle) s3PathStyle.checked = Boolean(profileToEdit.forcePathStyle);
-        } else {
-            if (azName) azName.value = profileToEdit.name || '';
-            if (azConnStr) azConnStr.value = profileToEdit.connectionString || '';
-            if (azContainer) azContainer.value = profileToEdit.bucketName || '';
-            if (azPrefix) azPrefix.value = profileToEdit.initialPrefix || '';
-        }
-
-        if (saveChk) saveChk.checked = true;
-        if (rememberChk) rememberChk.checked = Boolean(profileToEdit.accessKey || profileToEdit.secretKey || profileToEdit.connectionString);
-    } else {
-        modal.removeAttribute('data-edit-id');
-        if (titleEl) titleEl.textContent = 'Connect to Cloud Storage';
-        switchCloudProvider(initialProvider || 's3');
-
-        if (s3Name) s3Name.value = '';
-        if (s3Bucket) s3Bucket.value = '';
-        if (s3Region) s3Region.value = 'us-east-1';
-        if (s3Endpoint) s3Endpoint.value = '';
-        if (s3AccessKey) s3AccessKey.value = '';
-        if (s3SecretKey) s3SecretKey.value = '';
-        if (s3Prefix) s3Prefix.value = '';
-        if (s3PathStyle) s3PathStyle.checked = false;
-
-        if (azName) azName.value = '';
-        if (azConnStr) azConnStr.value = '';
-        if (azContainer) azContainer.value = '';
-        if (azPrefix) azPrefix.value = '';
-
-        if (saveChk) saveChk.checked = true;
-        if (rememberChk) rememberChk.checked = true;
-    }
-
-    modal.style.display = 'flex';
-    setTimeout(() => {
-        if (currentCloudProvider === 's3' && s3Bucket && !s3Bucket.value) s3Bucket.focus();
-        else if (currentCloudProvider === 'azure' && azConnStr && !azConnStr.value) azConnStr.focus();
-    }, 50);
-}
-
-function closeCloudModal(e = null) {
-    if (e && e.target && e.target.id !== 'modal-cloud' && !e.target.classList.contains('modal-close-x') && !e.target.closest('.modal-close-x') && !e.target.classList.contains('cancel') && !e.target.closest('.cancel')) {
-        return;
-    }
-    const modal = document.getElementById('modal-cloud');
-    if (modal) modal.style.display = 'none';
-}
-
-function switchCloudProvider(provider) {
-    currentCloudProvider = (provider === 'azure' || provider === 'azure_blob') ? 'azure' : 's3';
-    const tabS3 = document.getElementById('btn-cloud-tab-s3');
-    const tabAzure = document.getElementById('btn-cloud-tab-azure');
-    const panelS3 = document.getElementById('cloud-provider-panel-s3');
-    const panelAzure = document.getElementById('cloud-provider-panel-azure');
-
-    if (tabS3) tabS3.classList.toggle('active', currentCloudProvider === 's3');
-    if (tabAzure) tabAzure.classList.toggle('active', currentCloudProvider === 'azure');
-
-    if (panelS3) panelS3.style.display = currentCloudProvider === 's3' ? 'flex' : 'none';
-    if (panelAzure) panelAzure.style.display = currentCloudProvider === 'azure' ? 'flex' : 'none';
-}
-
-function applyS3Preset(preset) {
-    const endpointInput = document.getElementById('cloud-s3-input-endpoint');
-    const regionInput = document.getElementById('cloud-s3-input-region');
-    const pathStyleChk = document.getElementById('cloud-s3-chk-path-style');
-
-    if (preset === 'minio') {
-        if (endpointInput) endpointInput.value = 'http://localhost:9000';
-        if (regionInput) regionInput.value = 'us-east-1';
-        if (pathStyleChk) pathStyleChk.checked = true;
-        showToast('Configured MinIO local defaults (Endpoint: :9000, Path-Style on) 🦩', 'ℹ️');
-    } else if (preset === 'r2') {
-        if (endpointInput) endpointInput.value = 'https://<account-id>.r2.cloudflarestorage.com';
-        if (regionInput) regionInput.value = 'auto';
-        if (pathStyleChk) pathStyleChk.checked = false;
-        showToast('Configured Cloudflare R2 preset ⚡', 'ℹ️');
-    } else if (preset === 'custom') {
-        if (pathStyleChk) pathStyleChk.checked = true;
-        showToast('Configured custom S3 endpoint preset ⚙️', 'ℹ️');
-    } else { // aws
-        if (endpointInput) endpointInput.value = '';
-        if (regionInput) regionInput.value = 'us-east-1';
-        if (pathStyleChk) pathStyleChk.checked = false;
-        showToast('Configured AWS S3 defaults (Standard Global Endpoint) ☁️', 'ℹ️');
-    }
-}
-
-function toggleCloudPasswordVisibility(inputId) {
-    const input = document.getElementById(inputId);
-    if (!input) return;
-    input.type = input.type === 'password' ? 'text' : 'password';
-}
-
-function handleCloudSaveCheckboxChange() {
-    const saveChk = document.getElementById('cloud-chk-save-profile');
-    const remLabel = document.getElementById('cloud-lbl-remember-creds');
-    if (remLabel && saveChk) {
-        remLabel.style.display = saveChk.checked ? 'flex' : 'none';
-    }
-}
-
-function getCloudFormData() {
-    if (currentCloudProvider === 's3') {
-        const name = (document.getElementById('cloud-s3-input-name')?.value || '').trim();
-        const bucketName = (document.getElementById('cloud-s3-input-bucket')?.value || '').trim();
-        const region = (document.getElementById('cloud-s3-input-region')?.value || 'us-east-1').trim();
-        const endpoint = (document.getElementById('cloud-s3-input-endpoint')?.value || '').trim();
-        const accessKey = (document.getElementById('cloud-s3-input-access-key')?.value || '').trim();
-        const secretKey = (document.getElementById('cloud-s3-input-secret-key')?.value || '').trim();
-        const initialPrefix = (document.getElementById('cloud-s3-input-prefix')?.value || '').trim();
-        const forcePathStyle = document.getElementById('cloud-s3-chk-path-style')?.checked || false;
-
-        return {
-            provider: 's3',
-            name: name || bucketName,
-            bucketName,
-            region: region || 'us-east-1',
-            endpoint: endpoint || null,
-            accessKey: accessKey || null,
-            secretKey: secretKey || null,
-            initialPrefix: initialPrefix || null,
-            forcePathStyle
-        };
-    } else {
-        const name = (document.getElementById('cloud-azure-input-name')?.value || '').trim();
-        const connectionString = (document.getElementById('cloud-azure-input-connection-string')?.value || '').trim();
-        const container = (document.getElementById('cloud-azure-input-container')?.value || '').trim();
-        const initialPrefix = (document.getElementById('cloud-azure-input-prefix')?.value || '').trim();
-
-        return {
-            provider: 'azure_blob',
-            name: name || container || 'Azure Blob',
-            connectionString,
-            bucketName: container || null,
-            initialPrefix: initialPrefix || null
-        };
-    }
-}
-
-function showCloudAlert(message, type = 'info') {
-    const alertEl = document.getElementById('cloud-status-alert');
-    if (!alertEl) return;
-    alertEl.className = 'sftp-alert-' + type;
-    alertEl.textContent = message;
-    alertEl.style.display = 'block';
-}
-
-async function testCloudConnection() {
-    const data = getCloudFormData();
-    if (data.provider === 's3') {
-        if (!data.bucketName) {
-            showCloudAlert('Please enter an S3 / MinIO bucket name.', 'error');
-            return;
-        }
-        if (!data.accessKey || !data.secretKey) {
-            showCloudAlert('Please enter Access Key ID and Secret Access Key.', 'error');
-            return;
-        }
-    } else {
-        if (!data.connectionString) {
-            showCloudAlert('Please enter Azure Blob Connection String or SAS URL.', 'error');
-            return;
-        }
-    }
-
-    const testBtn = document.getElementById('btn-cloud-test');
-    const spinner = document.getElementById('cloud-test-btn-spinner');
-    const btnText = document.getElementById('cloud-test-btn-text');
-
-    if (testBtn) testBtn.disabled = true;
-    if (spinner) spinner.style.display = 'inline-block';
-    if (btnText) btnText.textContent = 'Testing...';
-    showCloudAlert('Testing cloud connection...', 'info');
-
-    try {
-        const res = await fetch('/api/cloud/test', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        let result = {};
-        try {
-            result = await res.json();
-        } catch {
-            result = { success: false, errorMessage: `Server returned HTTP ${res.status}` };
-        }
-        if (result.success) {
-            const countMsg = (result.itemCount != null) ? ` (${result.itemCount} items found)` : '';
-            showCloudAlert(`✅ Connected successfully!${countMsg} Latency: ${result.latencyMs || 0}ms`, 'success');
-        } else {
-            showCloudAlert(`❌ Connection test failed: ${result.errorMessage || 'Check credentials and bucket.'}`, 'error');
-        }
-    } catch (err) {
-        showCloudAlert(`❌ Connection test error: ${err.message}`, 'error');
-    } finally {
-        if (testBtn) testBtn.disabled = false;
-        if (spinner) spinner.style.display = 'none';
-        if (btnText) btnText.textContent = '⚡ Test Connection';
-    }
-}
-
-async function submitCloudConnect() {
-    const data = getCloudFormData();
-    if (data.provider === 's3') {
-        if (!data.bucketName) {
-            showCloudAlert('Please enter an S3 / MinIO bucket name.', 'error');
-            return;
-        }
-        if (!data.accessKey || !data.secretKey) {
-            showCloudAlert('Please enter Access Key ID and Secret Access Key.', 'error');
-            return;
-        }
-    } else {
-        if (!data.connectionString) {
-            showCloudAlert('Please enter Azure Blob Connection String or SAS URL.', 'error');
-            return;
-        }
-    }
-
-    const connectBtn = document.getElementById('btn-cloud-connect');
-    const spinner = document.getElementById('cloud-connect-btn-spinner');
-    const btnText = document.getElementById('cloud-connect-btn-text');
-
-    if (connectBtn) connectBtn.disabled = true;
-    if (spinner) spinner.style.display = 'inline-block';
-    if (btnText) btnText.textContent = 'Connecting...';
-    showCloudAlert('Connecting to Cloud Storage...', 'info');
-
-    try {
-        const res = await fetch('/api/cloud/connect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        let result = {};
-        try {
-            result = await res.json();
-        } catch {
-            result = { success: false, errorMessage: `Server returned HTTP ${res.status}` };
-        }
-        if (!result.success) {
-            showCloudAlert(`❌ Connect failed: ${result.errorMessage || 'Unable to connect to cloud storage.'}`, 'error');
-            return;
-        }
-
-        // Save connection profile if requested
-        const saveChk = document.getElementById('cloud-chk-save-profile');
-        const rememberChk = document.getElementById('cloud-chk-remember-creds');
-        const modal = document.getElementById('modal-cloud');
-        const editId = modal ? modal.getAttribute('data-edit-id') : null;
-
-        if (saveChk && saveChk.checked) {
-            const shouldRemember = rememberChk && rememberChk.checked;
-            const profile = {
-                id: editId || `cloud_prof_${Date.now()}`,
-                name: data.name || data.bucketName,
-                provider: data.provider,
-                bucketName: data.bucketName,
-                region: data.region,
-                endpoint: data.endpoint,
-                accessKey: shouldRemember ? data.accessKey : null,
-                secretKey: shouldRemember ? data.secretKey : null,
-                connectionString: shouldRemember ? data.connectionString : null,
-                forcePathStyle: data.forcePathStyle,
-                initialPrefix: data.initialPrefix
-            };
-
-            const existingIdx = cloudSavedProfiles.findIndex(p => p.id === profile.id);
-            if (existingIdx >= 0) {
-                cloudSavedProfiles[existingIdx] = profile;
-            } else {
-                cloudSavedProfiles.push(profile);
-            }
-            saveCloudProfilesToStorage();
-        }
-
-        closeCloudModal();
-        await refreshCloudSessionsList();
-
-        // Navigate to the cloud directory
-        const cloudPath = `cloud://${result.connectionId}${result.currentPath || '/'}`;
-        navigateTo(cloudPath);
-        showToast(`Connected to ${result.name || data.bucketName} ☁️`, '✅');
-    } catch (err) {
-        showCloudAlert(`❌ Connect error: ${err.message}`, 'error');
-    } finally {
-        if (connectBtn) connectBtn.disabled = false;
-        if (spinner) spinner.style.display = 'none';
-        if (btnText) btnText.textContent = 'Connect';
-    }
-}
-
-async function connectSavedCloudProfile(profileId) {
-    const prof = getSavedCloudProfileById(profileId);
-    if (!prof) return;
-
-    const hasCreds = (prof.provider === 's3' && prof.accessKey && prof.secretKey) ||
-                     (prof.provider === 'azure_blob' && prof.connectionString);
-
-    if (hasCreds) {
-        showToast(`Connecting to ${prof.name}... ⏳`, '☁️');
-        try {
-            const res = await fetch('/api/cloud/connect', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    provider: prof.provider,
-                    name: prof.name,
-                    bucketName: prof.bucketName,
-                    region: prof.region,
-                    endpoint: prof.endpoint,
-                    accessKey: prof.accessKey,
-                    secretKey: prof.secretKey,
-                    connectionString: prof.connectionString,
-                    forcePathStyle: prof.forcePathStyle,
-                    initialPrefix: prof.initialPrefix
-                })
-            });
-            let result = {};
-            try {
-                result = await res.json();
-            } catch {
-                result = { success: false, errorMessage: `Server returned HTTP ${res.status}` };
-            }
-            if (result.success) {
-                await refreshCloudSessionsList();
-                const cloudPath = `cloud://${result.connectionId}${result.currentPath || '/'}`;
-                navigateTo(cloudPath);
-                showToast(`Connected to ${prof.name} ☁️`, '✅');
-                return;
-            } else {
-                showToast(`Connect failed: ${result.errorMessage || 'Cloud storage unavailable'}`, '⚠️');
-            }
-        } catch (err) {
-            showToast(`Connection failed: ${err.message}`, '❌');
-        }
-    }
-
-    openCloudModal(prof);
-}
-
-async function disconnectCloudSession(connectionId, e) {
-    if (e) {
-        e.stopPropagation();
-        e.preventDefault();
-    }
-    try {
-        await fetch('/api/cloud/disconnect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ connectionId })
-        });
-        showToast('Cloud storage session disconnected ⏏️', 'ℹ️');
-        await refreshCloudSessionsList();
-
-        if (currentPath.startsWith('cloud://' + connectionId)) {
-            goHome();
-        }
-    } catch (err) {
-        console.error(err);
-    }
-}
-
-function deleteSavedCloudProfile(profileId, e) {
-    if (e) {
-        e.stopPropagation();
-        e.preventDefault();
-    }
-    cloudSavedProfiles = cloudSavedProfiles.filter(p => p.id !== profileId);
-    saveCloudProfilesToStorage();
-    renderCloudSidebar();
-    showToast('Saved cloud connection removed', '🗑️');
-}
-
-function handleFavoritesDragOver(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    const zone = document.getElementById('favorites-list');
-    if (zone) zone.classList.add('drag-over');
-    if (e.dataTransfer) {
-        e.dataTransfer.dropEffect = 'copy';
-    }
-}
-
-function handleFavoritesDragLeave(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    const zone = document.getElementById('favorites-list');
-    if (zone) zone.classList.remove('drag-over');
-}
-
-function handleFavoritesDrop(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    const zone = document.getElementById('favorites-list');
-    if (zone) zone.classList.remove('drag-over');
-
-    const sep = isWindows ? '\\' : '/';
-    let pathsToPin = [];
-
-    if (draggedVenElItems && draggedVenElItems.length > 0) {
-        pathsToPin = draggedVenElItems.slice();
-    } else if (selectedItems && selectedItems.length > 0) {
-        pathsToPin = selectedItems.map(function(i) {
-            return i.path || (currentPath.endsWith(sep) ? currentPath + i.name : currentPath + sep + i.name);
-        });
-    } else if (selectedItem) {
-        pathsToPin = [selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name)];
-    }
-
-    let addedCount = 0;
-    pathsToPin.forEach(function(targetPath) {
-        if (!targetPath) return;
-        if (userBookmarks.some(function(b) { return b.path === targetPath; })) return;
-
-        const name = targetPath.split(sep).filter(Boolean).pop() || targetPath;
-        const dotIdx = name.lastIndexOf('.');
-        const ext = dotIdx > 0 ? name.substring(dotIdx).toUpperCase() : '';
-        const matchingItem = currentItems.find(function(it) { return it.name === name; });
-        const isDir = matchingItem ? matchingItem.type === 'Directory' : (!ext || ext.length > 6);
-        const visual = typeof getFileVisual === 'function' ? getFileVisual(name, isDir) : { icon: isDir ? '📁' : '📄' };
-
-        userBookmarks.push({
-            name: name,
-            path: targetPath,
-            icon: visual.icon || (isDir ? '📁' : '📄'),
-            isDir: isDir,
-            ext: ext,
-            isDefault: false
-        });
-        addedCount++;
-    });
-
-    if (addedCount > 0) {
-        saveBookmarks();
-        renderBookmarks();
-        showToast('Pinned ' + addedCount + ' item' + (addedCount > 1 ? 's' : '') + ' to Favorites ⭐', '⭐');
-    }
-}
-
-function togglePinCurrentFolder() {
-    const existingIndex = userBookmarks.findIndex(function(b) { return b.path === currentPath; });
-    const sep = isWindows ? '\\' : '/';
-    const folderName = currentPath.split(sep).filter(Boolean).pop() || currentPath;
-    if (existingIndex >= 0) {
-        userBookmarks.splice(existingIndex, 1);
-        showToast('Unpinned "' + folderName + '"', '☆');
-    } else {
-        userBookmarks.push({
-            name: folderName,
-            path: currentPath,
-            icon: '📁',
-            isDir: true,
-            isDefault: false
-        });
-        showToast('Pinned "' + folderName + '" to Favorites ⭐', '⭐');
-    }
-    saveBookmarks();
-    renderBookmarks();
-}
-
-function removeBookmark(targetPath) {
-    userBookmarks = userBookmarks.filter(function(b) { return b.path !== targetPath; });
-    saveBookmarks();
-    renderBookmarks();
-    showToast('Removed bookmark', '🗑️');
-}
-
-function togglePinSelectedItem() {
-    hideContextMenu();
-    const sep = isWindows ? '\\' : '/';
-    let target = currentPath;
-    let name = currentPath.split(sep).filter(Boolean).pop() || currentPath;
-    let isDir = true;
-    let ext = '';
-
-    if (selectedItem) {
-        target = selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name);
-        name = selectedItem.name;
-        isDir = selectedItem.type === 'Directory';
-        const dotIdx = name.lastIndexOf('.');
-        ext = dotIdx > 0 ? name.substring(dotIdx).toUpperCase() : '';
-    }
-
-    const idx = userBookmarks.findIndex(function(b) { return b.path === target; });
-    if (idx >= 0) {
-        userBookmarks.splice(idx, 1);
-        showToast('Unpinned "' + name + '"', '☆');
-    } else {
-        const visual = typeof getFileVisual === 'function' ? getFileVisual(name, isDir) : { icon: isDir ? '📁' : '📄' };
-        userBookmarks.push({
-            name: name,
-            path: target,
-            icon: visual.icon || (isDir ? '📁' : '📄'),
-            isDir: isDir,
-            ext: ext,
-            isDefault: false
-        });
-        showToast('Pinned "' + name + '" to Favorites ⭐', '⭐');
-    }
-    saveBookmarks();
-    renderBookmarks();
-}
-
-function togglePinPreviewItem() {
-    if (!activePreviewPath) return;
-    const sep = isWindows ? '\\' : '/';
-    const target = activePreviewPath;
-    const name = target.split(sep).filter(Boolean).pop() || target;
-    const isDir = activePreviewIsDir;
-    const dotIdx = name.lastIndexOf('.');
-    const ext = dotIdx > 0 ? name.substring(dotIdx).toUpperCase() : '';
-
-    const idx = userBookmarks.findIndex(function(b) { return b.path === target; });
-    if (idx >= 0) {
-        userBookmarks.splice(idx, 1);
-        showToast('Unpinned "' + name + '"', '☆');
-    } else {
-        const visual = typeof getFileVisual === 'function' ? getFileVisual(name, isDir) : { icon: isDir ? '📁' : '📄' };
-        userBookmarks.push({
-            name: name,
-            path: target,
-            icon: visual.icon || (isDir ? '📁' : '📄'),
-            isDir: isDir,
-            ext: ext,
-            isDefault: false
-        });
-        showToast('Pinned "' + name + '" to Favorites ⭐', '⭐');
-    }
-    saveBookmarks();
-    renderBookmarks();
-}
-
-function updatePreviewActionButtons(fullPath, isDir) {
-    const pinBtn = document.getElementById('preview-pin-btn');
-    const copyImportBtn = document.getElementById('preview-copy-import-btn');
-    const terminalBtn = document.getElementById('preview-terminal-btn');
-    const editBtn = document.getElementById('preview-edit-btn');
-    const saveBtn = document.getElementById('preview-save-btn');
-    const cancelBtn = document.getElementById('preview-cancel-btn');
-
-    if (fullPath) {
-        const isText = !isDir && isEditableTextFile(fullPath);
-        if (editBtn) editBtn.style.display = isText && !isInlineEditorActive ? 'inline-flex' : 'none';
-        if (saveBtn) saveBtn.style.display = isInlineEditorActive ? 'inline-flex' : 'none';
-        if (cancelBtn) cancelBtn.style.display = isInlineEditorActive ? 'inline-flex' : 'none';
-
-        if (pinBtn) {
-            const isPinned = userBookmarks.some(function(b) { return b.path === fullPath; });
-            pinBtn.style.display = 'inline-flex';
-            if (isPinned) {
-                pinBtn.classList.add('pinned');
-                pinBtn.textContent = '★';
-                pinBtn.title = 'Unpin this item from Favorites';
-            } else {
-                pinBtn.classList.remove('pinned');
-                pinBtn.textContent = '☆';
-                pinBtn.title = 'Pin this item to Favorites';
-            }
-        }
-        if (copyImportBtn) {
-            copyImportBtn.style.display = 'inline-flex';
-            copyImportBtn.title = isDir ? 'Copy Relative Path (⌥⇧C)' : 'Copy Smart Import Statement (⌥⇧I)';
-        }
-        if (terminalBtn) {
-            terminalBtn.style.display = 'inline-flex';
-        }
-    } else {
-        if (editBtn) editBtn.style.display = 'none';
-        if (saveBtn) saveBtn.style.display = 'none';
-        if (cancelBtn) cancelBtn.style.display = 'none';
-        if (pinBtn) pinBtn.style.display = 'none';
-        if (copyImportBtn) copyImportBtn.style.display = 'none';
-        if (terminalBtn) terminalBtn.style.display = 'none';
-    }
-}
-
-// ══════════════════════════════════════════════════════════
 // ✂️ CLIPBOARD (CUT / COPY / PASTE)
 // ══════════════════════════════════════════════════════════
 function copySelectedItem() {
@@ -6516,6 +6901,7 @@ async function pasteClipboardItem() {
 }
 
 // ══════════════════════════════════════════════════════════
+
 // ✏️ CRUD MODALS (CREATE, RENAME, DELETE)
 // ══════════════════════════════════════════════════════════
 function showNewFolderModal() {
@@ -7710,982 +8096,1988 @@ function selectDropdownPath(targetPath, e) {
 }
 
 // ══════════════════════════════════════════════════════════
-// 📝 IN-LINE QUICK CODE / TEXT EDITOR
+
+// 🏷️ SMART BATCH RENAMER
 // ══════════════════════════════════════════════════════════
-let isInlineEditorActive = false;
-let isQlEditorActive = false;
-let inlineOriginalContent = '';
-let qlOriginalContent = '';
-
-function isEditableTextFile(path) {
-    if (!path) return false;
-    const lower = path.toLowerCase();
-    const exts = [
-        '.txt', '.md', '.markdown', '.json', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx',
-        '.css', '.scss', '.sass', '.less', '.html', '.htm', '.xml', '.svg',
-        '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf', '.env', '.gitignore',
-        '.sh', '.bash', '.zsh', '.bat', '.cmd', '.ps1',
-        '.py', '.cs', '.java', '.cpp', '.c', '.h', '.hpp', '.rs', '.go', '.php', '.rb',
-        '.sql', '.log', '.csv', '.tsv', '.lock', '.properties'
-    ];
-    const dotIdx = lower.lastIndexOf('.');
-    if (dotIdx === -1) return true;
-    const ext = lower.substring(dotIdx);
-    return exts.includes(ext) || lower.endsWith('dockerfile') || lower.endsWith('makefile') || lower.endsWith('license');
+function switchBatchTab(tabName) {
+    activeBatchTab = tabName;
+    document.querySelectorAll('.batch-tab-btn').forEach(function(btn) {
+        if (btn.getAttribute('data-tab') === tabName) btn.classList.add('active');
+        else btn.classList.remove('active');
+    });
+    const panels = ['replace', 'text', 'number', 'case', 'ext'];
+    for (let i = 0; i < panels.length; i++) {
+        const p = document.getElementById('batch-panel-' + panels[i]);
+        if (p) p.style.display = panels[i] === tabName ? 'flex' : 'none';
+    }
+    updateBatchPreview();
 }
 
-async function toggleInlineEditor() {
-    if (!activePreviewPath || activePreviewIsDir) return;
-    if (isInlineEditorActive) {
-        cancelInlineEditor();
-        return;
-    }
-    const container = document.getElementById('preview-content');
-    if (!container) return;
-
-    try {
-        container.innerHTML = '<div style="padding: 30px; text-align: center;"><div class="spinner" style="margin: 0 auto 10px;"></div>Opening in-line editor...</div>';
-        let text = '';
-        const sftpInfo = parseSftpUrl(activePreviewPath);
-        const cloudInfo = parseCloudUrl(activePreviewPath);
-        if (sftpInfo) {
-            let res = await fetch(`/api/sftp/read?connectionId=${encodeURIComponent(sftpInfo.connectionId)}&path=${encodeURIComponent(sftpInfo.remotePath)}`).catch(() => null);
-            if (!res || !res.ok) {
-                showToast('Unable to open remote file for editing', '⚠️');
-                handlePreview(selectedItem ? selectedItem.name : activePreviewPath, false);
-                return;
-            }
-            text = await res.text();
-        } else if (cloudInfo) {
-            let res = await fetch(`/api/cloud/read?connectionId=${encodeURIComponent(cloudInfo.connectionId)}&path=${encodeURIComponent(cloudInfo.remotePath)}`).catch(() => null);
-            if (!res || !res.ok) {
-                showToast('Unable to open cloud file for editing', '⚠️');
-                handlePreview(selectedItem ? selectedItem.name : activePreviewPath, false);
-                return;
-            }
-            text = await res.text();
-        } else {
-            let res = await fetch('/api/files/download?path=' + encodeURIComponent(activePreviewPath)).catch(function() { return null; });
-            if (!res || !res.ok) res = await fetch('/api/files/read?path=' + encodeURIComponent(activePreviewPath)).catch(function() { return null; });
-            if (!res || !res.ok) res = await fetch('/api/files/raw?path=' + encodeURIComponent(activePreviewPath)).catch(function() { return null; });
-            if (!res || !res.ok) {
-                showToast('Unable to open file for editing', '⚠️');
-                handlePreview(selectedItem ? selectedItem.name : activePreviewPath, false);
-                return;
-            }
-            text = await res.text();
-        }
-        inlineOriginalContent = text;
-        isInlineEditorActive = true;
-
-        const lines = text.split('\n').length;
-        const chars = text.length;
-        const estimatedTokens = Math.ceil(chars / 4);
-
-        container.innerHTML = 
-            '<div class="inline-editor-container">' +
-                '<div class="inline-editor-toolbar">' +
-                    '<div class="inline-editor-stats">' +
-                        '<span id="inline-editor-lines">' + lines + ' lines</span>' +
-                        '<span>•</span>' +
-                        '<span id="inline-editor-chars">' + chars + ' chars</span>' +
-                        '<span>•</span>' +
-                        '<span id="inline-editor-tokens" class="token-pill">✨ ~' + estimatedTokens.toLocaleString() + ' tokens</span>' +
-                    '</div>' +
-                    '<div style="display: flex; gap: 6px;">' +
-                        '<button class="preview-action-btn preview-save-btn" onclick="saveInlineEditor()" title="Save changes (⌘S / Ctrl+S)">💾 Save</button>' +
-                        '<button class="preview-action-btn preview-cancel-btn" onclick="cancelInlineEditor()" title="Cancel editing (Esc)">✕ Cancel</button>' +
-                    '</div>' +
-                '</div>' +
-                '<textarea id="inline-editor-textarea" class="inline-editor-textarea" spellcheck="false" placeholder="Enter file content..."></textarea>' +
-            '</div>';
-
-        const textarea = document.getElementById('inline-editor-textarea');
-        if (textarea) {
-            textarea.value = text;
-            textarea.addEventListener('input', function() {
-                const val = textarea.value;
-                const lineCount = val.split('\n').length;
-                const charCount = val.length;
-                const tokenCount = Math.ceil(charCount / 4);
-                const linesEl = document.getElementById('inline-editor-lines');
-                const charsEl = document.getElementById('inline-editor-chars');
-                const tokensEl = document.getElementById('inline-editor-tokens');
-                if (linesEl) linesEl.textContent = lineCount + ' lines';
-                if (charsEl) charsEl.textContent = charCount + ' chars';
-                if (tokensEl) tokensEl.textContent = '✨ ~' + tokenCount.toLocaleString() + ' tokens';
-            });
-            textarea.focus();
-        }
-        updatePreviewActionButtons(activePreviewPath, false);
-    } catch (err) {
-        console.error(err);
-        showToast('Failed to load file for editing', '❌');
-        isInlineEditorActive = false;
-        if (selectedItem) handlePreview(selectedItem.name, false);
-    }
-}
-
-async function saveInlineEditor() {
-    if (!activePreviewPath) return;
-    const textarea = document.getElementById('inline-editor-textarea');
-    if (!textarea) return;
-    const newContent = textarea.value;
-    const sep = isWindows ? '\\' : '/';
-    const fileName = activePreviewPath.split(sep).pop() || activePreviewPath;
-
-    const sftpInfo = parseSftpUrl(activePreviewPath);
-    const cloudInfo = parseCloudUrl(activePreviewPath);
-    if (sftpInfo) {
-        try {
-            const payload = JSON.stringify({
-                connectionId: sftpInfo.connectionId,
-                remotePath: sftpInfo.remotePath,
-                content: newContent
-            });
-            const res = await fetch('/api/sftp/save', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: payload
-            });
-            if (res.ok) {
-                const lines = newContent.split('\n').length;
-                showToast('Saved "' + fileName + '" to SFTP (' + lines + ' lines) 💾', '✅');
-                isInlineEditorActive = false;
-                inlineOriginalContent = newContent;
-                if (selectedItem) {
-                    handlePreview(selectedItem.name, false);
-                } else {
-                    renderFilePreview(document.getElementById('preview-content'), activePreviewPath, fileName, false, false);
-                }
-                updatePreviewActionButtons(activePreviewPath, false);
-            } else {
-                showToast('Failed to save file to SFTP', '❌');
-            }
-        } catch (err) {
-            console.error(err);
-            showToast('Error saving file: ' + err.message, '❌');
-        }
-        return;
-    } else if (cloudInfo) {
-        try {
-            const payload = JSON.stringify({
-                connectionId: cloudInfo.connectionId,
-                remotePath: cloudInfo.remotePath,
-                content: newContent
-            });
-            const res = await fetch('/api/cloud/save', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: payload
-            });
-            if (res.ok) {
-                const lines = newContent.split('\n').length;
-                showToast('Saved "' + fileName + '" to Cloud Storage (' + lines + ' lines) 💾', '✅');
-                isInlineEditorActive = false;
-                inlineOriginalContent = newContent;
-                if (selectedItem) {
-                    handlePreview(selectedItem.name, false);
-                } else {
-                    renderFilePreview(document.getElementById('preview-content'), activePreviewPath, fileName, false, false);
-                }
-                updatePreviewActionButtons(activePreviewPath, false);
-            } else {
-                showToast('Failed to save file to Cloud Storage', '❌');
-            }
-        } catch (err) {
-            console.error(err);
-            showToast('Error saving file: ' + err.message, '❌');
-        }
-        return;
-    }
-
-    try {
-        const payload = JSON.stringify({ path: activePreviewPath, content: newContent });
-        const res = await fetch('/api/files/saveFile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: payload
-        });
-
-        if (typeof window.vscode !== 'undefined' && window.vscode.postMessage) {
-            window.vscode.postMessage({ command: 'saveFile', path: activePreviewPath, content: newContent });
-        }
-        if (window.parent && window.parent !== window) {
-            window.parent.postMessage({ command: 'saveFile', path: activePreviewPath, content: newContent }, '*');
-        }
-
-        if (res.ok) {
-            const lines = newContent.split('\n').length;
-            showToast('Saved "' + fileName + '" (' + lines + ' lines) 💾', '✅');
-            isInlineEditorActive = false;
-            inlineOriginalContent = newContent;
-            fetchGitStatus(currentPath);
-            if (selectedItem) {
-                handlePreview(selectedItem.name, false);
-            } else {
-                renderFilePreview(document.getElementById('preview-content'), activePreviewPath, fileName, false, false);
-            }
-            updatePreviewActionButtons(activePreviewPath, false);
-        } else {
-            showToast('Failed to save file', '❌');
-        }
-    } catch (err) {
-        console.error(err);
-        showToast('Error saving file: ' + err.message, '❌');
-    }
-}
-
-function cancelInlineEditor() {
-    isInlineEditorActive = false;
-    updatePreviewActionButtons(activePreviewPath, false);
-    const sep = isWindows ? '\\' : '/';
-    const fileName = activePreviewPath ? (activePreviewPath.split(sep).pop() || activePreviewPath) : '';
-    if (selectedItem) {
-        handlePreview(selectedItem.name, false);
-    } else if (activePreviewPath) {
-        renderFilePreview(document.getElementById('preview-content'), activePreviewPath, fileName, false, false);
-    }
-}
-
-async function toggleQuickLookEditor() {
-    if (!selectedItem || selectedItem.type === 'Directory') return;
-    const qlBody = document.getElementById('ql-body');
-    const qlEditBtn = document.getElementById('ql-edit-btn');
-    const qlSaveBtn = document.getElementById('ql-save-btn');
-    if (!qlBody) return;
-
-    const sep = isWindows ? '\\' : '/';
-    const sftpInfo = parseSftpUrl(currentPath);
-    let fullPath;
-    if (sftpInfo) {
-        fullPath = `sftp://${sftpInfo.connectionId}${sftpInfo.remotePath === '/' ? '/' + selectedItem.name : sftpInfo.remotePath + '/' + selectedItem.name}`;
-    } else {
-        fullPath = (selectedItem && selectedItem.path) ? selectedItem.path : (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name);
-    }
-
-    if (isQlEditorActive) {
-        isQlEditorActive = false;
-        if (qlEditBtn) qlEditBtn.textContent = '✏️ Edit';
-        if (qlSaveBtn) qlSaveBtn.style.display = 'none';
-        renderFilePreview(qlBody, fullPath, selectedItem.name, false, true);
-        return;
-    }
-
-    try {
-        qlBody.innerHTML = '<div style="padding: 30px; text-align: center;"><div class="spinner" style="margin: 0 auto 10px;"></div>Loading editor...</div>';
-        let text = '';
-        const fileSftp = parseSftpUrl(fullPath);
-        if (fileSftp) {
-            let res = await fetch(`/api/sftp/read?connectionId=${encodeURIComponent(fileSftp.connectionId)}&path=${encodeURIComponent(fileSftp.remotePath)}`).catch(() => null);
-            if (!res || !res.ok) {
-                showToast('Unable to open remote file for editing', '⚠️');
-                renderFilePreview(qlBody, fullPath, selectedItem.name, false, true);
-                return;
-            }
-            text = await res.text();
-        } else {
-            let res = await fetch('/api/files/download?path=' + encodeURIComponent(fullPath)).catch(function() { return null; });
-            if (!res || !res.ok) res = await fetch('/api/files/read?path=' + encodeURIComponent(fullPath)).catch(function() { return null; });
-            if (!res || !res.ok) res = await fetch('/api/files/raw?path=' + encodeURIComponent(fullPath)).catch(function() { return null; });
-            if (!res || !res.ok) {
-                showToast('Unable to open file for editing', '⚠️');
-                renderFilePreview(qlBody, fullPath, selectedItem.name, false, true);
-                return;
-            }
-            text = await res.text();
-        }
-        qlOriginalContent = text;
-        isQlEditorActive = true;
-        if (qlEditBtn) qlEditBtn.textContent = '✕ Discard';
-        if (qlSaveBtn) qlSaveBtn.style.display = 'inline-flex';
-
-        qlBody.innerHTML = 
-            '<div class="inline-editor-container" style="height: 100%;">' +
-                '<textarea id="ql-editor-textarea" class="inline-editor-textarea" style="height: calc(100% - 10px); min-height: 380px;" spellcheck="false"></textarea>' +
-            '</div>';
-
-        const textarea = document.getElementById('ql-editor-textarea');
-        if (textarea) {
-            textarea.value = text;
-            textarea.focus();
-        }
-    } catch (err) {
-        console.error(err);
-        showToast('Failed to load file for editing', '❌');
-        isQlEditorActive = false;
-        renderFilePreview(qlBody, fullPath, selectedItem.name, false, true);
-    }
-}
-
-async function saveQuickLookEditor() {
-    if (!selectedItem) return;
-    const textarea = document.getElementById('ql-editor-textarea');
-    if (!textarea) return;
-    const newContent = textarea.value;
-    const sep = isWindows ? '\\' : '/';
-    const sftpInfo = parseSftpUrl(currentPath);
-    let fullPath;
-    if (sftpInfo) {
-        fullPath = `sftp://${sftpInfo.connectionId}${sftpInfo.remotePath === '/' ? '/' + selectedItem.name : sftpInfo.remotePath + '/' + selectedItem.name}`;
-    } else {
-        fullPath = (selectedItem && selectedItem.path) ? selectedItem.path : (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name);
-    }
-
-    const fileSftp = parseSftpUrl(fullPath);
-    if (fileSftp) {
-        try {
-            const payload = JSON.stringify({
-                connectionId: fileSftp.connectionId,
-                remotePath: fileSftp.remotePath,
-                content: newContent
-            });
-            const res = await fetch('/api/sftp/save', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: payload
-            });
-            if (res.ok) {
-                const lines = newContent.split('\n').length;
-                showToast('Saved "' + selectedItem.name + '" to SFTP (' + lines + ' lines) 💾', '✅');
-                isQlEditorActive = false;
-                const qlEditBtn = document.getElementById('ql-edit-btn');
-                const qlSaveBtn = document.getElementById('ql-save-btn');
-                if (qlEditBtn) qlEditBtn.textContent = '✏️ Edit';
-                if (qlSaveBtn) qlSaveBtn.style.display = 'none';
-                renderFilePreview(document.getElementById('ql-body'), fullPath, selectedItem.name, false, true);
-            } else {
-                showToast('Failed to save file to SFTP', '❌');
-            }
-        } catch (err) {
-            console.error(err);
-            showToast('Error saving: ' + err.message, '❌');
-        }
-        return;
-    }
-
-    try {
-        const payload = JSON.stringify({ path: fullPath, content: newContent });
-        const res = await fetch('/api/files/saveFile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: payload
-        });
-        if (typeof window.vscode !== 'undefined' && window.vscode.postMessage) {
-            window.vscode.postMessage({ command: 'saveFile', path: fullPath, content: newContent });
-        }
-        if (res.ok) {
-            const lines = newContent.split('\n').length;
-            showToast('Saved "' + selectedItem.name + '" (' + lines + ' lines) 💾', '✅');
-            isQlEditorActive = false;
-            fetchGitStatus(currentPath);
-            const qlEditBtn = document.getElementById('ql-edit-btn');
-            const qlSaveBtn = document.getElementById('ql-save-btn');
-            if (qlEditBtn) qlEditBtn.textContent = '✏️ Edit';
-            if (qlSaveBtn) qlSaveBtn.style.display = 'none';
-            renderFilePreview(document.getElementById('ql-body'), fullPath, selectedItem.name, false, true);
-        } else {
-            showToast('Failed to save file', '❌');
-        }
-    } catch (err) {
-        console.error(err);
-        showToast('Error saving: ' + err.message, '❌');
-    }
-}
-
-// ══════════════════════════════════════════════════════════
-// ⫴ DUAL-PANE COMMANDER MODE (MIDNIGHT / TOTAL COMMANDER)
-// ══════════════════════════════════════════════════════════
-let isDualPane = false;
-let activePaneId = 'left';
-let commanderLeftState = { path: '', items: [], selected: null, selectedItems: [], history: [], historyIndex: -1 };
-let commanderRightState = { path: '', items: [], selected: null, selectedItems: [], history: [], historyIndex: -1 };
-
-function toggleDualPaneMode(forcedState) {
-    if (typeof forcedState === 'boolean') {
-        isDualPane = forcedState;
-    } else {
-        isDualPane = !isDualPane;
-    }
-    safeStorage.setItem('venel_dual_pane', isDualPane ? 'true' : 'false');
-    const mainList = document.getElementById('file-list-container');
-    const commanderContainer = document.getElementById('dual-pane-container');
-    const toggleBtn = document.getElementById('btn-toggle-dual-pane');
-
-    if (toggleBtn) toggleBtn.classList.toggle('active', isDualPane);
-    updateViewMenuChecks();
-
-    if (isDualPane) {
-        if (mainList) mainList.style.display = 'none';
-        if (commanderContainer) commanderContainer.style.display = 'flex';
-
-        // Initialize left pane with current directory
-        if (!commanderLeftState.path) {
-            commanderLeftState.path = currentPath || '.';
-        }
-        // Initialize right pane with current directory or parent
-        if (!commanderRightState.path) {
-            const sep = isWindows ? '\\' : '/';
-            const parts = (currentPath || '.').split(sep).filter(Boolean);
-            if (parts.length > 1) {
-                parts.pop();
-                commanderRightState.path = isWindows ? (parts.join('\\') || 'C:\\') : ('/' + parts.join('/'));
-            } else {
-                commanderRightState.path = currentPath || '.';
-            }
-        }
-
-        loadCommanderPane('left', commanderLeftState.path);
-        loadCommanderPane('right', commanderRightState.path);
-        setActivePane(activePaneId || 'left');
-        showToast('Dual-Pane Commander Activated (Tab / F5 / F6)', '⫴');
-    } else {
-        if (commanderContainer) commanderContainer.style.display = 'none';
-        if (mainList) mainList.style.display = 'flex';
-
-        // Sync back currentPath from active pane
-        const activeState = activePaneId === 'left' ? commanderLeftState : commanderRightState;
-        if (activeState.path && activeState.path !== currentPath) {
-            navigateTo(activeState.path);
-        } else {
-            loadFiles(currentPath);
-        }
-        showToast('Exited Dual-Pane Commander', '✕');
-    }
-}
-
-async function loadCommanderPane(paneId, targetPath, isHistoryAction = false) {
-    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
-    if (!state.history) {
-        state.history = [];
-        state.historyIndex = -1;
-    }
-    if (!isHistoryAction && targetPath) {
-        if (state.historyIndex >= 0 && state.historyIndex < state.history.length - 1) {
-            state.history = state.history.slice(0, state.historyIndex + 1);
-        }
-        if (state.history[state.history.length - 1] !== targetPath) {
-            state.history.push(targetPath);
-            state.historyIndex = state.history.length - 1;
-        }
-    }
-    const bodyEl = document.getElementById('commander-files-' + paneId);
-    const pathEl = document.getElementById('pane-' + paneId + '-path');
-    if (!bodyEl) return;
-
-    bodyEl.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);"><div class="spinner" style="margin: 0 auto 8px;"></div>Loading...</div>';
-
-    try {
-        const sftpInfo = parseSftpUrl(targetPath);
-        if (sftpInfo) {
-            const res = await fetch(`/api/sftp/list?connectionId=${encodeURIComponent(sftpInfo.connectionId)}&path=${encodeURIComponent(sftpInfo.remotePath)}`);
-            if (!res.ok) {
-                bodyEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #ff7675;">SFTP Access Denied or Disconnected</div>';
-                return;
-            }
-            const data = await res.json();
-            state.path = `sftp://${sftpInfo.connectionId}${data.currentPath.startsWith('/') ? data.currentPath : '/' + data.currentPath}`;
-            state.items = (data.items || []).map(item => ({
-                ...item,
-                isSftp: true,
-                connectionId: sftpInfo.connectionId,
-                path: `sftp://${sftpInfo.connectionId}${item.remotePath || (data.currentPath === '/' ? '/' + item.name : data.currentPath + '/' + item.name)}`
-            }));
-            state.selected = null;
-            state.selectedItems = [];
-
-            if (pathEl) {
-                pathEl.textContent = state.path;
-                pathEl.title = state.path;
-            }
-
-            renderCommanderBreadcrumbs(paneId, state.path);
-            renderCommanderPaneItems(paneId);
-            if (paneId === activePaneId) {
-                currentPath = state.path;
-                renderBreadcrumbs();
-                updateNavButtons();
-                updateAddressBarStar();
-                updateCompactWindowTitle();
-            }
+function showBatchRenameModal() {
+    hideContextMenu();
+    if (selectedItems.length === 0) {
+        if (selectedItem) selectedItems = [selectedItem];
+        else {
+            showToast('Please select files or folders to batch rename', '⚠️');
             return;
         }
+    }
+    const countPill = document.getElementById('batch-item-count');
+    if (countPill) countPill.textContent = selectedItems.length + ' item' + (selectedItems.length === 1 ? '' : 's');
 
-        const res = await fetch('/api/files/list?path=' + encodeURIComponent(targetPath));
-        if (!res.ok) {
-            bodyEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #ff7675;">Access Denied or Not Found</div>';
-            return;
+    switchBatchTab(activeBatchTab || 'replace');
+    const modal = document.getElementById('modal-batch-rename');
+    if (modal) modal.style.display = 'flex';
+    updateBatchPreview();
+}
+
+function transformCase(str, mode) {
+    if (!str) return '';
+    switch (mode) {
+        case 'lower':
+            return str.toLowerCase();
+        case 'upper':
+            return str.toUpperCase();
+        case 'title':
+            return str.replace(/\b[a-z]/gi, function(c) { return c.toUpperCase(); });
+        case 'camel': {
+            const words = str.split(/[\s_\-]+/).filter(Boolean);
+            if (words.length === 0) return str;
+            return words[0].toLowerCase() + words.slice(1).map(function(w) {
+                return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+            }).join('');
         }
+        case 'kebab': {
+            const words = str.split(/[\s_\-]+/).filter(Boolean);
+            return words.map(function(w) { return w.toLowerCase(); }).join('-');
+        }
+        case 'snake': {
+            const words = str.split(/[\s_\-]+/).filter(Boolean);
+            return words.map(function(w) { return w.toLowerCase(); }).join('_');
+        }
+        default:
+            return str;
+    }
+}
+
+function batchExtLowercase() {
+    const input = document.getElementById('batch-ext-input');
+    if (input) input.value = '';
+    switchBatchTab('case');
+    const caseSelect = document.getElementById('batch-case-mode');
+    if (caseSelect) caseSelect.value = 'lower';
+    const caseExt = document.getElementById('batch-case-ext');
+    if (caseExt) caseExt.checked = true;
+    updateBatchPreview();
+}
+
+function calculateBatchNewName(oldName, isDir, index, total) {
+    let base = oldName;
+    let ext = '';
+    if (!isDir) {
+        const dotIdx = oldName.lastIndexOf('.');
+        if (dotIdx > 0) {
+            base = oldName.substring(0, dotIdx);
+            ext = oldName.substring(dotIdx);
+        }
+    }
+
+    switch (activeBatchTab) {
+        case 'replace': {
+            const findText = document.getElementById('batch-find-text').value;
+            const replaceText = document.getElementById('batch-replace-text').value || '';
+            const matchCase = document.getElementById('batch-find-case').checked;
+            const isRegex = document.getElementById('batch-find-regex').checked;
+            if (!findText) return oldName;
+            try {
+                let newBase;
+                if (isRegex) {
+                    const re = new RegExp(findText, matchCase ? 'g' : 'gi');
+                    newBase = base.replace(re, replaceText);
+                } else {
+                    if (matchCase) {
+                        newBase = base.split(findText).join(replaceText);
+                    } else {
+                        const escaped = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const re = new RegExp(escaped, 'gi');
+                        newBase = base.replace(re, replaceText);
+                    }
+                }
+                return newBase + ext;
+            } catch {
+                return oldName;
+            }
+        }
+        case 'text': {
+            const prefix = document.getElementById('batch-prefix-text').value || '';
+            const suffix = document.getElementById('batch-suffix-text').value || '';
+            return prefix + base + suffix + ext;
+        }
+        case 'number': {
+            const start = parseInt(document.getElementById('batch-num-start').value, 10) || 1;
+            const step = parseInt(document.getElementById('batch-num-step').value, 10) || 1;
+            const padding = parseInt(document.getElementById('batch-num-padding').value, 10) || 1;
+            const pos = document.getElementById('batch-num-pos').value;
+            const sep = document.getElementById('batch-num-sep').value || '';
+
+            const numVal = start + (index * step);
+            let numStr = String(numVal);
+            while (numStr.length < padding) {
+                numStr = '0' + numStr;
+            }
+
+            if (pos === 'prefix') {
+                return numStr + sep + base + ext;
+            } else if (pos === 'suffix') {
+                return base + sep + numStr + ext;
+            } else {
+                return numStr + ext;
+            }
+        }
+        case 'case': {
+            const mode = document.getElementById('batch-case-mode').value;
+            const applyExt = document.getElementById('batch-case-ext').checked;
+            const newBase = transformCase(base, mode);
+            const newExt = (applyExt && ext) ? (ext.startsWith('.') ? '.' + transformCase(ext.substring(1), mode) : transformCase(ext, mode)) : ext;
+            return newBase + newExt;
+        }
+        case 'ext': {
+            if (isDir) return oldName;
+            let newExt = document.getElementById('batch-ext-input').value.trim();
+            if (newExt && !newExt.startsWith('.')) newExt = '.' + newExt;
+            return base + newExt;
+        }
+        default:
+            return oldName;
+    }
+}
+
+function updateBatchPreview() {
+    const tableBody = document.getElementById('batch-preview-table-body');
+    if (!tableBody) return;
+
+    batchGeneratedNames = [];
+    const newNamesSet = new Map();
+    let changedCount = 0;
+    let hasConflict = false;
+
+    const existingOtherNames = new Set(
+        currentItems
+            .filter(function(ci) { return !selectedItems.some(function(si) { return si.name === ci.name; }); })
+            .map(function(ci) { return ci.name.toLowerCase(); })
+    );
+
+    for (let i = 0; i < selectedItems.length; i++) {
+        const item = selectedItems[i];
+        const newName = calculateBatchNewName(item.name, item.type === 'Directory', i, selectedItems.length);
+        const isChanged = (newName !== item.name);
+        if (isChanged) changedCount++;
+
+        let conflict = null;
+        const lowerNew = newName.toLowerCase();
+        if (!newName || newName.includes('/') || newName.includes('\\')) {
+            conflict = 'Invalid Name';
+        } else if (existingOtherNames.has(lowerNew)) {
+            conflict = 'File Exists';
+        } else if (newNamesSet.has(lowerNew)) {
+            conflict = 'Duplicate';
+        }
+
+        newNamesSet.set(lowerNew, true);
+        if (conflict) hasConflict = true;
+
+        batchGeneratedNames.push({
+            oldName: item.name,
+            newName: newName,
+            isDir: item.type === 'Directory',
+            isChanged: isChanged,
+            conflict: conflict
+        });
+    }
+
+    let rowsHtml = '';
+    for (let i = 0; i < batchGeneratedNames.length; i++) {
+        const entry = batchGeneratedNames[i];
+        let badgeClass = 'unchanged';
+        let badgeText = 'Unchanged';
+        if (entry.conflict) {
+            badgeClass = 'conflict';
+            badgeText = '⚠️ ' + entry.conflict;
+        } else if (entry.isChanged) {
+            badgeClass = 'changed';
+            badgeText = '✓ Changed';
+        }
+
+        rowsHtml += '<tr>' +
+                    '<td title="' + escapeHtml(entry.oldName) + '">' + (entry.isDir ? '📁 ' : '📄 ') + escapeHtml(entry.oldName) + '</td>' +
+                    '<td title="' + escapeHtml(entry.newName) + '" style="' + (entry.isChanged ? 'color: #2ecc71; font-weight: 500;' : 'color: var(--text-muted);') + '">' + escapeHtml(entry.newName) + '</td>' +
+                    '<td style="text-align: center;"><span class="batch-status-badge ' + badgeClass + '">' + badgeText + '</span></td>' +
+                    '</tr>';
+    }
+    tableBody.innerHTML = rowsHtml;
+
+    const statusElem = document.getElementById('batch-preview-status');
+    if (statusElem) {
+        statusElem.textContent = changedCount + ' of ' + selectedItems.length + ' will be renamed';
+    }
+
+    const alertElem = document.getElementById('batch-conflict-alert');
+    if (alertElem) {
+        alertElem.style.display = hasConflict ? 'block' : 'none';
+    }
+
+    const applyBtn = document.getElementById('btn-apply-batch-rename');
+    if (applyBtn) {
+        applyBtn.disabled = hasConflict || changedCount === 0;
+        applyBtn.textContent = 'Apply Rename (' + changedCount + ')';
+    }
+}
+
+async function submitBatchRename() {
+    const renamesToApply = batchGeneratedNames.filter(function(b) {
+        return b.isChanged && !b.conflict && b.newName && b.newName !== b.oldName;
+    });
+    if (renamesToApply.length === 0) {
+        hideModals();
+        showToast('No file names were changed', 'ℹ️');
+        return;
+    }
+
+    hideModals();
+    showToast('Renaming ' + renamesToApply.length + ' item(s)...', '⏳');
+    try {
+        const res = await fetch('/api/files/batch-rename', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                currentPath: currentPath,
+                renames: renamesToApply.map(function(r) { return { oldName: r.oldName, newName: r.newName }; })
+            })
+        });
         const data = await res.json();
-        state.path = data.currentPath;
-        state.items = data.items || [];
-        state.selected = null;
-        state.selectedItems = [];
-
-        if (pathEl) {
-            pathEl.textContent = state.path;
-            pathEl.title = state.path;
+        if (res.ok && data.success) {
+            const renamedCount = data.renamedCount !== undefined ? data.renamedCount : (data.count !== undefined ? data.count : 0);
+            showToast('Renamed ' + renamedCount + ' item(s) successfully', '🏷️');
+            selectedItem = null;
+            selectedItems = [];
+            lastSelectedName = null;
+            loadFiles(currentPath);
+        } else {
+            showToast('Batch rename failed: ' + (data.error || 'Unknown error'), '❌');
         }
-
-        renderCommanderBreadcrumbs(paneId, state.path);
-        renderCommanderPaneItems(paneId);
-        if (paneId === activePaneId) {
-            currentPath = state.path;
-            renderBreadcrumbs();
-            updateNavButtons();
-            updateAddressBarStar();
-            updateCompactWindowTitle();
-        }
-
-        // Asynchronously fetch Git status for Commander pane
-        fetch('/api/files/gitStatus?path=' + encodeURIComponent(state.path))
-            .then(function(r) { return r.ok ? r.json() : null; })
-            .then(function(gData) {
-                if (gData && gData.isRepo && gData.statuses) {
-                    state.gitStatuses = gData.statuses;
-                    renderCommanderPaneItems(paneId);
-                }
-            }).catch(function() {});
     } catch (err) {
         console.error(err);
-        bodyEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #ff7675;">Failed to load folder</div>';
+        showToast('Error executing batch rename', '❌');
     }
 }
-
-function renderCommanderPaneItems(paneId) {
-    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
-    const bodyEl = document.getElementById('commander-files-' + paneId);
-    const countEl = document.getElementById('pane-' + paneId + '-count');
-    const selectedEl = document.getElementById('pane-' + paneId + '-selected');
-    if (!bodyEl) return;
-
-    const items = state.items || [];
-    let html = '';
-
-    // Up row
-    html += '<div class="commander-item commander-item-parent" ondblclick="navigateCommanderParent(\'' + paneId + '\')">' +
-                '<span class="commander-item-icon">⬆️</span>' +
-                '<span class="commander-item-name">..</span>' +
-                '<span class="commander-item-size">&lt;UP&gt;</span>' +
-                '<span class="commander-item-date">Parent Folder</span>' +
-            '</div>';
-
-    items.forEach(function(item, idx) {
-        const isDir = item.type === 'Directory';
-        const visual = getFileVisual(item.name, isDir);
-        const isSelected = state.selected && state.selected.name === item.name;
-        const isInMulti = state.selectedItems.some(function(i) { return i.name === item.name; });
-
-        const gitCode = (state.gitStatuses && state.gitStatuses[item.name]) || (currentGitStatuses && currentGitStatuses[item.name]);
-        let gitBadgeHtml = '';
-        let gitClass = '';
-        if (gitCode) {
-            const codeLower = gitCode.toLowerCase();
-            const displayCode = gitCode === '?' ? 'U' : gitCode;
-            const title = gitCode === 'M' ? 'Modified in Git' : (gitCode === 'U' || gitCode === '?' ? 'Untracked in Git' : (gitCode === 'A' ? 'Added / Staged in Git' : (gitCode === 'D' ? 'Deleted in Git' : (gitCode === 'R' ? 'Renamed in Git' : 'Changed in Git'))));
-            gitClass = ' git-item git-status-' + codeLower;
-            gitBadgeHtml = '<span class="git-badge git-' + codeLower + '" title="' + title + '">' + displayCode + '</span>';
-        }
-
-        html += '<div class="commander-item ' + (isSelected || isInMulti ? 'selected' : '') + gitClass + '" ' +
-                    'data-name="' + escapeHtml(item.name) + '" ' +
-                    (gitCode ? 'data-git-status="' + escapeHtml(gitCode) + '" ' : '') +
-                    'onclick="selectCommanderItem(\'' + paneId + '\', ' + idx + ', event)" ' +
-                    'ondblclick="openCommanderItem(\'' + paneId + '\', ' + idx + ')" ' +
-                    'draggable="true" ondragstart="handleCommanderDragStart(\'' + paneId + '\', ' + idx + ', event)">' +
-                    '<span class="commander-item-icon">' + (visual.svg || visual.icon) + '</span>' +
-                    '<span class="commander-item-name" title="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</span>' +
-                    gitBadgeHtml +
-                    '<span class="commander-item-size">' + (isDir ? '&lt;DIR&gt;' : formatBytes(item.size)) + '</span>' +
-                    '<span class="commander-item-date">' + (item.modified ? formatDate(item.modified) : '') + '</span>' +
-                '</div>';
-    });
-
-    bodyEl.innerHTML = html;
-
-    if (countEl) countEl.textContent = items.length + ' items';
-    if (selectedEl) {
-        const selCount = state.selectedItems.length || (state.selected ? 1 : 0);
-        selectedEl.textContent = selCount > 0 ? (selCount + ' selected') : 'No selection';
-    }
-}
-
-function selectCommanderItem(paneId, itemIndex, event) {
-    if (event && event.stopPropagation) event.stopPropagation();
-    setActivePane(paneId);
-    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
-    const item = state.items[itemIndex];
-    if (!item) return;
-
-    if (event && (event.metaKey || event.ctrlKey)) {
-        const existingIdx = state.selectedItems.findIndex(function(i) { return i.name === item.name; });
-        if (existingIdx >= 0) {
-            state.selectedItems.splice(existingIdx, 1);
-            state.selected = state.selectedItems[state.selectedItems.length - 1] || null;
-        } else {
-            state.selectedItems.push(item);
-            state.selected = item;
-        }
-    } else {
-        state.selected = item;
-        state.selectedItems = [item];
-    }
-
-    renderCommanderPaneItems(paneId);
-
-    // Also update preview pane for selected item!
-    const sep = isWindows ? '\\' : '/';
-    const fullPath = state.path.endsWith(sep) ? state.path + item.name : state.path + sep + item.name;
-    activePreviewPath = fullPath;
-    activePreviewIsDir = (item.type === 'Directory');
-    handlePreview(item.name, activePreviewIsDir);
-}
-
-function openCommanderItem(paneId, itemIndex) {
-    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
-    const item = state.items[itemIndex];
-    if (!item) return;
-
-    const sep = isWindows ? '\\' : '/';
-    const targetPath = state.path.endsWith(sep) ? state.path + item.name : state.path + sep + item.name;
-
-    if (item.type === 'Directory') {
-        loadCommanderPane(paneId, targetPath);
-    } else {
-        smartOpenFile(targetPath);
-    }
-}
-
-function navigateCommanderParent(paneId) {
-    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
-    const sftpInfo = parseSftpUrl(state.path);
-    if (sftpInfo) {
-        if (sftpInfo.remotePath === '/' || !sftpInfo.remotePath) return;
-        const parts = sftpInfo.remotePath.split('/').filter(Boolean);
-        if (parts.length <= 1) {
-            loadCommanderPane(paneId, `sftp://${sftpInfo.connectionId}/`);
-            return;
-        }
-        parts.pop();
-        loadCommanderPane(paneId, `sftp://${sftpInfo.connectionId}/` + parts.join('/'));
-        return;
-    }
-
-    const sep = isWindows ? '\\' : '/';
-    const parts = state.path.split(sep).filter(Boolean);
-    if (parts.length > 1) {
-        parts.pop();
-        const parent = isWindows ? (parts.join('\\') || 'C:\\') : ('/' + parts.join('/'));
-        loadCommanderPane(paneId, parent);
-    } else if (parts.length === 1 && !isWindows) {
-        loadCommanderPane(paneId, '/');
-    }
-}
-
-function refreshCommanderPane(paneId) {
-    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
-    loadCommanderPane(paneId, state.path, true);
-    showToast((paneId === 'left' ? 'Left Pane' : 'Right Pane') + ' refreshed', '🔄');
-}
-
-function setActivePane(paneId, event) {
-    if (event && event.stopPropagation) event.stopPropagation();
-    activePaneId = paneId;
-    const leftPane = document.getElementById('commander-pane-left');
-    const rightPane = document.getElementById('commander-pane-right');
-    if (leftPane) leftPane.classList.toggle('active-pane', paneId === 'left');
-    if (rightPane) rightPane.classList.toggle('active-pane', paneId === 'right');
-
-    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
-    if (state && state.path) {
-        currentPath = state.path;
-        renderBreadcrumbs();
-        updateNavButtons();
-        updateAddressBarStar();
-        updateCompactWindowTitle();
-    }
-}
-
-function switchActivePane() {
-    const nextPane = activePaneId === 'left' ? 'right' : 'left';
-    setActivePane(nextPane);
-    showToast('Active: ' + (nextPane === 'left' ? 'Left Pane' : 'Right Pane'), '⫴');
-}
-
-async function commanderCopy() {
-    const sourceState = activePaneId === 'left' ? commanderLeftState : commanderRightState;
-    const targetState = activePaneId === 'left' ? commanderRightState : commanderLeftState;
-    const targetPaneId = activePaneId === 'left' ? 'right' : 'left';
-
-    const itemsToCopy = sourceState.selectedItems.length > 0 ? sourceState.selectedItems : (sourceState.selected ? [sourceState.selected] : []);
-    if (itemsToCopy.length === 0) {
-        showToast('Select item(s) in active pane to copy', '⚠️');
-        return;
-    }
-
-    if (sourceState.path === targetState.path) {
-        showToast('Target pane is identical to source pane', '⚠️');
-        return;
-    }
-
-    const sep = isWindows ? '\\' : '/';
-    let successCount = 0;
-    for (let i = 0; i < itemsToCopy.length; i++) {
-        const item = itemsToCopy[i];
-        const srcPath = item.path || (sourceState.path.endsWith(sep) ? sourceState.path + item.name : sourceState.path + sep + item.name);
-        try {
-            const res = await fetch('/api/files/copy', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ source: srcPath, destinationDir: targetState.path })
-            });
-            if (res.ok) successCount++;
-        } catch (err) {
-            console.error(err);
-        }
-    }
-
-    if (successCount > 0) {
-        showToast('Copied ' + successCount + (successCount === 1 ? ' item' : ' items') + ' to ' + (targetPaneId === 'left' ? 'Left Pane' : 'Right Pane') + ' ➔', '📋');
-        loadCommanderPane(targetPaneId, targetState.path);
-    } else {
-        showToast('Failed to copy item(s)', '❌');
-    }
-}
-
-async function commanderMove() {
-    const sourceState = activePaneId === 'left' ? commanderLeftState : commanderRightState;
-    const targetState = activePaneId === 'left' ? commanderRightState : commanderLeftState;
-    const targetPaneId = activePaneId === 'left' ? 'right' : 'left';
-
-    const itemsToMove = sourceState.selectedItems.length > 0 ? sourceState.selectedItems : (sourceState.selected ? [sourceState.selected] : []);
-    if (itemsToMove.length === 0) {
-        showToast('Select item(s) in active pane to move', '⚠️');
-        return;
-    }
-
-    if (sourceState.path === targetState.path) {
-        showToast('Target pane is identical to source pane', '⚠️');
-        return;
-    }
-
-    const sep = isWindows ? '\\' : '/';
-    let successCount = 0;
-    for (let i = 0; i < itemsToMove.length; i++) {
-        const item = itemsToMove[i];
-        const srcPath = item.path || (sourceState.path.endsWith(sep) ? sourceState.path + item.name : sourceState.path + sep + item.name);
-        try {
-            const res = await fetch('/api/files/move', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ source: srcPath, destinationDir: targetState.path })
-            });
-            if (res.ok) successCount++;
-        } catch (err) {
-            console.error(err);
-        }
-    }
-
-    if (successCount > 0) {
-        showToast('Moved ' + successCount + (successCount === 1 ? ' item' : ' items') + ' to ' + (targetPaneId === 'left' ? 'Left Pane' : 'Right Pane') + ' ➔', '📦');
-        loadCommanderPane(activePaneId, sourceState.path);
-        loadCommanderPane(targetPaneId, targetState.path);
-    } else {
-        showToast('Failed to move item(s)', '❌');
-    }
-}
-
-function renderCommanderBreadcrumbs(paneId, currentPanePath) {
-    const container = document.getElementById('pane-' + paneId + '-breadcrumbs');
-    const pathEl = document.getElementById('pane-' + paneId + '-path');
-    if (pathEl) {
-        pathEl.textContent = currentPanePath || '~';
-        pathEl.title = currentPanePath || '~';
-    }
-    if (!container) return;
-    if (!currentPanePath || currentPanePath === '.') {
-        container.innerHTML = '<span class="commander-crumb current">Loading...</span>';
-        return;
-    }
-
-    const sftpInfo = parseSftpUrl(currentPanePath);
-    if (sftpInfo) {
-        let html = '';
-        const session = (typeof sftpActiveSessions !== 'undefined') ? sftpActiveSessions.find(s => s.connectionId === sftpInfo.connectionId) : null;
-        const serverLabel = session ? (session.name || `${session.username}@${session.host}`) : 'Remote';
-        const rootPath = `sftp://${sftpInfo.connectionId}/`;
-        const isAtRoot = sftpInfo.remotePath === '/' || !sftpInfo.remotePath;
-        html += '<span class="commander-crumb' + (isAtRoot ? ' current' : '') + '" onclick="event.stopPropagation(); navigateCommanderCrumb(\'' + paneId + '\', \'' + escapePath(rootPath) + '\')">' +
-                '<i>🌐</i> ' + escapeHtml(serverLabel) + '</span>';
-
-        const parts = sftpInfo.remotePath.split('/').filter(function(p) { return p !== ''; });
-        let accum = `sftp://${sftpInfo.connectionId}`;
-        for (let i = 0; i < parts.length; i++) {
-            accum += '/' + parts[i];
-            const isCurrent = (i === parts.length - 1);
-            html += '<span class="commander-crumb-sep">›</span>';
-            html += '<span class="commander-crumb' + (isCurrent ? ' current' : '') + '" onclick="event.stopPropagation(); navigateCommanderCrumb(\'' + paneId + '\', \'' + escapePath(accum) + '\')">' +
-                    escapeHtml(parts[i]) + '</span>';
-        }
-        container.innerHTML = html;
-        container.scrollLeft = container.scrollWidth;
-        return;
-    }
-
-    const sep = isWindows ? '\\' : '/';
-    const parts = currentPanePath.split(sep).filter(function(p) { return p !== ''; });
-    let html = '';
-
-    const rootPath = isWindows ? (currentPanePath.slice(0, 3)) : '/';
-    const rootLabel = isWindows ? rootPath : '/';
-    html += '<span class="commander-crumb' + (parts.length === 0 ? ' current' : '') + '" onclick="event.stopPropagation(); navigateCommanderCrumb(\'' + paneId + '\', \'' + escapePath(rootPath) + '\')">' +
-            '<i>' + (isWindows ? '💻' : '📁') + '</i> ' + escapeHtml(rootLabel) + '</span>';
-
-    let accum = isWindows ? rootPath : '';
-    for (let i = 0; i < parts.length; i++) {
-        if (isWindows && i === 0 && parts[0].endsWith(':')) continue;
-        accum = isWindows ? (accum.endsWith('\\') ? accum + parts[i] : accum + '\\' + parts[i]) : accum + '/' + parts[i];
-        const isCurrent = (i === parts.length - 1);
-        html += '<span class="commander-crumb-sep">›</span>';
-        html += '<span class="commander-crumb' + (isCurrent ? ' current' : '') + '" onclick="event.stopPropagation(); navigateCommanderCrumb(\'' + paneId + '\', \'' + escapePath(accum) + '\')">' +
-                escapeHtml(parts[i]) + '</span>';
-    }
-    container.innerHTML = html;
-    container.scrollLeft = container.scrollWidth;
-}
-
-function navigateCommanderCrumb(paneId, targetPath) {
-    setActivePane(paneId);
-    loadCommanderPane(paneId, targetPath);
-}
-
-function handleCommanderPathBarClick(paneId, event) {
-    if (event) event.stopPropagation();
-    setActivePane(paneId);
-    if (event && event.target && event.target.closest('.commander-crumb')) return;
-    enterCommanderPathEdit(paneId);
-}
-
-function enterCommanderPathEdit(paneId) {
-    const breadcrumbs = document.getElementById('pane-' + paneId + '-breadcrumbs');
-    const input = document.getElementById('pane-' + paneId + '-input');
-    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
-    if (breadcrumbs && input) {
-        breadcrumbs.style.display = 'none';
-        input.style.display = 'block';
-        input.value = state.path || '';
-        input.focus();
-        input.select();
-    }
-}
-
-function exitCommanderPathEdit(paneId) {
-    const breadcrumbs = document.getElementById('pane-' + paneId + '-breadcrumbs');
-    const input = document.getElementById('pane-' + paneId + '-input');
-    if (breadcrumbs && input) {
-        input.style.display = 'none';
-        breadcrumbs.style.display = 'flex';
-    }
-}
-
-function handleCommanderPathKeyDown(paneId, event) {
-    if (event.key === 'Enter') {
-        const input = document.getElementById('pane-' + paneId + '-input');
-        const target = input ? input.value.trim() : '';
-        exitCommanderPathEdit(paneId);
-        if (target) {
-            loadCommanderPane(paneId, target);
-        }
-    } else if (event.key === 'Escape') {
-        exitCommanderPathEdit(paneId);
-    }
-}
-
-function openTerminalAtActiveCommander(paneId) {
-    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
-    if (state && state.path) {
-        openTerminal(state.path);
-    }
-}
-
-function openTerminalAtActivePane() {
-    const state = activePaneId === 'left' ? commanderLeftState : commanderRightState;
-    if (state && state.path) {
-        openTerminal(state.path);
-    }
-}
-
-function handleCommanderDragStart(paneId, itemIndex, event) {
-    const state = paneId === 'left' ? commanderLeftState : commanderRightState;
-    const item = state.items[itemIndex];
-    if (!item || !event.dataTransfer) return;
-    const sep = isWindows ? '\\' : '/';
-    const fullPath = state.path.endsWith(sep) ? state.path + item.name : state.path + sep + item.name;
-    event.dataTransfer.setData('text/plain', fullPath);
-    event.dataTransfer.effectAllowed = 'copyMove';
-}
-
-function initDualPaneResizer() {
-    const resizer = document.getElementById('dual-pane-resizer');
-    const leftPane = document.getElementById('commander-pane-left');
-    const rightPane = document.getElementById('commander-pane-right');
-    const wrapper = document.getElementById('dual-pane-split-wrapper');
-    if (!resizer || !leftPane || !rightPane || !wrapper) return;
-
-    let isDragging = false;
-    let startX = 0;
-    let startLeftWidth = 0;
-
-    resizer.addEventListener('mousedown', function(e) {
-        e.preventDefault();
-        isDragging = true;
-        startX = e.clientX;
-        startLeftWidth = leftPane.getBoundingClientRect().width;
-        resizer.classList.add('resizing');
-        document.body.style.cursor = 'col-resize';
-    });
-
-    resizer.addEventListener('dblclick', function() {
-        leftPane.style.flex = '1 1 50%';
-        rightPane.style.flex = '1 1 50%';
-        safeStorage.removeItem('venel_commander_left_pct');
-        showToast('Dual panes reset 50/50', '📐');
-    });
-
-    window.addEventListener('mousemove', function(e) {
-        if (!isDragging) return;
-        const totalWidth = wrapper.getBoundingClientRect().width;
-        const delta = e.clientX - startX;
-        let newLeftWidth = startLeftWidth + delta;
-        const minWidth = 180;
-        if (newLeftWidth < minWidth) newLeftWidth = minWidth;
-        if (newLeftWidth > totalWidth - minWidth) newLeftWidth = totalWidth - minWidth;
-        const leftPct = (newLeftWidth / totalWidth) * 100;
-        leftPane.style.flex = '0 0 ' + leftPct + '%';
-        rightPane.style.flex = '1 1 ' + (100 - leftPct) + '%';
-        safeStorage.setItem('venel_commander_left_pct', leftPct);
-    });
-
-    window.addEventListener('mouseup', function() {
-        if (isDragging) {
-            isDragging = false;
-            resizer.classList.remove('resizing');
-            document.body.style.cursor = '';
-        }
-    });
-
-    const savedPct = safeStorage.getItem('venel_commander_left_pct');
-    if (savedPct) {
-        const pct = parseFloat(savedPct);
-        if (pct >= 20 && pct <= 80) {
-            leftPane.style.flex = '0 0 ' + pct + '%';
-            rightPane.style.flex = '1 1 ' + (100 - pct) + '%';
-        }
-    }
-}
-
 
 // ══════════════════════════════════════════════════════════
+
+// 🗜️ ZIP / UNZIP ARCHIVE MANAGEMENT
+// ══════════════════════════════════════════════════════════
+function handleCompressSelected() {
+    hideContextMenu();
+    const items = selectedItems.length > 0 ? selectedItems.slice() : (selectedItem ? [selectedItem] : []);
+    if (items.length === 0) {
+        showToast('Please select files or folders to compress', '⚠️');
+        return;
+    }
+
+    let defaultName = 'archive.zip';
+    if (items.length === 1) {
+        defaultName = items[0].name.replace(/[\\/]+$/, '') + '.zip';
+    } else {
+        const folderName = getTabTitleForPath(currentPath);
+        defaultName = (folderName && folderName !== 'Folder' && folderName !== 'Root' ? folderName + '_archive.zip' : 'archive.zip');
+    }
+
+    const input = document.getElementById('input-compress-name');
+    if (input) input.value = defaultName;
+    const desc = document.getElementById('compress-prompt-desc');
+    if (desc) desc.textContent = 'Compress ' + items.length + ' item' + (items.length === 1 ? '' : 's') + ' into:';
+
+    const modal = document.getElementById('modal-compress');
+    if (modal) modal.style.display = 'flex';
+    setTimeout(function() {
+        if (input) {
+            input.focus();
+            const dotIdx = input.value.lastIndexOf('.');
+            if (dotIdx > 0) input.setSelectionRange(0, dotIdx);
+            else input.select();
+        }
+    }, 50);
+}
+
+async function submitCompress() {
+    const input = document.getElementById('input-compress-name');
+    let archiveName = input ? input.value.trim() : '';
+    if (!archiveName) archiveName = 'archive.zip';
+    if (!archiveName.toLowerCase().endsWith('.zip')) archiveName += '.zip';
+
+    hideModals();
+    const rawItems = selectedItems.length > 0 ? selectedItems.slice() : (selectedItem ? [selectedItem] : []);
+    const items = rawItems.map(function(i) {
+        return typeof i === 'string' ? i : (i ? i.name : '');
+    }).filter(Boolean);
+
+    if (items.length === 0) {
+        showToast('No valid items selected to compress', '⚠️');
+        return;
+    }
+
+    showToast('Compressing into "' + archiveName + '"...', '⏳');
+    try {
+        const res = await fetch('/api/files/compress', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                currentPath: currentPath,
+                folder: currentPath,
+                items: items,
+                archiveName: archiveName
+            })
+        });
+        let data = null;
+        try { data = await res.json(); } catch {}
+        if (res.ok && data && data.success) {
+            showToast('Created archive "' + (data.archiveName || archiveName) + '"', '🗜️');
+            loadFiles(currentPath);
+        } else {
+            const errDetail = (data && (data.error || data.detail || data.title)) || (res.statusText ? 'HTTP ' + res.status + ' (' + res.statusText + ')' : 'Server error');
+            showToast(errDetail.startsWith('Compression failed') ? errDetail : 'Compression failed: ' + errDetail, '❌');
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Error creating archive: ' + (err.message || 'Network error'), '❌');
+    }
+}
+
+async function handleExtractSelected(intoSubfolder) {
+    hideContextMenu();
+    const targetItem = selectedItem || (selectedItems.length === 1 ? selectedItems[0] : null);
+    if (!targetItem || !isArchiveFileName(targetItem.name)) {
+        showToast('Please select a valid archive (.zip, .tar.gz, etc.) to extract', '⚠️');
+        return;
+    }
+
+    const sep = isWindows ? '\\' : '/';
+    const archiveFullPath = targetItem.path || (currentPath.endsWith(sep) ? currentPath + targetItem.name : currentPath + sep + targetItem.name);
+    let destinationFolder = undefined;
+    if (intoSubfolder) {
+        const baseName = targetItem.name.replace(/\.(zip|tar\.gz|tgz|tar|gz)$/i, '');
+        destinationFolder = currentPath.endsWith(sep) ? currentPath + baseName : currentPath + sep + baseName;
+    }
+
+    showToast('Extracting "' + targetItem.name + '"...', '⏳');
+    try {
+        const res = await fetch('/api/files/extract', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                archivePath: archiveFullPath,
+                destinationDir: destinationFolder,
+                folder: currentPath,
+                archiveName: targetItem.name,
+                destinationFolder: destinationFolder
+            })
+        });
+        let data = null;
+        try { data = await res.json(); } catch {}
+        if (res.ok && data && data.success) {
+            showToast('Archive extracted successfully' + (intoSubfolder ? ' to ' + targetItem.name.replace(/\.(zip|tar\.gz|tgz|tar|gz)$/i, '') + '/' : ''), '📦');
+            loadFiles(currentPath);
+        } else {
+            const errDetail = (data && (data.error || data.detail || data.title)) || (res.statusText ? 'HTTP ' + res.status + ' (' + res.statusText + ')' : 'Server error');
+            showToast(errDetail.startsWith('Extraction failed') ? errDetail : 'Extraction failed: ' + errDetail, '❌');
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Error extracting archive: ' + (err.message || 'Network error'), '❌');
+    }
+}
+
+// ══════════════════════════════════════════════════════════
+
+/**
+ * VenEl File Manager - SFTP Remote Manager
+ * SFTP / SSH connection dialog, saved credentials, and test connection.
+ */
+// 🌐 SFTP REMOTE MANAGER (Sessions, Quick Connect, Saved Profiles)
+// ══════════════════════════════════════════════════════════
+
+let sftpActiveSessions = [];
+let sftpSavedProfiles = [];
+let sftpCurrentAuthMode = 'password';
+
+let cloudActiveSessions = [];
+let cloudSavedProfiles = [];
+let currentCloudProvider = 's3';
+
+function parseCloudUrl(url) {
+    if (!url || typeof url !== 'string' || !url.startsWith('cloud://')) return null;
+    const withoutPrefix = url.substring(8);
+    const slashIdx = withoutPrefix.indexOf('/');
+    if (slashIdx === -1) {
+        return { connectionId: withoutPrefix, remotePath: '/' };
+    }
+    return {
+        connectionId: withoutPrefix.substring(0, slashIdx),
+        remotePath: withoutPrefix.substring(slashIdx) || '/'
+    };
+}
+
+function parseSftpUrl(url) {
+    if (!url || typeof url !== 'string' || !url.startsWith('sftp://')) return null;
+    const withoutPrefix = url.substring(7);
+    const slashIdx = withoutPrefix.indexOf('/');
+    if (slashIdx === -1) {
+        return { connectionId: withoutPrefix, remotePath: '/' };
+    }
+    return {
+        connectionId: withoutPrefix.substring(0, slashIdx),
+        remotePath: withoutPrefix.substring(slashIdx) || '/'
+    };
+}
+
+function loadSftpSavedProfiles() {
+    try {
+        const raw = safeStorage.getItem('venel_sftp_profiles');
+        sftpSavedProfiles = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(sftpSavedProfiles)) sftpSavedProfiles = [];
+    } catch {
+        sftpSavedProfiles = [];
+    }
+}
+
+function saveSftpProfilesToStorage() {
+    try {
+        safeStorage.setItem('venel_sftp_profiles', JSON.stringify(sftpSavedProfiles));
+    } catch {}
+}
+
+async function refreshSftpSessionsList() {
+    loadSftpSavedProfiles();
+    try {
+        const res = await fetch('/api/sftp/sessions').catch(() => null);
+        if (res && res.ok) {
+            sftpActiveSessions = await res.json();
+            if (!Array.isArray(sftpActiveSessions)) sftpActiveSessions = [];
+        } else {
+            sftpActiveSessions = [];
+        }
+    } catch {
+        sftpActiveSessions = [];
+    }
+
+    renderSftpSidebar();
+}
+
+function renderSftpSidebar() {
+    const listEl = document.getElementById('sftp-connections-list');
+    const badgeEl = document.getElementById('sftp-active-count-badge');
+    if (!listEl) return;
+
+    if (badgeEl) {
+        const count = sftpActiveSessions.length;
+        badgeEl.textContent = count;
+        badgeEl.style.display = count > 0 ? 'inline-block' : 'none';
+    }
+
+    let html = '';
+
+    // 1. Active Connected Sessions
+    if (sftpActiveSessions.length > 0) {
+        sftpActiveSessions.forEach(session => {
+            const isCurrent = currentPath.startsWith('sftp://' + session.connectionId);
+            const targetUrl = `sftp://${session.connectionId}${session.initialPath || '/'}`;
+            html += `<div class="sftp-conn-item active ${isCurrent ? 'selected' : ''}" onclick="navigateTo('${escapePath(targetUrl)}')">` +
+                '<div class="sftp-conn-info">' +
+                    '<div class="sftp-conn-title-row">' +
+                        '<span class="sftp-conn-dot" title="Active SSH Session"></span>' +
+                        `<span class="sftp-conn-name" title="${escapeHtml(session.name)}">${escapeHtml(session.name)}</span>` +
+                    '</div>' +
+                    `<div class="sftp-conn-sub">${escapeHtml(session.username)}@${escapeHtml(session.host)}:${session.port}</div>` +
+                '</div>' +
+                '<div class="sftp-conn-actions">' +
+                    `<button class="sftp-icon-btn danger" onclick="disconnectSftpSession('${session.connectionId}', event)" title="Disconnect SSH Tunnel">⏏️</button>` +
+                '</div>' +
+            '</div>';
+        });
+    }
+
+    // 2. Saved Connection Profiles (not currently connected)
+    const activeHosts = new Set(sftpActiveSessions.map(s => `${s.username}@${s.host}:${s.port}`));
+    const inactiveProfiles = sftpSavedProfiles.filter(p => !activeHosts.has(`${p.username}@${p.host}:${p.port || 22}`));
+
+    if (inactiveProfiles.length > 0) {
+        inactiveProfiles.forEach(prof => {
+            html += `<div class="sftp-conn-item" onclick="connectSavedProfile('${prof.id}')" title="Click to Connect">` +
+                '<div class="sftp-conn-info">' +
+                    '<div class="sftp-conn-title-row">' +
+                        '<span style="font-size: 13px;">⚡</span>' +
+                        `<span class="sftp-conn-name" title="${escapeHtml(prof.name || prof.host)}">${escapeHtml(prof.name || prof.host)}</span>` +
+                    '</div>' +
+                    `<div class="sftp-conn-sub">${escapeHtml(prof.username)}@${escapeHtml(prof.host)}:${prof.port || 22}</div>` +
+                '</div>' +
+                '<div class="sftp-conn-actions">' +
+                    `<button class="sftp-icon-btn" onclick="openSftpModal(getSavedProfileById('${prof.id}'), event)" title="Edit Profile">✏️</button>` +
+                    `<button class="sftp-icon-btn danger" onclick="deleteSavedSftpProfile('${prof.id}', event)" title="Delete Profile">✕</button>` +
+                '</div>' +
+            '</div>';
+        });
+    }
+
+    if (sftpActiveSessions.length === 0 && sftpSavedProfiles.length === 0) {
+        html = '<div style="padding: 10px 8px; font-size: 11px; color: var(--text-muted); text-align: center; line-height: 1.4;">' +
+            'No remote connections.<br><button class="sftp-browse-btn" onclick="openSftpModal()" style="margin-top: 6px;">+ Connect to SFTP</button>' +
+        '</div>';
+    }
+
+    listEl.innerHTML = html;
+}
+
+function getSavedProfileById(id) {
+    return sftpSavedProfiles.find(p => p.id === id);
+}
+
+function openSftpModal(profileToEdit = null, event = null) {
+    if (profileToEdit && (profileToEdit instanceof Event || profileToEdit.target)) {
+        event = profileToEdit;
+        profileToEdit = null;
+    }
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+
+    // If running in Safe Mode (Node.js) or SFTP capability is unavailable, display friendly guidance modal
+    const isSafeMode = (backendEngineName && backendEngineName.includes('Node')) || 
+                       (window.currentEngineCapabilities && window.currentEngineCapabilities.sftp === false);
+    if (isSafeMode) {
+        openSftpSafeModeModal();
+        return;
+    }
+
+    const modal = document.getElementById('modal-sftp');
+    if (!modal) return;
+
+    const alertEl = document.getElementById('sftp-status-alert');
+    if (alertEl) alertEl.style.display = 'none';
+
+    // Populate or reset form fields
+    const nameInput = document.getElementById('sftp-input-name');
+    const hostInput = document.getElementById('sftp-input-host');
+    const portInput = document.getElementById('sftp-input-port');
+    const userInput = document.getElementById('sftp-input-user');
+    const pwdInput = document.getElementById('sftp-input-password');
+    const keyInput = document.getElementById('sftp-input-key');
+    const passInput = document.getElementById('sftp-input-passphrase');
+    const pathInput = document.getElementById('sftp-input-path');
+    const saveChk = document.getElementById('sftp-chk-save-profile');
+    const rememberChk = document.getElementById('sftp-chk-remember-creds');
+    const titleEl = document.getElementById('sftp-modal-title');
+
+    if (profileToEdit) {
+        if (titleEl) titleEl.textContent = 'Edit SFTP Connection';
+        modal.setAttribute('data-edit-id', profileToEdit.id);
+        if (nameInput) nameInput.value = profileToEdit.name || '';
+        if (hostInput) hostInput.value = profileToEdit.host || '';
+        if (portInput) portInput.value = profileToEdit.port || 22;
+        if (userInput) userInput.value = profileToEdit.username || '';
+        if (pathInput) pathInput.value = profileToEdit.initialPath || '';
+        if (pwdInput) pwdInput.value = profileToEdit.password || '';
+        if (keyInput) keyInput.value = profileToEdit.privateKeyContent || '';
+        if (passInput) passInput.value = profileToEdit.privateKeyPassphrase || '';
+        switchSftpAuthMode(profileToEdit.authType || 'password');
+        if (saveChk) saveChk.checked = true;
+        if (rememberChk) rememberChk.checked = Boolean(profileToEdit.password || profileToEdit.privateKeyContent);
+    } else {
+        if (titleEl) titleEl.textContent = 'Connect to SFTP Server';
+        modal.removeAttribute('data-edit-id');
+        if (nameInput) nameInput.value = '';
+        if (hostInput) hostInput.value = '';
+        if (portInput) portInput.value = 22;
+        if (userInput) userInput.value = '';
+        if (pathInput) pathInput.value = '/';
+        if (pwdInput) pwdInput.value = '';
+        if (keyInput) keyInput.value = '';
+        if (passInput) passInput.value = '';
+        switchSftpAuthMode('password');
+        if (saveChk) saveChk.checked = true;
+        if (rememberChk) rememberChk.checked = true;
+    }
+
+    modal.style.display = 'flex';
+    setTimeout(() => {
+        if (hostInput && !hostInput.value) hostInput.focus();
+    }, 50);
+}
+
+function closeSftpModal(e = null) {
+    if (e && e.target && e.target.id !== 'modal-sftp' && !e.target.classList.contains('modal-close-x') && !e.target.closest('.modal-close-x') && !e.target.classList.contains('cancel') && !e.target.closest('.cancel')) {
+        return;
+    }
+    const modal = document.getElementById('modal-sftp');
+    if (modal) modal.style.display = 'none';
+}
+
+function switchSftpAuthMode(mode) {
+    sftpCurrentAuthMode = mode;
+    const tabPwd = document.getElementById('btn-auth-tab-password');
+    const tabKey = document.getElementById('btn-auth-tab-key');
+    const panelPwd = document.getElementById('sftp-auth-panel-password');
+    const panelKey = document.getElementById('sftp-auth-panel-key');
+
+    if (tabPwd) tabPwd.classList.toggle('active', mode === 'password');
+    if (tabKey) tabKey.classList.toggle('active', mode === 'key');
+
+    if (panelPwd) panelPwd.style.display = mode === 'password' ? 'block' : 'none';
+    if (panelKey) panelKey.style.display = mode === 'key' ? 'block' : 'none';
+}
+
+function toggleSftpPasswordVisibility() {
+    const pwd = document.getElementById('sftp-input-password');
+    const btn = document.getElementById('btn-toggle-sftp-pwd');
+    if (!pwd) return;
+    if (pwd.type === 'password') {
+        pwd.type = 'text';
+        if (btn) btn.textContent = '🔒';
+    } else {
+        pwd.type = 'password';
+        if (btn) btn.textContent = '👁️';
+    }
+}
+
+function handleSftpKeyFileSelected(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        const text = evt.target.result;
+        const keyInput = document.getElementById('sftp-input-key');
+        if (keyInput) keyInput.value = text;
+        showToast('Loaded private key: ' + file.name, '🔑');
+    };
+    reader.readAsText(file);
+}
+
+function handleSftpSaveCheckboxChange() {
+    const saveChk = document.getElementById('sftp-chk-save-profile');
+    const remLabel = document.getElementById('sftp-lbl-remember-creds');
+    if (remLabel && saveChk) {
+        remLabel.style.display = saveChk.checked ? 'flex' : 'none';
+    }
+}
+
+function getSftpFormData() {
+    const name = (document.getElementById('sftp-input-name')?.value || '').trim();
+    const host = (document.getElementById('sftp-input-host')?.value || '').trim();
+    const port = parseInt(document.getElementById('sftp-input-port')?.value || '22', 10);
+    const username = (document.getElementById('sftp-input-user')?.value || '').trim();
+    const password = document.getElementById('sftp-input-password')?.value || '';
+    const privateKeyContent = (document.getElementById('sftp-input-key')?.value || '').trim();
+    const privateKeyPassphrase = document.getElementById('sftp-input-passphrase')?.value || '';
+    const initialPath = (document.getElementById('sftp-input-path')?.value || '').trim();
+
+    return {
+        connectionName: name,
+        host,
+        port: isNaN(port) || port <= 0 ? 22 : port,
+        username,
+        authType: sftpCurrentAuthMode,
+        password: sftpCurrentAuthMode === 'password' ? password : null,
+        privateKeyContent: sftpCurrentAuthMode === 'key' ? privateKeyContent : null,
+        privateKeyPassphrase: sftpCurrentAuthMode === 'key' ? privateKeyPassphrase : null,
+        initialPath: initialPath || '/'
+    };
+}
+
+function showSftpAlert(message, type = 'info') {
+    const alertEl = document.getElementById('sftp-status-alert');
+    if (!alertEl) return;
+    alertEl.className = 'sftp-alert-' + type;
+    alertEl.textContent = message;
+    alertEl.style.display = 'block';
+}
+
+async function testSftpConnection() {
+    const data = getSftpFormData();
+    if (!data.host) {
+        showSftpAlert('Please enter a server host / IP address.', 'error');
+        return;
+    }
+    if (!data.username) {
+        showSftpAlert('Please enter a username.', 'error');
+        return;
+    }
+
+    const testBtn = document.getElementById('btn-sftp-test');
+    const spinner = document.getElementById('sftp-test-btn-spinner');
+    const btnText = document.getElementById('sftp-test-btn-text');
+
+    if (testBtn) testBtn.disabled = true;
+    if (spinner) spinner.style.display = 'inline-block';
+    if (btnText) btnText.textContent = 'Testing...';
+    showSftpAlert('Initiating SSH handshake and testing credentials...', 'info');
+
+    try {
+        const res = await fetch('/api/sftp/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        let result = {};
+        try {
+            result = await res.json();
+        } catch {
+            result = { success: false, errorMessage: `Server returned HTTP ${res.status}` };
+        }
+        if (result.success) {
+            showSftpAlert(`✅ Connected successfully! (Latency: ${result.latencyMs}ms, Server: ${result.serverVersion || 'SSH-2.0'})`, 'success');
+        } else {
+            showSftpAlert(`❌ Connection failed: ${result.errorMessage || result.error || 'Unknown error'}`, 'error');
+        }
+    } catch (err) {
+        showSftpAlert(`❌ Connection test error: ${err.message}`, 'error');
+    } finally {
+        if (testBtn) testBtn.disabled = false;
+        if (spinner) spinner.style.display = 'none';
+        if (btnText) btnText.textContent = '⚡ Test Connection';
+    }
+}
+
+async function submitSftpConnect() {
+    const data = getSftpFormData();
+    if (!data.host) {
+        showSftpAlert('Please enter a server host / IP address.', 'error');
+        return;
+    }
+    if (!data.username) {
+        showSftpAlert('Please enter a username.', 'error');
+        return;
+    }
+
+    const connectBtn = document.getElementById('btn-sftp-connect');
+    const spinner = document.getElementById('sftp-connect-btn-spinner');
+    const btnText = document.getElementById('sftp-connect-btn-text');
+
+    if (connectBtn) connectBtn.disabled = true;
+    if (spinner) spinner.style.display = 'inline-block';
+    if (btnText) btnText.textContent = 'Connecting...';
+    showSftpAlert('Connecting to SFTP server...', 'info');
+
+    try {
+        const res = await fetch('/api/sftp/connect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        let result = {};
+        try {
+            result = await res.json();
+        } catch {
+            result = { success: false, errorMessage: `Server returned HTTP ${res.status}` };
+        }
+        if (!result.success) {
+            showSftpAlert(`❌ Connect failed: ${result.errorMessage || result.error || 'Check credentials and host.'}`, 'error');
+            return;
+        }
+
+        // Save connection profile if requested
+        const saveChk = document.getElementById('sftp-chk-save-profile');
+        const rememberChk = document.getElementById('sftp-chk-remember-creds');
+        const modal = document.getElementById('modal-sftp');
+        const editId = modal ? modal.getAttribute('data-edit-id') : null;
+
+        if (saveChk && saveChk.checked) {
+            const shouldRemember = rememberChk && rememberChk.checked;
+            const profile = {
+                id: editId || `prof_${Date.now()}`,
+                name: data.connectionName || `${data.username}@${data.host}`,
+                host: data.host,
+                port: data.port,
+                username: data.username,
+                authType: data.authType,
+                initialPath: data.initialPath,
+                password: shouldRemember ? data.password : null,
+                privateKeyContent: shouldRemember ? data.privateKeyContent : null,
+                privateKeyPassphrase: shouldRemember ? data.privateKeyPassphrase : null
+            };
+
+            const existingIdx = sftpSavedProfiles.findIndex(p => p.id === profile.id);
+            if (existingIdx >= 0) {
+                sftpSavedProfiles[existingIdx] = profile;
+            } else {
+                sftpSavedProfiles.push(profile);
+            }
+            saveSftpProfilesToStorage();
+        }
+
+        closeSftpModal();
+        await refreshSftpSessionsList();
+
+        // Navigate to the remote directory
+        const sftpPath = `sftp://${result.connectionId}${result.currentPath || '/'}`;
+        navigateTo(sftpPath);
+        showToast(`Connected to ${result.name || data.host} 🌐`, '✅');
+    } catch (err) {
+        showSftpAlert(`❌ Connect error: ${err.message}`, 'error');
+    } finally {
+        if (connectBtn) connectBtn.disabled = false;
+        if (spinner) spinner.style.display = 'none';
+        if (btnText) btnText.textContent = 'Connect';
+    }
+}
+
+async function connectSavedProfile(profileId) {
+    const isSafeMode = (backendEngineName && backendEngineName.includes('Node')) || 
+                       (window.currentEngineCapabilities && window.currentEngineCapabilities.sftp === false);
+    if (isSafeMode) {
+        openSftpSafeModeModal();
+        return;
+    }
+
+    const prof = getSavedProfileById(profileId);
+    if (!prof) return;
+
+    // If credentials are saved, connect directly
+    const hasCreds = (prof.authType === 'password' && prof.password) ||
+                     (prof.authType === 'key' && prof.privateKeyContent);
+
+    if (hasCreds) {
+        showToast(`Connecting to ${prof.name}... ⏳`, '🌐');
+        try {
+            const res = await fetch('/api/sftp/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    connectionName: prof.name,
+                    host: prof.host,
+                    port: prof.port,
+                    username: prof.username,
+                    authType: prof.authType,
+                    password: prof.password,
+                    privateKeyContent: prof.privateKeyContent,
+                    privateKeyPassphrase: prof.privateKeyPassphrase,
+                    initialPath: prof.initialPath
+                })
+            });
+            let result = {};
+            try {
+                result = await res.json();
+            } catch {
+                result = { success: false, errorMessage: `Server returned HTTP ${res.status}` };
+            }
+            if (result.success) {
+                await refreshSftpSessionsList();
+                const sftpPath = `sftp://${result.connectionId}${result.currentPath || '/'}`;
+                navigateTo(sftpPath);
+                showToast(`Connected to ${prof.name} 🌐`, '✅');
+                return;
+            } else {
+                showToast(`Connect failed: ${result.errorMessage || result.error || 'Server unavailable'}`, '⚠️');
+            }
+        } catch (err) {
+            showToast(`Connection failed: ${err.message}`, '❌');
+        }
+    }
+
+    // Prompt user for credentials by opening pre-filled modal
+    openSftpModal(prof);
+}
+
+async function disconnectSftpSession(connectionId, e) {
+    if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+    }
+    try {
+        await fetch('/api/sftp/disconnect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ connectionId })
+        });
+        showToast('SFTP session disconnected ⏏️', 'ℹ️');
+        await refreshSftpSessionsList();
+
+        // If active view is on this session, go back home
+        if (currentPath.startsWith('sftp://' + connectionId)) {
+            goHome();
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+function deleteSavedSftpProfile(profileId, e) {
+    if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+    }
+    sftpSavedProfiles = sftpSavedProfiles.filter(p => p.id !== profileId);
+    saveSftpProfilesToStorage();
+    renderSftpSidebar();
+    showToast('Saved SFTP connection removed', '🗑️');
+}
+
+// ══════════════════════════════════════════════════════════
+
+/**
+ * VenEl File Manager - Cloud Storage Manager
+ * AWS S3, MinIO, Azure Blob, Google Cloud Storage connect and test dialogs.
+ */
+// ☁️ CLOUD STORAGE MANAGER (AWS S3, MinIO, Azure Blob)
+// ══════════════════════════════════════════════════════════
+
+function loadCloudSavedProfiles() {
+    try {
+        const raw = safeStorage.getItem('venel_cloud_profiles');
+        cloudSavedProfiles = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(cloudSavedProfiles)) cloudSavedProfiles = [];
+    } catch {
+        cloudSavedProfiles = [];
+    }
+}
+
+function saveCloudProfilesToStorage() {
+    try {
+        safeStorage.setItem('venel_cloud_profiles', JSON.stringify(cloudSavedProfiles));
+    } catch {}
+}
+
+async function refreshCloudSessionsList() {
+    loadCloudSavedProfiles();
+    try {
+        const res = await fetch('/api/cloud/sessions').catch(() => null);
+        if (res && res.ok) {
+            cloudActiveSessions = await res.json();
+            if (!Array.isArray(cloudActiveSessions)) cloudActiveSessions = [];
+        } else {
+            cloudActiveSessions = [];
+        }
+    } catch {
+        cloudActiveSessions = [];
+    }
+
+    renderCloudSidebar();
+}
+
+function renderCloudSidebar() {
+    const listEl = document.getElementById('cloud-connections-list');
+    const badgeEl = document.getElementById('cloud-active-count-badge');
+    if (!listEl) return;
+
+    if (badgeEl) {
+        const count = cloudActiveSessions.length;
+        badgeEl.textContent = count;
+        badgeEl.style.display = count > 0 ? 'inline-block' : 'none';
+    }
+
+    let html = '';
+
+    // 1. Active Connected Cloud Sessions
+    if (cloudActiveSessions.length > 0) {
+        cloudActiveSessions.forEach(session => {
+            const isCurrent = currentPath.startsWith('cloud://' + session.connectionId);
+            const targetUrl = `cloud://${session.connectionId}/`;
+            const provBadgeClass = session.provider === 'azure_blob' ? 'cloud-badge-azure' : ((session.endpoint && session.endpoint.includes('minio')) ? 'cloud-badge-minio' : 'cloud-badge-s3');
+            const provLabel = session.provider === 'azure_blob' ? 'Azure' : ((session.endpoint && session.endpoint.includes('minio')) ? 'MinIO' : 'S3');
+
+            html += `<div class="sftp-conn-item active ${isCurrent ? 'selected' : ''}" onclick="navigateTo('${escapePath(targetUrl)}')">` +
+                '<div class="sftp-conn-info">' +
+                    '<div class="sftp-conn-title-row">' +
+                        '<span class="sftp-conn-dot" title="Active Cloud Session"></span>' +
+                        `<span class="sftp-conn-name" title="${escapeHtml(session.name || session.bucketOrContainer)}">${escapeHtml(session.name || session.bucketOrContainer)}</span>` +
+                        `<span class="cloud-provider-badge ${provBadgeClass}">${provLabel}</span>` +
+                    '</div>' +
+                    `<div class="sftp-conn-sub">${escapeHtml(session.bucketOrContainer || session.endpoint || 'Root')}</div>` +
+                '</div>' +
+                '<div class="sftp-conn-actions">' +
+                    `<button class="sftp-icon-btn danger" onclick="disconnectCloudSession('${session.connectionId}', event)" title="Disconnect Cloud Storage">⏏️</button>` +
+                '</div>' +
+            '</div>';
+        });
+    }
+
+    // 2. Saved Connection Profiles (not currently connected)
+    const activeIds = new Set(cloudActiveSessions.map(s => s.connectionId));
+    const inactiveProfiles = cloudSavedProfiles.filter(p => !activeIds.has(p.id));
+
+    if (inactiveProfiles.length > 0) {
+        inactiveProfiles.forEach(prof => {
+            const provBadgeClass = prof.provider === 'azure_blob' ? 'cloud-badge-azure' : ((prof.endpoint && prof.endpoint.includes('minio')) ? 'cloud-badge-minio' : 'cloud-badge-s3');
+            const provLabel = prof.provider === 'azure_blob' ? 'Azure' : ((prof.endpoint && prof.endpoint.includes('minio')) ? 'MinIO' : 'S3');
+
+            html += `<div class="sftp-conn-item" onclick="connectSavedCloudProfile('${prof.id}')" title="Click to Connect">` +
+                '<div class="sftp-conn-info">' +
+                    '<div class="sftp-conn-title-row">' +
+                        '<span style="font-size: 13px;">⚡</span>' +
+                        `<span class="sftp-conn-name" title="${escapeHtml(prof.name || prof.bucketName)}">${escapeHtml(prof.name || prof.bucketName)}</span>` +
+                        `<span class="cloud-provider-badge ${provBadgeClass}">${provLabel}</span>` +
+                    '</div>' +
+                    `<div class="sftp-conn-sub">${escapeHtml(prof.bucketName || prof.endpoint || 'Cloud')}</div>` +
+                '</div>' +
+                '<div class="sftp-conn-actions">' +
+                    `<button class="sftp-icon-btn" onclick="openCloudModal(getSavedCloudProfileById('${prof.id}'), event)" title="Edit Profile">✏️</button>` +
+                    `<button class="sftp-icon-btn danger" onclick="deleteSavedCloudProfile('${prof.id}', event)" title="Delete Profile">✕</button>` +
+                '</div>' +
+            '</div>';
+        });
+    }
+
+    if (cloudActiveSessions.length === 0 && cloudSavedProfiles.length === 0) {
+        html = '<div style="padding: 10px 8px; font-size: 11px; color: var(--text-muted); text-align: center; line-height: 1.4;">' +
+            'No cloud storage connected.<br><button class="sftp-browse-btn" onclick="openCloudModal()" style="margin-top: 6px;">+ Connect to Cloud</button>' +
+        '</div>';
+    }
+
+    listEl.innerHTML = html;
+}
+
+function getSavedCloudProfileById(id) {
+    return cloudSavedProfiles.find(p => p.id === id);
+}
+
+function openCloudModal(profileToEdit = null, event = null, initialProvider = 's3') {
+    if (profileToEdit && (profileToEdit instanceof Event || profileToEdit.target)) {
+        event = profileToEdit;
+        profileToEdit = null;
+    }
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+
+    const modal = document.getElementById('modal-cloud');
+    if (!modal) return;
+
+    const alertEl = document.getElementById('cloud-status-alert');
+    if (alertEl) alertEl.style.display = 'none';
+
+    const titleEl = document.getElementById('cloud-modal-title');
+    const s3Name = document.getElementById('cloud-s3-input-name');
+    const s3Bucket = document.getElementById('cloud-s3-input-bucket');
+    const s3Region = document.getElementById('cloud-s3-input-region');
+    const s3Endpoint = document.getElementById('cloud-s3-input-endpoint');
+    const s3AccessKey = document.getElementById('cloud-s3-input-access-key');
+    const s3SecretKey = document.getElementById('cloud-s3-input-secret-key');
+    const s3Prefix = document.getElementById('cloud-s3-input-prefix');
+    const s3PathStyle = document.getElementById('cloud-s3-chk-path-style');
+
+    const azName = document.getElementById('cloud-azure-input-name');
+    const azConnStr = document.getElementById('cloud-azure-input-connection-string');
+    const azContainer = document.getElementById('cloud-azure-input-container');
+    const azPrefix = document.getElementById('cloud-azure-input-prefix');
+
+    const saveChk = document.getElementById('cloud-chk-save-profile');
+    const rememberChk = document.getElementById('cloud-chk-remember-creds');
+
+    if (profileToEdit) {
+        modal.setAttribute('data-edit-id', profileToEdit.id);
+        if (titleEl) titleEl.textContent = 'Edit Cloud Connection';
+        const prov = (profileToEdit.provider === 'azure_blob' || profileToEdit.provider === 'azure') ? 'azure' : 's3';
+        switchCloudProvider(prov);
+
+        if (prov === 's3') {
+            if (s3Name) s3Name.value = profileToEdit.name || '';
+            if (s3Bucket) s3Bucket.value = profileToEdit.bucketName || '';
+            if (s3Region) s3Region.value = profileToEdit.region || 'us-east-1';
+            if (s3Endpoint) s3Endpoint.value = profileToEdit.endpoint || '';
+            if (s3AccessKey) s3AccessKey.value = profileToEdit.accessKey || '';
+            if (s3SecretKey) s3SecretKey.value = profileToEdit.secretKey || '';
+            if (s3Prefix) s3Prefix.value = profileToEdit.initialPrefix || '';
+            if (s3PathStyle) s3PathStyle.checked = Boolean(profileToEdit.forcePathStyle);
+        } else {
+            if (azName) azName.value = profileToEdit.name || '';
+            if (azConnStr) azConnStr.value = profileToEdit.connectionString || '';
+            if (azContainer) azContainer.value = profileToEdit.bucketName || '';
+            if (azPrefix) azPrefix.value = profileToEdit.initialPrefix || '';
+        }
+
+        if (saveChk) saveChk.checked = true;
+        if (rememberChk) rememberChk.checked = Boolean(profileToEdit.accessKey || profileToEdit.secretKey || profileToEdit.connectionString);
+    } else {
+        modal.removeAttribute('data-edit-id');
+        if (titleEl) titleEl.textContent = 'Connect to Cloud Storage';
+        switchCloudProvider(initialProvider || 's3');
+
+        if (s3Name) s3Name.value = '';
+        if (s3Bucket) s3Bucket.value = '';
+        if (s3Region) s3Region.value = 'us-east-1';
+        if (s3Endpoint) s3Endpoint.value = '';
+        if (s3AccessKey) s3AccessKey.value = '';
+        if (s3SecretKey) s3SecretKey.value = '';
+        if (s3Prefix) s3Prefix.value = '';
+        if (s3PathStyle) s3PathStyle.checked = false;
+
+        if (azName) azName.value = '';
+        if (azConnStr) azConnStr.value = '';
+        if (azContainer) azContainer.value = '';
+        if (azPrefix) azPrefix.value = '';
+
+        if (saveChk) saveChk.checked = true;
+        if (rememberChk) rememberChk.checked = true;
+    }
+
+    modal.style.display = 'flex';
+    setTimeout(() => {
+        if (currentCloudProvider === 's3' && s3Bucket && !s3Bucket.value) s3Bucket.focus();
+        else if (currentCloudProvider === 'azure' && azConnStr && !azConnStr.value) azConnStr.focus();
+    }, 50);
+}
+
+function closeCloudModal(e = null) {
+    if (e && e.target && e.target.id !== 'modal-cloud' && !e.target.classList.contains('modal-close-x') && !e.target.closest('.modal-close-x') && !e.target.classList.contains('cancel') && !e.target.closest('.cancel')) {
+        return;
+    }
+    const modal = document.getElementById('modal-cloud');
+    if (modal) modal.style.display = 'none';
+}
+
+function switchCloudProvider(provider) {
+    currentCloudProvider = (provider === 'azure' || provider === 'azure_blob') ? 'azure' : 's3';
+    const tabS3 = document.getElementById('btn-cloud-tab-s3');
+    const tabAzure = document.getElementById('btn-cloud-tab-azure');
+    const panelS3 = document.getElementById('cloud-provider-panel-s3');
+    const panelAzure = document.getElementById('cloud-provider-panel-azure');
+
+    if (tabS3) tabS3.classList.toggle('active', currentCloudProvider === 's3');
+    if (tabAzure) tabAzure.classList.toggle('active', currentCloudProvider === 'azure');
+
+    if (panelS3) panelS3.style.display = currentCloudProvider === 's3' ? 'flex' : 'none';
+    if (panelAzure) panelAzure.style.display = currentCloudProvider === 'azure' ? 'flex' : 'none';
+}
+
+function applyS3Preset(preset) {
+    const endpointInput = document.getElementById('cloud-s3-input-endpoint');
+    const regionInput = document.getElementById('cloud-s3-input-region');
+    const pathStyleChk = document.getElementById('cloud-s3-chk-path-style');
+
+    if (preset === 'minio') {
+        if (endpointInput) endpointInput.value = 'http://localhost:9000';
+        if (regionInput) regionInput.value = 'us-east-1';
+        if (pathStyleChk) pathStyleChk.checked = true;
+        showToast('Configured MinIO local defaults (Endpoint: :9000, Path-Style on) 🦩', 'ℹ️');
+    } else if (preset === 'r2') {
+        if (endpointInput) endpointInput.value = 'https://<account-id>.r2.cloudflarestorage.com';
+        if (regionInput) regionInput.value = 'auto';
+        if (pathStyleChk) pathStyleChk.checked = false;
+        showToast('Configured Cloudflare R2 preset ⚡', 'ℹ️');
+    } else if (preset === 'custom') {
+        if (pathStyleChk) pathStyleChk.checked = true;
+        showToast('Configured custom S3 endpoint preset ⚙️', 'ℹ️');
+    } else { // aws
+        if (endpointInput) endpointInput.value = '';
+        if (regionInput) regionInput.value = 'us-east-1';
+        if (pathStyleChk) pathStyleChk.checked = false;
+        showToast('Configured AWS S3 defaults (Standard Global Endpoint) ☁️', 'ℹ️');
+    }
+}
+
+function toggleCloudPasswordVisibility(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+function handleCloudSaveCheckboxChange() {
+    const saveChk = document.getElementById('cloud-chk-save-profile');
+    const remLabel = document.getElementById('cloud-lbl-remember-creds');
+    if (remLabel && saveChk) {
+        remLabel.style.display = saveChk.checked ? 'flex' : 'none';
+    }
+}
+
+function getCloudFormData() {
+    if (currentCloudProvider === 's3') {
+        const name = (document.getElementById('cloud-s3-input-name')?.value || '').trim();
+        const bucketName = (document.getElementById('cloud-s3-input-bucket')?.value || '').trim();
+        const region = (document.getElementById('cloud-s3-input-region')?.value || 'us-east-1').trim();
+        const endpoint = (document.getElementById('cloud-s3-input-endpoint')?.value || '').trim();
+        const accessKey = (document.getElementById('cloud-s3-input-access-key')?.value || '').trim();
+        const secretKey = (document.getElementById('cloud-s3-input-secret-key')?.value || '').trim();
+        const initialPrefix = (document.getElementById('cloud-s3-input-prefix')?.value || '').trim();
+        const forcePathStyle = document.getElementById('cloud-s3-chk-path-style')?.checked || false;
+
+        return {
+            provider: 's3',
+            name: name || bucketName,
+            bucketName,
+            region: region || 'us-east-1',
+            endpoint: endpoint || null,
+            accessKey: accessKey || null,
+            secretKey: secretKey || null,
+            initialPrefix: initialPrefix || null,
+            forcePathStyle
+        };
+    } else {
+        const name = (document.getElementById('cloud-azure-input-name')?.value || '').trim();
+        const connectionString = (document.getElementById('cloud-azure-input-connection-string')?.value || '').trim();
+        const container = (document.getElementById('cloud-azure-input-container')?.value || '').trim();
+        const initialPrefix = (document.getElementById('cloud-azure-input-prefix')?.value || '').trim();
+
+        return {
+            provider: 'azure_blob',
+            name: name || container || 'Azure Blob',
+            connectionString,
+            bucketName: container || null,
+            initialPrefix: initialPrefix || null
+        };
+    }
+}
+
+function showCloudAlert(message, type = 'info') {
+    const alertEl = document.getElementById('cloud-status-alert');
+    if (!alertEl) return;
+    alertEl.className = 'sftp-alert-' + type;
+    alertEl.textContent = message;
+    alertEl.style.display = 'block';
+}
+
+async function testCloudConnection() {
+    const data = getCloudFormData();
+    if (data.provider === 's3') {
+        if (!data.bucketName) {
+            showCloudAlert('Please enter an S3 / MinIO bucket name.', 'error');
+            return;
+        }
+        if (!data.accessKey || !data.secretKey) {
+            showCloudAlert('Please enter Access Key ID and Secret Access Key.', 'error');
+            return;
+        }
+    } else {
+        if (!data.connectionString) {
+            showCloudAlert('Please enter Azure Blob Connection String or SAS URL.', 'error');
+            return;
+        }
+    }
+
+    const testBtn = document.getElementById('btn-cloud-test');
+    const spinner = document.getElementById('cloud-test-btn-spinner');
+    const btnText = document.getElementById('cloud-test-btn-text');
+
+    if (testBtn) testBtn.disabled = true;
+    if (spinner) spinner.style.display = 'inline-block';
+    if (btnText) btnText.textContent = 'Testing...';
+    showCloudAlert('Testing cloud connection...', 'info');
+
+    try {
+        const res = await fetch('/api/cloud/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        let result = {};
+        try {
+            result = await res.json();
+        } catch {
+            result = { success: false, errorMessage: `Server returned HTTP ${res.status}` };
+        }
+        if (result.success) {
+            const countMsg = (result.itemCount != null) ? ` (${result.itemCount} items found)` : '';
+            showCloudAlert(`✅ Connected successfully!${countMsg} Latency: ${result.latencyMs || 0}ms`, 'success');
+        } else {
+            showCloudAlert(`❌ Connection test failed: ${result.errorMessage || 'Check credentials and bucket.'}`, 'error');
+        }
+    } catch (err) {
+        showCloudAlert(`❌ Connection test error: ${err.message}`, 'error');
+    } finally {
+        if (testBtn) testBtn.disabled = false;
+        if (spinner) spinner.style.display = 'none';
+        if (btnText) btnText.textContent = '⚡ Test Connection';
+    }
+}
+
+async function submitCloudConnect() {
+    const data = getCloudFormData();
+    if (data.provider === 's3') {
+        if (!data.bucketName) {
+            showCloudAlert('Please enter an S3 / MinIO bucket name.', 'error');
+            return;
+        }
+        if (!data.accessKey || !data.secretKey) {
+            showCloudAlert('Please enter Access Key ID and Secret Access Key.', 'error');
+            return;
+        }
+    } else {
+        if (!data.connectionString) {
+            showCloudAlert('Please enter Azure Blob Connection String or SAS URL.', 'error');
+            return;
+        }
+    }
+
+    const connectBtn = document.getElementById('btn-cloud-connect');
+    const spinner = document.getElementById('cloud-connect-btn-spinner');
+    const btnText = document.getElementById('cloud-connect-btn-text');
+
+    if (connectBtn) connectBtn.disabled = true;
+    if (spinner) spinner.style.display = 'inline-block';
+    if (btnText) btnText.textContent = 'Connecting...';
+    showCloudAlert('Connecting to Cloud Storage...', 'info');
+
+    try {
+        const res = await fetch('/api/cloud/connect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        let result = {};
+        try {
+            result = await res.json();
+        } catch {
+            result = { success: false, errorMessage: `Server returned HTTP ${res.status}` };
+        }
+        if (!result.success) {
+            showCloudAlert(`❌ Connect failed: ${result.errorMessage || 'Unable to connect to cloud storage.'}`, 'error');
+            return;
+        }
+
+        // Save connection profile if requested
+        const saveChk = document.getElementById('cloud-chk-save-profile');
+        const rememberChk = document.getElementById('cloud-chk-remember-creds');
+        const modal = document.getElementById('modal-cloud');
+        const editId = modal ? modal.getAttribute('data-edit-id') : null;
+
+        if (saveChk && saveChk.checked) {
+            const shouldRemember = rememberChk && rememberChk.checked;
+            const profile = {
+                id: editId || `cloud_prof_${Date.now()}`,
+                name: data.name || data.bucketName,
+                provider: data.provider,
+                bucketName: data.bucketName,
+                region: data.region,
+                endpoint: data.endpoint,
+                accessKey: shouldRemember ? data.accessKey : null,
+                secretKey: shouldRemember ? data.secretKey : null,
+                connectionString: shouldRemember ? data.connectionString : null,
+                forcePathStyle: data.forcePathStyle,
+                initialPrefix: data.initialPrefix
+            };
+
+            const existingIdx = cloudSavedProfiles.findIndex(p => p.id === profile.id);
+            if (existingIdx >= 0) {
+                cloudSavedProfiles[existingIdx] = profile;
+            } else {
+                cloudSavedProfiles.push(profile);
+            }
+            saveCloudProfilesToStorage();
+        }
+
+        closeCloudModal();
+        await refreshCloudSessionsList();
+
+        // Navigate to the cloud directory
+        const cloudPath = `cloud://${result.connectionId}${result.currentPath || '/'}`;
+        navigateTo(cloudPath);
+        showToast(`Connected to ${result.name || data.bucketName} ☁️`, '✅');
+    } catch (err) {
+        showCloudAlert(`❌ Connect error: ${err.message}`, 'error');
+    } finally {
+        if (connectBtn) connectBtn.disabled = false;
+        if (spinner) spinner.style.display = 'none';
+        if (btnText) btnText.textContent = 'Connect';
+    }
+}
+
+async function connectSavedCloudProfile(profileId) {
+    const prof = getSavedCloudProfileById(profileId);
+    if (!prof) return;
+
+    const hasCreds = (prof.provider === 's3' && prof.accessKey && prof.secretKey) ||
+                     (prof.provider === 'azure_blob' && prof.connectionString);
+
+    if (hasCreds) {
+        showToast(`Connecting to ${prof.name}... ⏳`, '☁️');
+        try {
+            const res = await fetch('/api/cloud/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    provider: prof.provider,
+                    name: prof.name,
+                    bucketName: prof.bucketName,
+                    region: prof.region,
+                    endpoint: prof.endpoint,
+                    accessKey: prof.accessKey,
+                    secretKey: prof.secretKey,
+                    connectionString: prof.connectionString,
+                    forcePathStyle: prof.forcePathStyle,
+                    initialPrefix: prof.initialPrefix
+                })
+            });
+            let result = {};
+            try {
+                result = await res.json();
+            } catch {
+                result = { success: false, errorMessage: `Server returned HTTP ${res.status}` };
+            }
+            if (result.success) {
+                await refreshCloudSessionsList();
+                const cloudPath = `cloud://${result.connectionId}${result.currentPath || '/'}`;
+                navigateTo(cloudPath);
+                showToast(`Connected to ${prof.name} ☁️`, '✅');
+                return;
+            } else {
+                showToast(`Connect failed: ${result.errorMessage || 'Cloud storage unavailable'}`, '⚠️');
+            }
+        } catch (err) {
+            showToast(`Connection failed: ${err.message}`, '❌');
+        }
+    }
+
+    openCloudModal(prof);
+}
+
+async function disconnectCloudSession(connectionId, e) {
+    if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+    }
+    try {
+        await fetch('/api/cloud/disconnect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ connectionId })
+        });
+        showToast('Cloud storage session disconnected ⏏️', 'ℹ️');
+        await refreshCloudSessionsList();
+
+        if (currentPath.startsWith('cloud://' + connectionId)) {
+            goHome();
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+function deleteSavedCloudProfile(profileId, e) {
+    if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+    }
+    cloudSavedProfiles = cloudSavedProfiles.filter(p => p.id !== profileId);
+    saveCloudProfilesToStorage();
+    renderCloudSidebar();
+    showToast('Saved cloud connection removed', '🗑️');
+}
+
+function handleFavoritesDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const zone = document.getElementById('favorites-list');
+    if (zone) zone.classList.add('drag-over');
+    if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'copy';
+    }
+}
+
+function handleFavoritesDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const zone = document.getElementById('favorites-list');
+    if (zone) zone.classList.remove('drag-over');
+}
+
+function handleFavoritesDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const zone = document.getElementById('favorites-list');
+    if (zone) zone.classList.remove('drag-over');
+
+    const sep = isWindows ? '\\' : '/';
+    let pathsToPin = [];
+
+    if (draggedVenElItems && draggedVenElItems.length > 0) {
+        pathsToPin = draggedVenElItems.slice();
+    } else if (selectedItems && selectedItems.length > 0) {
+        pathsToPin = selectedItems.map(function(i) {
+            return i.path || (currentPath.endsWith(sep) ? currentPath + i.name : currentPath + sep + i.name);
+        });
+    } else if (selectedItem) {
+        pathsToPin = [selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name)];
+    }
+
+    let addedCount = 0;
+    pathsToPin.forEach(function(targetPath) {
+        if (!targetPath) return;
+        if (userBookmarks.some(function(b) { return b.path === targetPath; })) return;
+
+        const name = targetPath.split(sep).filter(Boolean).pop() || targetPath;
+        const dotIdx = name.lastIndexOf('.');
+        const ext = dotIdx > 0 ? name.substring(dotIdx).toUpperCase() : '';
+        const matchingItem = currentItems.find(function(it) { return it.name === name; });
+        const isDir = matchingItem ? matchingItem.type === 'Directory' : (!ext || ext.length > 6);
+        const visual = typeof getFileVisual === 'function' ? getFileVisual(name, isDir) : { icon: isDir ? '📁' : '📄' };
+
+        userBookmarks.push({
+            name: name,
+            path: targetPath,
+            icon: visual.icon || (isDir ? '📁' : '📄'),
+            isDir: isDir,
+            ext: ext,
+            isDefault: false
+        });
+        addedCount++;
+    });
+
+    if (addedCount > 0) {
+        saveBookmarks();
+        renderBookmarks();
+        showToast('Pinned ' + addedCount + ' item' + (addedCount > 1 ? 's' : '') + ' to Favorites ⭐', '⭐');
+    }
+}
+
+function togglePinCurrentFolder() {
+    const existingIndex = userBookmarks.findIndex(function(b) { return b.path === currentPath; });
+    const sep = isWindows ? '\\' : '/';
+    const folderName = currentPath.split(sep).filter(Boolean).pop() || currentPath;
+    if (existingIndex >= 0) {
+        userBookmarks.splice(existingIndex, 1);
+        showToast('Unpinned "' + folderName + '"', '☆');
+    } else {
+        userBookmarks.push({
+            name: folderName,
+            path: currentPath,
+            icon: '📁',
+            isDir: true,
+            isDefault: false
+        });
+        showToast('Pinned "' + folderName + '" to Favorites ⭐', '⭐');
+    }
+    saveBookmarks();
+    renderBookmarks();
+}
+
+function removeBookmark(targetPath) {
+    userBookmarks = userBookmarks.filter(function(b) { return b.path !== targetPath; });
+    saveBookmarks();
+    renderBookmarks();
+    showToast('Removed bookmark', '🗑️');
+}
+
+function togglePinSelectedItem() {
+    hideContextMenu();
+    const sep = isWindows ? '\\' : '/';
+    let target = currentPath;
+    let name = currentPath.split(sep).filter(Boolean).pop() || currentPath;
+    let isDir = true;
+    let ext = '';
+
+    if (selectedItem) {
+        target = selectedItem.path || (currentPath.endsWith(sep) ? currentPath + selectedItem.name : currentPath + sep + selectedItem.name);
+        name = selectedItem.name;
+        isDir = selectedItem.type === 'Directory';
+        const dotIdx = name.lastIndexOf('.');
+        ext = dotIdx > 0 ? name.substring(dotIdx).toUpperCase() : '';
+    }
+
+    const idx = userBookmarks.findIndex(function(b) { return b.path === target; });
+    if (idx >= 0) {
+        userBookmarks.splice(idx, 1);
+        showToast('Unpinned "' + name + '"', '☆');
+    } else {
+        const visual = typeof getFileVisual === 'function' ? getFileVisual(name, isDir) : { icon: isDir ? '📁' : '📄' };
+        userBookmarks.push({
+            name: name,
+            path: target,
+            icon: visual.icon || (isDir ? '📁' : '📄'),
+            isDir: isDir,
+            ext: ext,
+            isDefault: false
+        });
+        showToast('Pinned "' + name + '" to Favorites ⭐', '⭐');
+    }
+    saveBookmarks();
+    renderBookmarks();
+}
+
+function togglePinPreviewItem() {
+    if (!activePreviewPath) return;
+    const sep = isWindows ? '\\' : '/';
+    const target = activePreviewPath;
+    const name = target.split(sep).filter(Boolean).pop() || target;
+    const isDir = activePreviewIsDir;
+    const dotIdx = name.lastIndexOf('.');
+    const ext = dotIdx > 0 ? name.substring(dotIdx).toUpperCase() : '';
+
+    const idx = userBookmarks.findIndex(function(b) { return b.path === target; });
+    if (idx >= 0) {
+        userBookmarks.splice(idx, 1);
+        showToast('Unpinned "' + name + '"', '☆');
+    } else {
+        const visual = typeof getFileVisual === 'function' ? getFileVisual(name, isDir) : { icon: isDir ? '📁' : '📄' };
+        userBookmarks.push({
+            name: name,
+            path: target,
+            icon: visual.icon || (isDir ? '📁' : '📄'),
+            isDir: isDir,
+            ext: ext,
+            isDefault: false
+        });
+        showToast('Pinned "' + name + '" to Favorites ⭐', '⭐');
+    }
+    saveBookmarks();
+    renderBookmarks();
+}
+
+function updatePreviewActionButtons(fullPath, isDir) {
+    const pinBtn = document.getElementById('preview-pin-btn');
+    const copyImportBtn = document.getElementById('preview-copy-import-btn');
+    const terminalBtn = document.getElementById('preview-terminal-btn');
+    const editBtn = document.getElementById('preview-edit-btn');
+    const saveBtn = document.getElementById('preview-save-btn');
+    const cancelBtn = document.getElementById('preview-cancel-btn');
+
+    if (fullPath) {
+        const isText = !isDir && isEditableTextFile(fullPath);
+        if (editBtn) editBtn.style.display = isText && !isInlineEditorActive ? 'inline-flex' : 'none';
+        if (saveBtn) saveBtn.style.display = isInlineEditorActive ? 'inline-flex' : 'none';
+        if (cancelBtn) cancelBtn.style.display = isInlineEditorActive ? 'inline-flex' : 'none';
+
+        if (pinBtn) {
+            const isPinned = userBookmarks.some(function(b) { return b.path === fullPath; });
+            pinBtn.style.display = 'inline-flex';
+            if (isPinned) {
+                pinBtn.classList.add('pinned');
+                pinBtn.textContent = '★';
+                pinBtn.title = 'Unpin this item from Favorites';
+            } else {
+                pinBtn.classList.remove('pinned');
+                pinBtn.textContent = '☆';
+                pinBtn.title = 'Pin this item to Favorites';
+            }
+        }
+        if (copyImportBtn) {
+            copyImportBtn.style.display = 'inline-flex';
+            copyImportBtn.title = isDir ? 'Copy Relative Path (⌥⇧C)' : 'Copy Smart Import Statement (⌥⇧I)';
+        }
+        if (terminalBtn) {
+            terminalBtn.style.display = 'inline-flex';
+        }
+    } else {
+        if (editBtn) editBtn.style.display = 'none';
+        if (saveBtn) saveBtn.style.display = 'none';
+        if (cancelBtn) cancelBtn.style.display = 'none';
+        if (pinBtn) pinBtn.style.display = 'none';
+        if (copyImportBtn) copyImportBtn.style.display = 'none';
+        if (terminalBtn) terminalBtn.style.display = 'none';
+    }
+}
+
+// ══════════════════════════════════════════════════════════
+
+/**
+ * VenEl File Manager - AI Advantage & Intelligence
+ * Context injectors, token estimator, and AI assistant prompt generator.
+ */
+// ✨ VENEL AI ADVANTAGE: CONTEXT INJECTOR & TOKEN INTELLIGENCE
+// ══════════════════════════════════════════════════════════
+
+let currentAiContext = {
+    name: '',
+    path: '',
+    isDir: false,
+    size: 0,
+    lines: 0,
+    tokens: 0,
+    content: '',
+    diff: '',
+    extension: ''
+};
+
+let lastHoveredItem = null;
+let currentAiPreset = 'explain';
+
+function estimateTokens(text) {
+    if (!text || text.length === 0) return 0;
+    // BPE heuristic approximation for code & natural language
+    const matches = text.match(/[\w]+|[^\s\w]|\s+/g);
+    if (!matches) return Math.max(1, Math.ceil(text.length / 3.8));
+    let count = 0;
+    for (let i = 0; i < matches.length; i++) {
+        const m = matches[i];
+        if (/^\s+$/.test(m)) {
+            count += Math.ceil(m.length / 4);
+        } else if (m.length > 4) {
+            count += Math.ceil(m.length / 3.4);
+        } else {
+            count += 1;
+        }
+    }
+    return Math.max(1, count);
+}
+
+function formatTokenCount(tokens) {
+    if (!tokens || tokens <= 0) return '0 tokens';
+    if (tokens < 1000) return tokens + ' tokens';
+    if (tokens < 1000000) return (tokens / 1000).toFixed(1).replace(/\.0$/, '') + 'k tokens';
+    return (tokens / 1000000).toFixed(2).replace(/\.00$/, '') + 'M tokens';
+}
+
+function getTokenContextHealth(tokens) {
+    // Relative to standard 128k context window (GPT-4o, Claude 3.5 Sonnet)
+    const maxContext = 128000;
+    const ratio = tokens / maxContext;
+    const widthPct = Math.min(100, Math.max(2, Math.round(ratio * 100)));
+    let pctStr = (ratio * 100).toFixed(1) + '%';
+    if (ratio < 0.01) pctStr = '<1%';
+
+    let healthClass = 'compact';
+    if (tokens > 32000) healthClass = 'heavy';
+    else if (tokens > 8000) healthClass = 'moderate';
+
+    return { class: healthClass, pctStr: pctStr, widthPct: widthPct };
+}
+
+function updatePreviewTokenBadge(tokens, isDir, fullPath) {
+    const tokenBadge = document.getElementById('preview-header-tokens');
+    const askAiBtn = document.getElementById('preview-ask-ai-btn');
+    const qlTokenPill = document.getElementById('ql-token-pill');
+
+    if (tokens > 0) {
+        const health = getTokenContextHealth(tokens);
+        const formatted = '✨ ~' + formatTokenCount(tokens);
+        if (tokenBadge) {
+            tokenBadge.textContent = formatted;
+            tokenBadge.className = 'token-pill ' + health.class;
+            tokenBadge.title = `Estimated LLM Tokens: ~${tokens.toLocaleString()} (${health.pctStr} of 128k context)`;
+            tokenBadge.style.display = 'inline-flex';
+        }
+        if (qlTokenPill) {
+            qlTokenPill.textContent = formatted;
+            qlTokenPill.className = 'token-pill ' + health.class;
+            qlTokenPill.style.display = 'inline-flex';
+        }
+        if (askAiBtn) {
+            askAiBtn.style.display = 'inline-flex';
+        }
+    } else {
+        if (tokenBadge) tokenBadge.style.display = 'none';
+        if (qlTokenPill) qlTokenPill.style.display = 'none';
+        if (askAiBtn) askAiBtn.style.display = isDir ? 'inline-flex' : 'none';
+    }
+}
+
+const AI_PROMPT_PRESETS = {
+    explain: "Analyze this file. Provide a comprehensive architectural overview, core responsibilities, public APIs, key control flows, and dependencies.",
+    tests: "Generate exhaustive unit tests covering all functions, boundary conditions, edge cases, and mocked dependencies in this file.",
+    review: "Review this code for performance bottlenecks, security vulnerabilities, memory leak hazards, anti-patterns, and recommend concrete modernizations.",
+    docs: "Generate complete, production-grade documentation and docstrings for all classes, methods, parameters, and types in this file.",
+    bugs: "Perform a rigorous static analysis to find potential runtime exceptions, race conditions, unhandled null references, or edge case failures in this code.",
+    refactor: "Analyze this file and recommend refactoring opportunities to simplify complexity, enhance readability, and adhere to clean code principles."
+};
+
+async function openAiAssistantModal(targetItem) {
+    hideContextMenu();
+    const item = targetItem || selectedItem || (currentItems.length > 0 ? currentItems[0] : null);
+    if (!item) {
+        showToast('Select a file or folder first to ask AI', '✨');
+        return;
+    }
+
+    const isDir = item.type === 'Directory';
+    const sep = isWindows ? '\\' : '/';
+    const fullPath = item.path || (currentPath.endsWith(sep) ? currentPath + item.name : currentPath + sep + item.name);
+
+    currentAiContext = {
+        name: item.name,
+        path: fullPath,
+        isDir: isDir,
+        size: item.size || 0,
+        lines: 0,
+        tokens: 0,
+        content: '',
+        diff: '',
+        extension: item.name.includes('.') ? item.name.split('.').pop().toLowerCase() : ''
+    };
+
+    // UI Updates
+    const visual = getFileVisual(item.name, isDir);
+    const aiIconEl = document.getElementById('ai-target-icon');
+    if (aiIconEl) {
+        if (visual.svg) aiIconEl.innerHTML = visual.svg;
+        else aiIconEl.textContent = visual.icon;
+    }
+    document.getElementById('ai-target-name').textContent = item.name;
+    document.getElementById('ai-target-meta').textContent = isDir ? 'Directory' : formatBytes(item.size || 0);
+
+    const tokenCountEl = document.getElementById('ai-target-tokens');
+    const tokenMeterBar = document.getElementById('ai-token-meter-bar');
+    const tokenSubtext = document.getElementById('ai-token-subtext');
+    tokenCountEl.textContent = '✨ Calculating...';
+    tokenMeterBar.style.width = '2%';
+    tokenSubtext.textContent = 'Analyzing tokens...';
+
+    // Check git diff option
+    const diffRow = document.getElementById('ai-diff-option-row');
+    const diffCheckbox = document.getElementById('ai-include-diff');
+    const gitCode = currentGitStatuses ? currentGitStatuses[item.name] : null;
+    if (gitCode && gitCode === 'M') {
+        diffRow.style.display = 'inline-flex';
+        diffCheckbox.checked = true;
+    } else {
+        diffRow.style.display = 'none';
+        diffCheckbox.checked = false;
+    }
+
+    // Set default preset
+    selectAiPreset('explain');
+
+    const modal = document.getElementById('modal-ai-assistant');
+    modal.style.display = 'flex';
+
+    // Fetch context from server
+    try {
+        const res = await fetch('/api/files/ai/context?path=' + encodeURIComponent(fullPath));
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.ok) {
+                currentAiContext.tokens = data.estimatedTokens || 0;
+                currentAiContext.lines = data.totalLines || data.lineCount || 0;
+                currentAiContext.content = data.content || data.snippet || '';
+
+                const metaStr = isDir 
+                    ? `${data.totalCodeFiles || 0} code files • ${currentAiContext.lines.toLocaleString()} lines`
+                    : `${currentAiContext.lines.toLocaleString()} lines • ${formatBytes(data.size || 0)}`;
+                document.getElementById('ai-target-meta').textContent = metaStr;
+
+                const health = getTokenContextHealth(currentAiContext.tokens);
+                tokenCountEl.textContent = '✨ ~' + formatTokenCount(currentAiContext.tokens);
+                tokenMeterBar.style.width = health.widthPct + '%';
+                tokenSubtext.textContent = `${health.pctStr} of 128k context`;
+            }
+        }
+    } catch {}
+
+    // Fetch diff if modified
+    if (gitCode && gitCode === 'M') {
+        try {
+            const diffRes = await fetch('/api/files/diff?fileA=' + encodeURIComponent(fullPath) + '&fileB=HEAD');
+            if (diffRes.ok) {
+                const diffData = await diffRes.json();
+                if (diffData && diffData.lines) {
+                    currentAiContext.diff = diffData.lines.map(l => (l.type === 'add' ? '+ ' : (l.type === 'remove' ? '- ' : '  ')) + l.text).join('\n');
+                }
+            }
+        } catch {}
+    }
+
+    updateAiPromptPreview();
+}
+
+function openAiAssistantFromHover(event) {
+    if (event) event.stopPropagation();
+    hideHoverCard();
+    openAiAssistantModal(lastHoveredItem);
+}
+
+function openAiAssistantFromQuickLook() {
+    closeQuickLook();
+    openAiAssistantModal();
+}
+
+function closeAiAssistantModal(event) {
+    if (event && event.target && event.target.id !== 'modal-ai-assistant' && !event.target.classList.contains('modal-close-btn') && !event.target.closest('.modal-close-btn')) {
+        return;
+    }
+    const modal = document.getElementById('modal-ai-assistant');
+    if (modal) modal.style.display = 'none';
+}
+
+function selectAiPreset(presetKey, btnElem) {
+    currentAiPreset = presetKey;
+    document.querySelectorAll('.ai-preset-chip').forEach(el => el.classList.remove('active'));
+    if (btnElem) {
+        btnElem.classList.add('active');
+    } else {
+        const found = document.querySelector(`.ai-preset-chip[onclick*="'${presetKey}'"]`);
+        if (found) found.classList.add('active');
+    }
+
+    const input = document.getElementById('ai-prompt-input');
+    if (input) {
+        input.value = AI_PROMPT_PRESETS[presetKey] || AI_PROMPT_PRESETS.explain;
+    }
+    updateAiPromptPreview();
+}
+
+function buildAiPayloadText() {
+    const promptInput = document.getElementById('ai-prompt-input');
+    const userPrompt = (promptInput ? promptInput.value.trim() : '') || AI_PROMPT_PRESETS[currentAiPreset];
+    const includeContent = document.getElementById('ai-include-content')?.checked;
+    const includeDiff = document.getElementById('ai-include-diff')?.checked;
+
+    let payload = `${userPrompt}\n\n`;
+    payload += `--- File Context ---\n`;
+    payload += `File: ${currentAiContext.name}\n`;
+    payload += `Path: ${currentAiContext.path}\n`;
+    if (currentAiContext.lines > 0) payload += `Lines: ${currentAiContext.lines}\n`;
+    if (currentAiContext.tokens > 0) payload += `Estimated Tokens: ~${currentAiContext.tokens.toLocaleString()}\n`;
+    payload += `--------------------\n\n`;
+
+    if (includeDiff && currentAiContext.diff) {
+        payload += `### Git Diff (Recent Changes against HEAD)\n\`\`\`diff\n${currentAiContext.diff}\n\`\`\`\n\n`;
+    }
+
+    if (includeContent && currentAiContext.content) {
+        const lang = currentAiContext.extension || 'text';
+        payload += `### Source Content\n\`\`\`${lang}\n${currentAiContext.content}\n\`\`\`\n`;
+    }
+
+    return payload;
+}
+
+function updateAiPromptPreview() {
+    const payload = buildAiPayloadText();
+    const codeEl = document.getElementById('ai-payload-code');
+    if (codeEl) {
+        codeEl.textContent = payload;
+    }
+}
+
+async function copyAiPromptAndContext() {
+    const payload = buildAiPayloadText();
+    try {
+        await navigator.clipboard.writeText(payload);
+        showToast('Prompt & code context copied to clipboard! (Ready to paste)', '✨');
+    } catch {
+        if (window.parent && window.parent.postMessage) {
+            window.parent.postMessage({ command: 'copyToClipboard', text: payload }, '*');
+        }
+        showToast('Prompt & code context copied to clipboard!', '✨');
+    }
+}
+
+async function sendToMcpAssistant() {
+    const payload = buildAiPayloadText();
+    const promptInput = document.getElementById('ai-prompt-input');
+    const userPrompt = (promptInput ? promptInput.value.trim() : '') || AI_PROMPT_PRESETS[currentAiPreset];
+
+    // 1. Post to VS Code Extension Host
+    if (window.parent && window.parent.postMessage) {
+        window.parent.postMessage({
+            command: 'askAi',
+            prompt: userPrompt,
+            fullText: payload,
+            fileName: currentAiContext.name,
+            filePath: currentAiContext.path,
+            tokenCount: currentAiContext.tokens
+        }, '*');
+    }
+
+    // 2. Also ensure it is in clipboard
+    try {
+        await navigator.clipboard.writeText(payload);
+    } catch {}
+
+    showToast(`Context sent to MCP Assistant (~${currentAiContext.tokens.toLocaleString()} tokens)`, '✨');
+    closeAiAssistantModal();
+}
+
+/**
+ * VenEl File Manager - Main Entry Point & Orchestrator
+ * Global event listeners, keyboard shortcuts, VS Code message bus, and bootstrap.
+ */
 // ⌨️ GLOBAL EVENT LISTENERS & SHORTCUTS
 // ══════════════════════════════════════════════════════════
 document.addEventListener('click', function(e) {
@@ -9164,1296 +10556,8 @@ document.addEventListener('keydown', function(e) {
 });
 
 // ══════════════════════════════════════════════════════════
-// 🏷️ SMART BATCH RENAMER
+// 🚀 APPLICATION BOOTSTRAP & INITIALIZATION
 // ══════════════════════════════════════════════════════════
-function switchBatchTab(tabName) {
-    activeBatchTab = tabName;
-    document.querySelectorAll('.batch-tab-btn').forEach(function(btn) {
-        if (btn.getAttribute('data-tab') === tabName) btn.classList.add('active');
-        else btn.classList.remove('active');
-    });
-    const panels = ['replace', 'text', 'number', 'case', 'ext'];
-    for (let i = 0; i < panels.length; i++) {
-        const p = document.getElementById('batch-panel-' + panels[i]);
-        if (p) p.style.display = panels[i] === tabName ? 'flex' : 'none';
-    }
-    updateBatchPreview();
-}
-
-function showBatchRenameModal() {
-    hideContextMenu();
-    if (selectedItems.length === 0) {
-        if (selectedItem) selectedItems = [selectedItem];
-        else {
-            showToast('Please select files or folders to batch rename', '⚠️');
-            return;
-        }
-    }
-    const countPill = document.getElementById('batch-item-count');
-    if (countPill) countPill.textContent = selectedItems.length + ' item' + (selectedItems.length === 1 ? '' : 's');
-
-    switchBatchTab(activeBatchTab || 'replace');
-    const modal = document.getElementById('modal-batch-rename');
-    if (modal) modal.style.display = 'flex';
-    updateBatchPreview();
-}
-
-function transformCase(str, mode) {
-    if (!str) return '';
-    switch (mode) {
-        case 'lower':
-            return str.toLowerCase();
-        case 'upper':
-            return str.toUpperCase();
-        case 'title':
-            return str.replace(/\b[a-z]/gi, function(c) { return c.toUpperCase(); });
-        case 'camel': {
-            const words = str.split(/[\s_\-]+/).filter(Boolean);
-            if (words.length === 0) return str;
-            return words[0].toLowerCase() + words.slice(1).map(function(w) {
-                return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-            }).join('');
-        }
-        case 'kebab': {
-            const words = str.split(/[\s_\-]+/).filter(Boolean);
-            return words.map(function(w) { return w.toLowerCase(); }).join('-');
-        }
-        case 'snake': {
-            const words = str.split(/[\s_\-]+/).filter(Boolean);
-            return words.map(function(w) { return w.toLowerCase(); }).join('_');
-        }
-        default:
-            return str;
-    }
-}
-
-function batchExtLowercase() {
-    const input = document.getElementById('batch-ext-input');
-    if (input) input.value = '';
-    switchBatchTab('case');
-    const caseSelect = document.getElementById('batch-case-mode');
-    if (caseSelect) caseSelect.value = 'lower';
-    const caseExt = document.getElementById('batch-case-ext');
-    if (caseExt) caseExt.checked = true;
-    updateBatchPreview();
-}
-
-function calculateBatchNewName(oldName, isDir, index, total) {
-    let base = oldName;
-    let ext = '';
-    if (!isDir) {
-        const dotIdx = oldName.lastIndexOf('.');
-        if (dotIdx > 0) {
-            base = oldName.substring(0, dotIdx);
-            ext = oldName.substring(dotIdx);
-        }
-    }
-
-    switch (activeBatchTab) {
-        case 'replace': {
-            const findText = document.getElementById('batch-find-text').value;
-            const replaceText = document.getElementById('batch-replace-text').value || '';
-            const matchCase = document.getElementById('batch-find-case').checked;
-            const isRegex = document.getElementById('batch-find-regex').checked;
-            if (!findText) return oldName;
-            try {
-                let newBase;
-                if (isRegex) {
-                    const re = new RegExp(findText, matchCase ? 'g' : 'gi');
-                    newBase = base.replace(re, replaceText);
-                } else {
-                    if (matchCase) {
-                        newBase = base.split(findText).join(replaceText);
-                    } else {
-                        const escaped = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                        const re = new RegExp(escaped, 'gi');
-                        newBase = base.replace(re, replaceText);
-                    }
-                }
-                return newBase + ext;
-            } catch {
-                return oldName;
-            }
-        }
-        case 'text': {
-            const prefix = document.getElementById('batch-prefix-text').value || '';
-            const suffix = document.getElementById('batch-suffix-text').value || '';
-            return prefix + base + suffix + ext;
-        }
-        case 'number': {
-            const start = parseInt(document.getElementById('batch-num-start').value, 10) || 1;
-            const step = parseInt(document.getElementById('batch-num-step').value, 10) || 1;
-            const padding = parseInt(document.getElementById('batch-num-padding').value, 10) || 1;
-            const pos = document.getElementById('batch-num-pos').value;
-            const sep = document.getElementById('batch-num-sep').value || '';
-
-            const numVal = start + (index * step);
-            let numStr = String(numVal);
-            while (numStr.length < padding) {
-                numStr = '0' + numStr;
-            }
-
-            if (pos === 'prefix') {
-                return numStr + sep + base + ext;
-            } else if (pos === 'suffix') {
-                return base + sep + numStr + ext;
-            } else {
-                return numStr + ext;
-            }
-        }
-        case 'case': {
-            const mode = document.getElementById('batch-case-mode').value;
-            const applyExt = document.getElementById('batch-case-ext').checked;
-            const newBase = transformCase(base, mode);
-            const newExt = (applyExt && ext) ? (ext.startsWith('.') ? '.' + transformCase(ext.substring(1), mode) : transformCase(ext, mode)) : ext;
-            return newBase + newExt;
-        }
-        case 'ext': {
-            if (isDir) return oldName;
-            let newExt = document.getElementById('batch-ext-input').value.trim();
-            if (newExt && !newExt.startsWith('.')) newExt = '.' + newExt;
-            return base + newExt;
-        }
-        default:
-            return oldName;
-    }
-}
-
-function updateBatchPreview() {
-    const tableBody = document.getElementById('batch-preview-table-body');
-    if (!tableBody) return;
-
-    batchGeneratedNames = [];
-    const newNamesSet = new Map();
-    let changedCount = 0;
-    let hasConflict = false;
-
-    const existingOtherNames = new Set(
-        currentItems
-            .filter(function(ci) { return !selectedItems.some(function(si) { return si.name === ci.name; }); })
-            .map(function(ci) { return ci.name.toLowerCase(); })
-    );
-
-    for (let i = 0; i < selectedItems.length; i++) {
-        const item = selectedItems[i];
-        const newName = calculateBatchNewName(item.name, item.type === 'Directory', i, selectedItems.length);
-        const isChanged = (newName !== item.name);
-        if (isChanged) changedCount++;
-
-        let conflict = null;
-        const lowerNew = newName.toLowerCase();
-        if (!newName || newName.includes('/') || newName.includes('\\')) {
-            conflict = 'Invalid Name';
-        } else if (existingOtherNames.has(lowerNew)) {
-            conflict = 'File Exists';
-        } else if (newNamesSet.has(lowerNew)) {
-            conflict = 'Duplicate';
-        }
-
-        newNamesSet.set(lowerNew, true);
-        if (conflict) hasConflict = true;
-
-        batchGeneratedNames.push({
-            oldName: item.name,
-            newName: newName,
-            isDir: item.type === 'Directory',
-            isChanged: isChanged,
-            conflict: conflict
-        });
-    }
-
-    let rowsHtml = '';
-    for (let i = 0; i < batchGeneratedNames.length; i++) {
-        const entry = batchGeneratedNames[i];
-        let badgeClass = 'unchanged';
-        let badgeText = 'Unchanged';
-        if (entry.conflict) {
-            badgeClass = 'conflict';
-            badgeText = '⚠️ ' + entry.conflict;
-        } else if (entry.isChanged) {
-            badgeClass = 'changed';
-            badgeText = '✓ Changed';
-        }
-
-        rowsHtml += '<tr>' +
-                    '<td title="' + escapeHtml(entry.oldName) + '">' + (entry.isDir ? '📁 ' : '📄 ') + escapeHtml(entry.oldName) + '</td>' +
-                    '<td title="' + escapeHtml(entry.newName) + '" style="' + (entry.isChanged ? 'color: #2ecc71; font-weight: 500;' : 'color: var(--text-muted);') + '">' + escapeHtml(entry.newName) + '</td>' +
-                    '<td style="text-align: center;"><span class="batch-status-badge ' + badgeClass + '">' + badgeText + '</span></td>' +
-                    '</tr>';
-    }
-    tableBody.innerHTML = rowsHtml;
-
-    const statusElem = document.getElementById('batch-preview-status');
-    if (statusElem) {
-        statusElem.textContent = changedCount + ' of ' + selectedItems.length + ' will be renamed';
-    }
-
-    const alertElem = document.getElementById('batch-conflict-alert');
-    if (alertElem) {
-        alertElem.style.display = hasConflict ? 'block' : 'none';
-    }
-
-    const applyBtn = document.getElementById('btn-apply-batch-rename');
-    if (applyBtn) {
-        applyBtn.disabled = hasConflict || changedCount === 0;
-        applyBtn.textContent = 'Apply Rename (' + changedCount + ')';
-    }
-}
-
-async function submitBatchRename() {
-    const renamesToApply = batchGeneratedNames.filter(function(b) {
-        return b.isChanged && !b.conflict && b.newName && b.newName !== b.oldName;
-    });
-    if (renamesToApply.length === 0) {
-        hideModals();
-        showToast('No file names were changed', 'ℹ️');
-        return;
-    }
-
-    hideModals();
-    showToast('Renaming ' + renamesToApply.length + ' item(s)...', '⏳');
-    try {
-        const res = await fetch('/api/files/batch-rename', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                currentPath: currentPath,
-                renames: renamesToApply.map(function(r) { return { oldName: r.oldName, newName: r.newName }; })
-            })
-        });
-        const data = await res.json();
-        if (res.ok && data.success) {
-            const renamedCount = data.renamedCount !== undefined ? data.renamedCount : (data.count !== undefined ? data.count : 0);
-            showToast('Renamed ' + renamedCount + ' item(s) successfully', '🏷️');
-            selectedItem = null;
-            selectedItems = [];
-            lastSelectedName = null;
-            loadFiles(currentPath);
-        } else {
-            showToast('Batch rename failed: ' + (data.error || 'Unknown error'), '❌');
-        }
-    } catch (err) {
-        console.error(err);
-        showToast('Error executing batch rename', '❌');
-    }
-}
-
-// ══════════════════════════════════════════════════════════
-// 🗜️ ZIP / UNZIP ARCHIVE MANAGEMENT
-// ══════════════════════════════════════════════════════════
-function handleCompressSelected() {
-    hideContextMenu();
-    const items = selectedItems.length > 0 ? selectedItems.slice() : (selectedItem ? [selectedItem] : []);
-    if (items.length === 0) {
-        showToast('Please select files or folders to compress', '⚠️');
-        return;
-    }
-
-    let defaultName = 'archive.zip';
-    if (items.length === 1) {
-        defaultName = items[0].name.replace(/[\\/]+$/, '') + '.zip';
-    } else {
-        const folderName = getTabTitleForPath(currentPath);
-        defaultName = (folderName && folderName !== 'Folder' && folderName !== 'Root' ? folderName + '_archive.zip' : 'archive.zip');
-    }
-
-    const input = document.getElementById('input-compress-name');
-    if (input) input.value = defaultName;
-    const desc = document.getElementById('compress-prompt-desc');
-    if (desc) desc.textContent = 'Compress ' + items.length + ' item' + (items.length === 1 ? '' : 's') + ' into:';
-
-    const modal = document.getElementById('modal-compress');
-    if (modal) modal.style.display = 'flex';
-    setTimeout(function() {
-        if (input) {
-            input.focus();
-            const dotIdx = input.value.lastIndexOf('.');
-            if (dotIdx > 0) input.setSelectionRange(0, dotIdx);
-            else input.select();
-        }
-    }, 50);
-}
-
-async function submitCompress() {
-    const input = document.getElementById('input-compress-name');
-    let archiveName = input ? input.value.trim() : '';
-    if (!archiveName) archiveName = 'archive.zip';
-    if (!archiveName.toLowerCase().endsWith('.zip')) archiveName += '.zip';
-
-    hideModals();
-    const rawItems = selectedItems.length > 0 ? selectedItems.slice() : (selectedItem ? [selectedItem] : []);
-    const items = rawItems.map(function(i) {
-        return typeof i === 'string' ? i : (i ? i.name : '');
-    }).filter(Boolean);
-
-    if (items.length === 0) {
-        showToast('No valid items selected to compress', '⚠️');
-        return;
-    }
-
-    showToast('Compressing into "' + archiveName + '"...', '⏳');
-    try {
-        const res = await fetch('/api/files/compress', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                currentPath: currentPath,
-                folder: currentPath,
-                items: items,
-                archiveName: archiveName
-            })
-        });
-        let data = null;
-        try { data = await res.json(); } catch {}
-        if (res.ok && data && data.success) {
-            showToast('Created archive "' + (data.archiveName || archiveName) + '"', '🗜️');
-            loadFiles(currentPath);
-        } else {
-            const errDetail = (data && (data.error || data.detail || data.title)) || (res.statusText ? 'HTTP ' + res.status + ' (' + res.statusText + ')' : 'Server error');
-            showToast(errDetail.startsWith('Compression failed') ? errDetail : 'Compression failed: ' + errDetail, '❌');
-        }
-    } catch (err) {
-        console.error(err);
-        showToast('Error creating archive: ' + (err.message || 'Network error'), '❌');
-    }
-}
-
-async function handleExtractSelected(intoSubfolder) {
-    hideContextMenu();
-    const targetItem = selectedItem || (selectedItems.length === 1 ? selectedItems[0] : null);
-    if (!targetItem || !isArchiveFileName(targetItem.name)) {
-        showToast('Please select a valid archive (.zip, .tar.gz, etc.) to extract', '⚠️');
-        return;
-    }
-
-    const sep = isWindows ? '\\' : '/';
-    const archiveFullPath = targetItem.path || (currentPath.endsWith(sep) ? currentPath + targetItem.name : currentPath + sep + targetItem.name);
-    let destinationFolder = undefined;
-    if (intoSubfolder) {
-        const baseName = targetItem.name.replace(/\.(zip|tar\.gz|tgz|tar|gz)$/i, '');
-        destinationFolder = currentPath.endsWith(sep) ? currentPath + baseName : currentPath + sep + baseName;
-    }
-
-    showToast('Extracting "' + targetItem.name + '"...', '⏳');
-    try {
-        const res = await fetch('/api/files/extract', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                archivePath: archiveFullPath,
-                destinationDir: destinationFolder,
-                folder: currentPath,
-                archiveName: targetItem.name,
-                destinationFolder: destinationFolder
-            })
-        });
-        let data = null;
-        try { data = await res.json(); } catch {}
-        if (res.ok && data && data.success) {
-            showToast('Archive extracted successfully' + (intoSubfolder ? ' to ' + targetItem.name.replace(/\.(zip|tar\.gz|tgz|tar|gz)$/i, '') + '/' : ''), '📦');
-            loadFiles(currentPath);
-        } else {
-            const errDetail = (data && (data.error || data.detail || data.title)) || (res.statusText ? 'HTTP ' + res.status + ' (' + res.statusText + ')' : 'Server error');
-            showToast(errDetail.startsWith('Extraction failed') ? errDetail : 'Extraction failed: ' + errDetail, '❌');
-        }
-    } catch (err) {
-        console.error(err);
-        showToast('Error extracting archive: ' + (err.message || 'Network error'), '❌');
-    }
-}
-
-// ══════════════════════════════════════════════════════════
-// 🛠️ UTILITIES
-// ══════════════════════════════════════════════════════════
-function formatBytes(bytes) {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
-
-function formatDate(dateStr) {
-    if (!dateStr) return '';
-    try {
-        const d = new Date(dateStr);
-        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-    } catch {
-        return dateStr;
-    }
-}
-
-function escapeHtml(text) {
-    if (text === null || text === undefined) return '';
-    return String(text)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-function escapePath(path) {
-    if (!path) return '';
-    return path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-}
-
-function showToast(message, icon = '💡') {
-    const existing = document.querySelector('.toast');
-    if (existing) existing.remove();
-
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.innerHTML = '<span style="font-size: 16px;">' + icon + '</span><span>' + escapeHtml(message) + '</span>';
-    document.body.appendChild(toast);
-
-    setTimeout(function() {
-        toast.style.transition = 'opacity 0.25s, transform 0.25s';
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateY(15px)';
-        setTimeout(function() { toast.remove(); }, 250);
-    }, 2500);
-}
-
-// Initialize Tabs
-if (!loadTabsState()) {
-    tabs = [{
-        id: 'tab_init',
-        title: 'Loading...',
-        path: '.',
-        history: ['.'],
-        historyIndex: 0,
-        sort: { field: 'name', asc: true },
-        searchQuery: ''
-    }];
-    activeTabId = 'tab_init';
-}
-renderTabs();
-
-// Mousewheel horizontal scroll on tabs bar
-const tabsBarEl = document.getElementById('tabs-bar');
-if (tabsBarEl) {
-    tabsBarEl.addEventListener('wheel', function(e) {
-        if (e.deltaY !== 0) {
-            e.preventDefault();
-            tabsBarEl.scrollLeft += e.deltaY;
-        }
-    }, { passive: false });
-}
-
-// ══════════════════════════════════════════════════════════
-// 🖱️ DRAG & DROP SYSTEM (Internal Move/Copy + Desktop Upload)
-// ══════════════════════════════════════════════════════════
-let draggedVenElItems = [];
-
-function handleItemDragStart(e, name, isDir) {
-    const isAlreadySelected = selectedItems.some(function(i) { return i.name === name; });
-    if (!isAlreadySelected) {
-        const item = currentItems.find(function(i) { return i.name === name; }) || { name: name, type: isDir ? 'Directory' : 'File' };
-        selectedItems = [item];
-        selectedItem = item;
-        syncItemSelectionDOM();
-        updateSelectionState();
-    }
-
-    const sep = isWindows ? '\\' : '/';
-    draggedVenElItems = selectedItems.map(function(i) {
-        return i.path || (currentPath.endsWith(sep) ? currentPath + i.name : currentPath + sep + i.name);
-    });
-
-    if (e.dataTransfer) {
-        e.dataTransfer.setData('application/json', JSON.stringify({
-            type: 'venel-internal-items',
-            items: draggedVenElItems
-        }));
-        e.dataTransfer.effectAllowed = 'copyMove';
-
-        // Developer Productivity: Drag-and-drop into VS Code editor for smart import statement or relative path insertion
-        if (draggedVenElItems.length > 0) {
-            const firstItemPath = draggedVenElItems[0];
-            const importSnippet = generateSmartImportSnippet(firstItemPath, currentPath);
-            e.dataTransfer.setData('text/plain', importSnippet);
-            e.dataTransfer.setData('text/uri-list', 'file://' + firstItemPath);
-            try {
-                e.dataTransfer.setData('application/vnd.code.uri-list', JSON.stringify(['file://' + firstItemPath]));
-            } catch {}
-        }
-    }
-
-    const elem = e.currentTarget;
-    if (elem) elem.classList.add('dragging');
-}
-
-function handleItemDragEnd(e) {
-    draggedVenElItems = [];
-    const elem = e.currentTarget;
-    if (elem) elem.classList.remove('dragging');
-    document.querySelectorAll('.drag-over').forEach(function(el) { el.classList.remove('drag-over'); });
-    document.querySelectorAll('.dragging').forEach(function(el) { el.classList.remove('dragging'); });
-}
-
-function handleFolderDragOver(e, folderName) {
-    const sep = isWindows ? '\\' : '/';
-    const targetPath = currentPath.endsWith(sep) ? currentPath + folderName : currentPath + sep + folderName;
-    if (draggedVenElItems.includes(targetPath)) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer) {
-        e.dataTransfer.dropEffect = e.altKey ? 'copy' : 'move';
-    }
-    e.currentTarget.classList.add('drag-over');
-}
-
-function handleFolderDragLeave(e) {
-    e.currentTarget.classList.remove('drag-over');
-}
-
-async function handleFolderDrop(e, folderName) {
-    e.preventDefault();
-    e.stopPropagation();
-    e.currentTarget.classList.remove('drag-over');
-
-    const sep = isWindows ? '\\' : '/';
-    const destinationDir = currentPath.endsWith(sep) ? currentPath + folderName : currentPath + sep + folderName;
-
-    if (draggedVenElItems.length > 0) {
-        const itemsToTransfer = draggedVenElItems.slice();
-        draggedVenElItems = [];
-        const isCopy = e.altKey;
-        const endpoint = isCopy ? '/api/files/copy' : '/api/files/move';
-
-        try {
-            const res = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: itemsToTransfer, destinationDir: destinationDir })
-            });
-            const result = await res.json();
-            if (!res.ok || result.error) {
-                showToast('Transfer failed: ' + (result.error || 'Server error'), '⚠️');
-            } else {
-                showToast((isCopy ? 'Copied ' : 'Moved ') + itemsToTransfer.length + ' item(s) to ' + folderName, '📂');
-                refreshCurrentFolder();
-            }
-        } catch (err) {
-            showToast('Transfer error: ' + (err.message || err), '⚠️');
-        }
-        return;
-    }
-
-    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        await uploadFileList(e.dataTransfer.files, destinationDir);
-    }
-}
-
-function handleBreadcrumbDragOver(e, targetPath) {
-    if (targetPath === currentPath) return;
-    if (draggedVenElItems.includes(targetPath)) return;
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer) {
-        e.dataTransfer.dropEffect = e.altKey ? 'copy' : 'move';
-    }
-    e.currentTarget.classList.add('drag-over');
-}
-
-function handleBreadcrumbDragLeave(e) {
-    e.currentTarget.classList.remove('drag-over');
-}
-
-async function handleBreadcrumbDrop(e, targetPath) {
-    e.preventDefault();
-    e.stopPropagation();
-    e.currentTarget.classList.remove('drag-over');
-
-    if (draggedVenElItems.length > 0) {
-        const itemsToTransfer = draggedVenElItems.slice();
-        draggedVenElItems = [];
-        const isCopy = e.altKey;
-        const endpoint = isCopy ? '/api/files/copy' : '/api/files/move';
-
-        try {
-            const res = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: itemsToTransfer, destinationDir: targetPath })
-            });
-            const result = await res.json();
-            if (!res.ok || result.error) {
-                showToast('Transfer failed: ' + (result.error || 'Server error'), '⚠️');
-            } else {
-                const targetName = targetPath.split(/[\/\\]/).filter(Boolean).pop() || targetPath;
-                showToast((isCopy ? 'Copied ' : 'Moved ') + itemsToTransfer.length + ' item(s) to ' + targetName, '📂');
-                refreshCurrentFolder();
-            }
-        } catch (err) {
-            showToast('Transfer error: ' + (err.message || err), '⚠️');
-        }
-        return;
-    }
-
-    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        await uploadFileList(e.dataTransfer.files, targetPath);
-    }
-}
-
-function handleBookmarkDragOver(e, targetPath) {
-    if (draggedVenElItems.includes(targetPath)) return;
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer) {
-        e.dataTransfer.dropEffect = e.altKey ? 'copy' : 'move';
-    }
-    e.currentTarget.classList.add('drag-over');
-}
-
-function handleBookmarkDragLeave(e) {
-    e.currentTarget.classList.remove('drag-over');
-}
-
-async function handleBookmarkDrop(e, targetPath) {
-    e.preventDefault();
-    e.stopPropagation();
-    e.currentTarget.classList.remove('drag-over');
-
-    if (draggedVenElItems.length > 0) {
-        const itemsToTransfer = draggedVenElItems.slice();
-        draggedVenElItems = [];
-        const isCopy = e.altKey;
-        const endpoint = isCopy ? '/api/files/copy' : '/api/files/move';
-
-        try {
-            const res = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: itemsToTransfer, destinationDir: targetPath })
-            });
-            const result = await res.json();
-            if (!res.ok || result.error) {
-                showToast('Transfer failed: ' + (result.error || 'Server error'), '⚠️');
-            } else {
-                const targetName = targetPath.split(/[\/\\]/).filter(Boolean).pop() || targetPath;
-                showToast((isCopy ? 'Copied ' : 'Moved ') + itemsToTransfer.length + ' item(s) to ' + targetName, '⭐');
-                refreshCurrentFolder();
-            }
-        } catch (err) {
-            showToast('Transfer error: ' + (err.message || err), '⚠️');
-        }
-        return;
-    }
-
-    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        await uploadFileList(e.dataTransfer.files, targetPath);
-    }
-}
-
-async function uploadFileList(files, targetDir) {
-    if (!files || files.length === 0) return;
-    const destDir = targetDir || currentPath;
-    showToast('Uploading ' + files.length + ' file(s)...', '⏳');
-
-    const payloadFiles = [];
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        try {
-            const base64 = await readFileAsBase64(file);
-            payloadFiles.push({
-                name: file.name,
-                contentBase64: base64
-            });
-        } catch (err) {
-            console.error('Failed to read file:', file.name, err);
-        }
-    }
-
-    if (payloadFiles.length === 0) return;
-
-    try {
-        const res = await fetch('/api/files/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ destinationDir: destDir, files: payloadFiles })
-        });
-        const result = await res.json();
-        if (!res.ok || result.error) {
-            showToast('Upload failed: ' + (result.error || 'Server error'), '⚠️');
-        } else {
-            showToast('Successfully added ' + result.count + ' file(s)!', '📂');
-            refreshCurrentFolder();
-        }
-    } catch (err) {
-        showToast('Upload error: ' + (err.message || err), '⚠️');
-    }
-}
-
-function readFileAsBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = function() {
-            const dataUrl = reader.result;
-            const base64 = dataUrl.split(',')[1] || '';
-            resolve(base64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
-function setupWindowDragAndDrop() {
-    const overlay = document.getElementById('dropOverlay');
-    const targetName = document.getElementById('dropOverlayTargetName');
-    let dragCounter = 0;
-
-    window.addEventListener('dragenter', function(e) {
-        if (draggedVenElItems.length > 0) return;
-        if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
-
-        dragCounter++;
-        if (overlay) {
-            if (targetName) targetName.textContent = currentPath;
-            overlay.classList.add('active');
-        }
-    });
-
-    window.addEventListener('dragleave', function(e) {
-        if (draggedVenElItems.length > 0) return;
-        dragCounter--;
-        if (dragCounter <= 0) {
-            dragCounter = 0;
-            if (overlay) overlay.classList.remove('active');
-        }
-    });
-
-    window.addEventListener('dragover', function(e) {
-        if (draggedVenElItems.length > 0) return;
-        if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'copy';
-    });
-
-    window.addEventListener('drop', async function(e) {
-        dragCounter = 0;
-        if (overlay) overlay.classList.remove('active');
-        if (draggedVenElItems.length > 0) return;
-        if (!e.dataTransfer || !e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
-
-        e.preventDefault();
-        e.stopPropagation();
-        await uploadFileList(e.dataTransfer.files, currentPath);
-    });
-}
-
-// ══════════════════════════════════════════════════════════
-// ✨ FLOATING GLASSMORPHIC HOVER CARD (TOOLTIP)
-// ══════════════════════════════════════════════════════════
-let hoverCardTimer = null;
-let hoverCardCurrentTarget = null;
-let lastMousePos = { x: 0, y: 0 };
-
-function handleItemHoverEnter(e, itemEl) {
-    hideHoverCard();
-    hoverCardCurrentTarget = itemEl;
-    lastMousePos = { x: e ? e.clientX : 0, y: e ? e.clientY : 0 };
-    hoverCardTimer = setTimeout(function() {
-        if (hoverCardCurrentTarget === itemEl) {
-            showHoverCardForItem(itemEl, lastMousePos.x, lastMousePos.y);
-        }
-    }, 280);
-}
-
-function handleItemHoverLeave(e, itemEl) {
-    if (hoverCardCurrentTarget === itemEl) {
-        hideHoverCard();
-    }
-}
-
-function handleItemHoverMove(e, itemEl) {
-    if (e) {
-        lastMousePos = { x: e.clientX, y: e.clientY };
-    }
-    const card = document.getElementById('file-hover-card');
-    if (card && card.classList.contains('visible') && hoverCardCurrentTarget === itemEl) {
-        positionHoverCard(card, lastMousePos.x, lastMousePos.y, itemEl);
-    }
-}
-
-window.triggerItemHover = function(name) {
-    const itemEl = name ? document.querySelector('.item[data-name="' + name + '"]') : document.querySelector('.item');
-    if (itemEl) {
-        hoverCardCurrentTarget = itemEl;
-        itemEl.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-        showHoverCardForItem(itemEl, 0, 0);
-    }
-};
-
-function initHoverCard() {
-    const filesContainer = document.getElementById('files');
-    const card = document.getElementById('file-hover-card');
-    if (!card) return;
-
-    // Hide immediately when scrolling, clicking, dragging, or opening context menus
-    const scrollContainer = document.getElementById('file-list-container') || filesContainer;
-    if (scrollContainer) {
-        scrollContainer.addEventListener('scroll', hideHoverCard, { passive: true });
-    }
-    window.addEventListener('scroll', hideHoverCard, { passive: true });
-    window.addEventListener('resize', hideHoverCard, { passive: true });
-    window.addEventListener('contextmenu', hideHoverCard);
-    window.addEventListener('mousedown', function(e) {
-        if (e.target && e.target.closest && e.target.closest('#file-hover-card')) return;
-        hideHoverCard();
-    });
-    window.addEventListener('dragstart', hideHoverCard);
-}
-
-function hideHoverCard() {
-    if (hoverCardTimer) {
-        clearTimeout(hoverCardTimer);
-        hoverCardTimer = null;
-    }
-    hoverCardCurrentTarget = null;
-    const card = document.getElementById('file-hover-card');
-    if (card) {
-        card.classList.remove('visible');
-        card.style.display = 'none';
-    }
-}
-
-function showHoverCardForItem(itemEl, mouseX, mouseY) {
-    const card = document.getElementById('file-hover-card');
-    if (!card || !itemEl) return;
-
-    const itemPath = itemEl.getAttribute('data-path');
-    const itemName = itemEl.getAttribute('data-name');
-    if (!itemName && !itemPath) return;
-
-    // Find item in displayedItems or currentItems
-    const item = (itemPath && (displayedItems || []).find(function(it) { return it.path === itemPath; })) ||
-                 (displayedItems || []).find(function(it) { return it.name === itemName; }) ||
-                 (currentItems || []).find(function(it) { return it.name === itemName; });
-    if (!item) return;
-
-    const isDir = item.type === 'Directory';
-    const visual = getFileVisual(item.name, isDir);
-
-    // 1. Icon & Header
-    const iconEl = document.getElementById('hover-card-icon');
-    const nameEl = document.getElementById('hover-card-name');
-    const typeEl = document.getElementById('hover-card-type');
-    if (iconEl) {
-        if (visual.svg) iconEl.innerHTML = visual.svg;
-        else iconEl.textContent = visual.icon;
-    }
-    if (nameEl) nameEl.textContent = item.name;
-    if (typeEl) typeEl.textContent = visual.typeLabel || (isDir ? 'File folder' : 'File');
-
-    // 2. Size & Modified
-    const sizeEl = document.getElementById('hover-card-size');
-    const modEl = document.getElementById('hover-card-modified');
-    if (sizeEl) sizeEl.textContent = !isDir ? formatBytes(item.size) : '--';
-    if (modEl) modEl.textContent = item.modified ? formatDate(item.modified) : '--';
-
-    // 3. Git Status
-    const gitRow = document.getElementById('hover-card-git-row');
-    const gitText = document.getElementById('hover-card-git-text');
-    const gitDot = document.getElementById('hover-card-git-dot');
-    if (gitRow && gitText) {
-        const gitCode = currentGitStatuses ? currentGitStatuses[item.name] : null;
-        if (gitCode) {
-            gitRow.style.display = 'flex';
-            let gitLabel = 'Modified';
-            let dotColor = '#ffeaa7';
-            if (gitCode === 'M') { gitLabel = 'Modified (unstaged)'; dotColor = '#ffeaa7'; }
-            else if (gitCode === 'U' || gitCode === '?') { gitLabel = 'Untracked'; dotColor = '#55efc4'; }
-            else if (gitCode === 'A') { gitLabel = 'Added (staged)'; dotColor = '#00cec9'; }
-            else if (gitCode === 'D') { gitLabel = 'Deleted'; dotColor = '#ff7675'; }
-            else if (gitCode === 'R') { gitLabel = 'Renamed'; dotColor = '#74b9ff'; }
-            else { gitLabel = 'Changed'; dotColor = '#a29bfe'; }
-
-            gitText.textContent = gitLabel;
-            if (gitDot) gitDot.style.color = dotColor;
-        } else {
-            gitRow.style.display = 'none';
-        }
-    }
-
-    // 3b. AI Tokens
-    const tokensRow = document.getElementById('hover-card-tokens-row');
-    const tokenText = document.getElementById('hover-card-token-text');
-    if (tokensRow && tokenText) {
-        if (!isDir && item.size && item.size > 0 && item.size < 5 * 1024 * 1024) {
-            const approxTokens = Math.max(1, Math.round(item.size / 3.8));
-            tokenText.textContent = '✨ ~' + formatTokenCount(approxTokens);
-            tokensRow.style.display = 'flex';
-        } else {
-            tokensRow.style.display = 'none';
-        }
-    }
-
-    lastHoveredItem = item;
-
-    // 4. Location / Full Path
-    const locEl = document.getElementById('hover-card-location');
-    if (locEl) {
-        const sep = isWindows ? '\\' : '/';
-        const fullLoc = (item.isSearchResult && item.directory)
-            ? item.directory
-            : ((item.isSearchResult && item.path)
-                ? item.path.substring(0, item.path.lastIndexOf(sep))
-                : currentPath);
-        locEl.textContent = fullLoc || currentPath || '/';
-        locEl.title = fullLoc || currentPath || '/';
-    }
-
-    card.style.display = 'block';
-    positionHoverCard(card, mouseX, mouseY, itemEl);
-    requestAnimationFrame(function() {
-        card.classList.add('visible');
-    });
-}
-
-function positionHoverCard(card, mouseX, mouseY, itemEl) {
-    if (!mouseX || !mouseY || mouseX <= 0 || mouseY <= 0) {
-        if (itemEl) {
-            const r = itemEl.getBoundingClientRect();
-            mouseX = Math.round(r.left + r.width / 2);
-            mouseY = Math.round(r.bottom);
-        } else {
-            return;
-        }
-    }
-
-    const cardRect = card.getBoundingClientRect();
-    const cardWidth = cardRect.width || 280;
-    const cardHeight = cardRect.height || 140;
-
-    const padding = 12;
-    let left = mouseX + 16;
-    let top = mouseY + 16;
-
-    // Flip horizontally if it would overflow right edge
-    if (left + cardWidth > window.innerWidth - padding) {
-        left = mouseX - cardWidth - 14;
-    }
-
-    // Flip vertically if it would overflow bottom edge
-    if (top + cardHeight > window.innerHeight - padding) {
-        top = mouseY - cardHeight - 12;
-    }
-
-    // Clamp within viewport
-    left = Math.max(padding, Math.min(left, window.innerWidth - cardWidth - padding));
-    top = Math.max(padding, Math.min(top, window.innerHeight - cardHeight - padding));
-
-    card.style.left = left + 'px';
-    card.style.top = top + 'px';
-}
-
-// ══════════════════════════════════════════════════════════
-// ✨ VENEL AI ADVANTAGE: CONTEXT INJECTOR & TOKEN INTELLIGENCE
-// ══════════════════════════════════════════════════════════
-
-let currentAiContext = {
-    name: '',
-    path: '',
-    isDir: false,
-    size: 0,
-    lines: 0,
-    tokens: 0,
-    content: '',
-    diff: '',
-    extension: ''
-};
-
-let lastHoveredItem = null;
-let currentAiPreset = 'explain';
-
-function estimateTokens(text) {
-    if (!text || text.length === 0) return 0;
-    // BPE heuristic approximation for code & natural language
-    const matches = text.match(/[\w]+|[^\s\w]|\s+/g);
-    if (!matches) return Math.max(1, Math.ceil(text.length / 3.8));
-    let count = 0;
-    for (let i = 0; i < matches.length; i++) {
-        const m = matches[i];
-        if (/^\s+$/.test(m)) {
-            count += Math.ceil(m.length / 4);
-        } else if (m.length > 4) {
-            count += Math.ceil(m.length / 3.4);
-        } else {
-            count += 1;
-        }
-    }
-    return Math.max(1, count);
-}
-
-function formatTokenCount(tokens) {
-    if (!tokens || tokens <= 0) return '0 tokens';
-    if (tokens < 1000) return tokens + ' tokens';
-    if (tokens < 1000000) return (tokens / 1000).toFixed(1).replace(/\.0$/, '') + 'k tokens';
-    return (tokens / 1000000).toFixed(2).replace(/\.00$/, '') + 'M tokens';
-}
-
-function getTokenContextHealth(tokens) {
-    // Relative to standard 128k context window (GPT-4o, Claude 3.5 Sonnet)
-    const maxContext = 128000;
-    const ratio = tokens / maxContext;
-    const widthPct = Math.min(100, Math.max(2, Math.round(ratio * 100)));
-    let pctStr = (ratio * 100).toFixed(1) + '%';
-    if (ratio < 0.01) pctStr = '<1%';
-
-    let healthClass = 'compact';
-    if (tokens > 32000) healthClass = 'heavy';
-    else if (tokens > 8000) healthClass = 'moderate';
-
-    return { class: healthClass, pctStr: pctStr, widthPct: widthPct };
-}
-
-function updatePreviewTokenBadge(tokens, isDir, fullPath) {
-    const tokenBadge = document.getElementById('preview-header-tokens');
-    const askAiBtn = document.getElementById('preview-ask-ai-btn');
-    const qlTokenPill = document.getElementById('ql-token-pill');
-
-    if (tokens > 0) {
-        const health = getTokenContextHealth(tokens);
-        const formatted = '✨ ~' + formatTokenCount(tokens);
-        if (tokenBadge) {
-            tokenBadge.textContent = formatted;
-            tokenBadge.className = 'token-pill ' + health.class;
-            tokenBadge.title = `Estimated LLM Tokens: ~${tokens.toLocaleString()} (${health.pctStr} of 128k context)`;
-            tokenBadge.style.display = 'inline-flex';
-        }
-        if (qlTokenPill) {
-            qlTokenPill.textContent = formatted;
-            qlTokenPill.className = 'token-pill ' + health.class;
-            qlTokenPill.style.display = 'inline-flex';
-        }
-        if (askAiBtn) {
-            askAiBtn.style.display = 'inline-flex';
-        }
-    } else {
-        if (tokenBadge) tokenBadge.style.display = 'none';
-        if (qlTokenPill) qlTokenPill.style.display = 'none';
-        if (askAiBtn) askAiBtn.style.display = isDir ? 'inline-flex' : 'none';
-    }
-}
-
-const AI_PROMPT_PRESETS = {
-    explain: "Analyze this file. Provide a comprehensive architectural overview, core responsibilities, public APIs, key control flows, and dependencies.",
-    tests: "Generate exhaustive unit tests covering all functions, boundary conditions, edge cases, and mocked dependencies in this file.",
-    review: "Review this code for performance bottlenecks, security vulnerabilities, memory leak hazards, anti-patterns, and recommend concrete modernizations.",
-    docs: "Generate complete, production-grade documentation and docstrings for all classes, methods, parameters, and types in this file.",
-    bugs: "Perform a rigorous static analysis to find potential runtime exceptions, race conditions, unhandled null references, or edge case failures in this code.",
-    refactor: "Analyze this file and recommend refactoring opportunities to simplify complexity, enhance readability, and adhere to clean code principles."
-};
-
-async function openAiAssistantModal(targetItem) {
-    hideContextMenu();
-    const item = targetItem || selectedItem || (currentItems.length > 0 ? currentItems[0] : null);
-    if (!item) {
-        showToast('Select a file or folder first to ask AI', '✨');
-        return;
-    }
-
-    const isDir = item.type === 'Directory';
-    const sep = isWindows ? '\\' : '/';
-    const fullPath = item.path || (currentPath.endsWith(sep) ? currentPath + item.name : currentPath + sep + item.name);
-
-    currentAiContext = {
-        name: item.name,
-        path: fullPath,
-        isDir: isDir,
-        size: item.size || 0,
-        lines: 0,
-        tokens: 0,
-        content: '',
-        diff: '',
-        extension: item.name.includes('.') ? item.name.split('.').pop().toLowerCase() : ''
-    };
-
-    // UI Updates
-    const visual = getFileVisual(item.name, isDir);
-    const aiIconEl = document.getElementById('ai-target-icon');
-    if (aiIconEl) {
-        if (visual.svg) aiIconEl.innerHTML = visual.svg;
-        else aiIconEl.textContent = visual.icon;
-    }
-    document.getElementById('ai-target-name').textContent = item.name;
-    document.getElementById('ai-target-meta').textContent = isDir ? 'Directory' : formatBytes(item.size || 0);
-
-    const tokenCountEl = document.getElementById('ai-target-tokens');
-    const tokenMeterBar = document.getElementById('ai-token-meter-bar');
-    const tokenSubtext = document.getElementById('ai-token-subtext');
-    tokenCountEl.textContent = '✨ Calculating...';
-    tokenMeterBar.style.width = '2%';
-    tokenSubtext.textContent = 'Analyzing tokens...';
-
-    // Check git diff option
-    const diffRow = document.getElementById('ai-diff-option-row');
-    const diffCheckbox = document.getElementById('ai-include-diff');
-    const gitCode = currentGitStatuses ? currentGitStatuses[item.name] : null;
-    if (gitCode && gitCode === 'M') {
-        diffRow.style.display = 'inline-flex';
-        diffCheckbox.checked = true;
-    } else {
-        diffRow.style.display = 'none';
-        diffCheckbox.checked = false;
-    }
-
-    // Set default preset
-    selectAiPreset('explain');
-
-    const modal = document.getElementById('modal-ai-assistant');
-    modal.style.display = 'flex';
-
-    // Fetch context from server
-    try {
-        const res = await fetch('/api/files/ai/context?path=' + encodeURIComponent(fullPath));
-        if (res.ok) {
-            const data = await res.json();
-            if (data && data.ok) {
-                currentAiContext.tokens = data.estimatedTokens || 0;
-                currentAiContext.lines = data.totalLines || data.lineCount || 0;
-                currentAiContext.content = data.content || data.snippet || '';
-
-                const metaStr = isDir 
-                    ? `${data.totalCodeFiles || 0} code files • ${currentAiContext.lines.toLocaleString()} lines`
-                    : `${currentAiContext.lines.toLocaleString()} lines • ${formatBytes(data.size || 0)}`;
-                document.getElementById('ai-target-meta').textContent = metaStr;
-
-                const health = getTokenContextHealth(currentAiContext.tokens);
-                tokenCountEl.textContent = '✨ ~' + formatTokenCount(currentAiContext.tokens);
-                tokenMeterBar.style.width = health.widthPct + '%';
-                tokenSubtext.textContent = `${health.pctStr} of 128k context`;
-            }
-        }
-    } catch {}
-
-    // Fetch diff if modified
-    if (gitCode && gitCode === 'M') {
-        try {
-            const diffRes = await fetch('/api/files/diff?fileA=' + encodeURIComponent(fullPath) + '&fileB=HEAD');
-            if (diffRes.ok) {
-                const diffData = await diffRes.json();
-                if (diffData && diffData.lines) {
-                    currentAiContext.diff = diffData.lines.map(l => (l.type === 'add' ? '+ ' : (l.type === 'remove' ? '- ' : '  ')) + l.text).join('\n');
-                }
-            }
-        } catch {}
-    }
-
-    updateAiPromptPreview();
-}
-
-function openAiAssistantFromHover(event) {
-    if (event) event.stopPropagation();
-    hideHoverCard();
-    openAiAssistantModal(lastHoveredItem);
-}
-
-function openAiAssistantFromQuickLook() {
-    closeQuickLook();
-    openAiAssistantModal();
-}
-
-function closeAiAssistantModal(event) {
-    if (event && event.target && event.target.id !== 'modal-ai-assistant' && !event.target.classList.contains('modal-close-btn') && !event.target.closest('.modal-close-btn')) {
-        return;
-    }
-    const modal = document.getElementById('modal-ai-assistant');
-    if (modal) modal.style.display = 'none';
-}
-
-function selectAiPreset(presetKey, btnElem) {
-    currentAiPreset = presetKey;
-    document.querySelectorAll('.ai-preset-chip').forEach(el => el.classList.remove('active'));
-    if (btnElem) {
-        btnElem.classList.add('active');
-    } else {
-        const found = document.querySelector(`.ai-preset-chip[onclick*="'${presetKey}'"]`);
-        if (found) found.classList.add('active');
-    }
-
-    const input = document.getElementById('ai-prompt-input');
-    if (input) {
-        input.value = AI_PROMPT_PRESETS[presetKey] || AI_PROMPT_PRESETS.explain;
-    }
-    updateAiPromptPreview();
-}
-
-function buildAiPayloadText() {
-    const promptInput = document.getElementById('ai-prompt-input');
-    const userPrompt = (promptInput ? promptInput.value.trim() : '') || AI_PROMPT_PRESETS[currentAiPreset];
-    const includeContent = document.getElementById('ai-include-content')?.checked;
-    const includeDiff = document.getElementById('ai-include-diff')?.checked;
-
-    let payload = `${userPrompt}\n\n`;
-    payload += `--- File Context ---\n`;
-    payload += `File: ${currentAiContext.name}\n`;
-    payload += `Path: ${currentAiContext.path}\n`;
-    if (currentAiContext.lines > 0) payload += `Lines: ${currentAiContext.lines}\n`;
-    if (currentAiContext.tokens > 0) payload += `Estimated Tokens: ~${currentAiContext.tokens.toLocaleString()}\n`;
-    payload += `--------------------\n\n`;
-
-    if (includeDiff && currentAiContext.diff) {
-        payload += `### Git Diff (Recent Changes against HEAD)\n\`\`\`diff\n${currentAiContext.diff}\n\`\`\`\n\n`;
-    }
-
-    if (includeContent && currentAiContext.content) {
-        const lang = currentAiContext.extension || 'text';
-        payload += `### Source Content\n\`\`\`${lang}\n${currentAiContext.content}\n\`\`\`\n`;
-    }
-
-    return payload;
-}
-
-function updateAiPromptPreview() {
-    const payload = buildAiPayloadText();
-    const codeEl = document.getElementById('ai-payload-code');
-    if (codeEl) {
-        codeEl.textContent = payload;
-    }
-}
-
-async function copyAiPromptAndContext() {
-    const payload = buildAiPayloadText();
-    try {
-        await navigator.clipboard.writeText(payload);
-        showToast('Prompt & code context copied to clipboard! (Ready to paste)', '✨');
-    } catch {
-        if (window.parent && window.parent.postMessage) {
-            window.parent.postMessage({ command: 'copyToClipboard', text: payload }, '*');
-        }
-        showToast('Prompt & code context copied to clipboard!', '✨');
-    }
-}
-
-async function sendToMcpAssistant() {
-    const payload = buildAiPayloadText();
-    const promptInput = document.getElementById('ai-prompt-input');
-    const userPrompt = (promptInput ? promptInput.value.trim() : '') || AI_PROMPT_PRESETS[currentAiPreset];
-
-    // 1. Post to VS Code Extension Host
-    if (window.parent && window.parent.postMessage) {
-        window.parent.postMessage({
-            command: 'askAi',
-            prompt: userPrompt,
-            fullText: payload,
-            fileName: currentAiContext.name,
-            filePath: currentAiContext.path,
-            tokenCount: currentAiContext.tokens
-        }, '*');
-    }
-
-    // 2. Also ensure it is in clipboard
-    try {
-        await navigator.clipboard.writeText(payload);
-    } catch {}
-
-    showToast(`Context sent to MCP Assistant (~${currentAiContext.tokens.toLocaleString()} tokens)`, '✨');
-    closeAiAssistantModal();
-}
 
 // Initialize
 try { fetchRoots(); } catch (e) { console.warn(e); }
@@ -10556,3 +10660,16 @@ window.addEventListener('unhandledrejection', function(event) {
 });
 
 
+
+// ══════════════════════════════════════════════════════════
+// 🌟 PUBLIC MICRO-UI INTERFACE (window.VenEl)
+// ══════════════════════════════════════════════════════════
+window.VenEl = {
+    version: "1.3.2",
+    state: { safeStorage },
+    views: { setView, setFolderStyle, getFolderSvg },
+    navigation: { navigateTo, goBack, goForward, goUp, goHome, refreshCurrentFolder },
+    commander: { toggleDualPaneMode },
+    preview: { togglePreview, toggleQuickLook },
+    modals: { openSftpModal, openCloudModal, openAboutModal }
+};

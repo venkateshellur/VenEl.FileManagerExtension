@@ -2,7 +2,7 @@
   "name": "venel-filemanager",
   "displayName": "VenEl File Manager",
   "description": "Modern interactive File Explorer for VS Code & Cursor with Grid View, Instant Previews & Native Drive Navigation.",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "publisher": "venkateshellur",
   "author": {
     "name": "Venkatesh Ellur",
@@ -160,7 +160,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "package": "vsce package --no-dependencies --allow-star-activation",
-    "sync:web": "cp -r media/index.html media/styles.css media/app.js ../VenEl.MCPAssistant/VenEl.MCPAssistant/src/VenEl.MCP.FileManager/Web/Static/",
+    "sync:web": "cp -r media/* ../VenEl.MCPAssistant/VenEl.MCPAssistant/src/VenEl.MCP.FileManager/Web/Static/",
     "publish:vscode": "vsce publish",
     "publish:ovsx": "ovsx publish"
   },

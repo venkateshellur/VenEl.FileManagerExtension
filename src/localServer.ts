@@ -88,19 +88,22 @@ export class LocalServer {
                         return;
                     }
 
-                    // 1b. Static Assets (styles.css, app.js, media files)
-                    const staticExtensions = ['.css', '.js', '.png', '.svg', '.ico'];
+                    // 1b. Static Assets (styles.css, app.js, js/*, css/*, media files)
+                    const staticExtensions = ['.css', '.js', '.mjs', '.png', '.svg', '.ico', '.json', '.map'];
                     const reqExt = path.extname(pathname).toLowerCase();
                     if (staticExtensions.includes(reqExt)) {
-                        const safeFileName = path.basename(pathname);
-                        const mediaPath = path.join(__dirname, '..', 'media', safeFileName);
-                        if (fs.existsSync(mediaPath) && fs.statSync(mediaPath).isFile()) {
+                        const cleanSubpath = pathname.replace(/^\/+/, '');
+                        const mediaDir = path.resolve(__dirname, '..', 'media');
+                        const mediaPath = path.resolve(mediaDir, cleanSubpath);
+                        if (mediaPath.startsWith(mediaDir) && fs.existsSync(mediaPath) && fs.statSync(mediaPath).isFile()) {
                             const mimeTypes: Record<string, string> = {
                                 '.css': 'text/css; charset=utf-8',
                                 '.js': 'application/javascript; charset=utf-8',
+                                '.mjs': 'application/javascript; charset=utf-8',
                                 '.png': 'image/png',
                                 '.svg': 'image/svg+xml',
-                                '.ico': 'image/x-icon'
+                                '.ico': 'image/x-icon',
+                                '.json': 'application/json'
                             };
                             res.writeHead(200, {
                                 'Content-Type': mimeTypes[reqExt] || 'application/octet-stream',
