@@ -1516,11 +1516,117 @@ function jumpToSearchResult(directory, fileName) {
 }
 
 // ══════════════════════════════════════════════════════════
+// 📂 OS NATIVE FOLDER ICONS (macOS Finder / Windows Fluent)
+// ══════════════════════════════════════════════════════════
+let currentFolderStyle = safeStorage.getItem('venel_folder_style') || (isWindowsPlatform ? 'windows' : 'mac');
+
+function getMacFolderSvg(folderName) {
+    let emblemSvg = '';
+    const nameLower = (folderName || '').toLowerCase();
+    
+    if (nameLower === 'downloads') {
+        emblemSvg = '<g opacity="0.85" fill="#ffffff"><path d="M32 38l-7-7h4.5V22h5v9H39z"/><path d="M23 41h18v2H23z"/></g>';
+    } else if (nameLower === 'documents' || nameLower === 'docs') {
+        emblemSvg = '<g opacity="0.85" fill="#ffffff"><path d="M26 21h8l6 6v14a2 2 0 0 1-2 2H26a2 2 0 0 1-2-2V23a2 2 0 0 1 2-2zm7 1.5V27h4.5L33 22.5z"/><line x1="28" y1="31" x2="36" y2="31" stroke="#ffffff" stroke-width="1.5"/><line x1="28" y1="35" x2="36" y2="35" stroke="#ffffff" stroke-width="1.5"/></g>';
+    } else if (nameLower === 'desktop') {
+        emblemSvg = '<g opacity="0.85" fill="#ffffff"><rect x="23" y="22" width="18" height="12" rx="1.5" fill="none" stroke="#ffffff" stroke-width="1.5"/><path d="M30 35h4v3h-4z"/><path d="M26 38h12v1.5H26z"/></g>';
+    } else if (nameLower === 'pictures' || nameLower === 'images' || nameLower === 'photos') {
+        emblemSvg = '<g opacity="0.85" fill="#ffffff"><rect x="23" y="22" width="18" height="14" rx="1.5" fill="none" stroke="#ffffff" stroke-width="1.5"/><circle cx="28" cy="26" r="1.5"/><path d="M24 33l5-5 4 4 3-3 4 4v1H24z"/></g>';
+    } else if (nameLower === 'music' || nameLower === 'audio') {
+        emblemSvg = '<g opacity="0.85" fill="#ffffff"><path d="M36 21v11.5a3.5 3.5 0 1 1-2.5-3.3V24.5l-8 2.2V35a3.5 3.5 0 1 1-2.5-3.3V24a1.5 1.5 0 0 1 1.2-1.5l10.5-2.8A1.5 1.5 0 0 1 36 21z"/></g>';
+    } else if (nameLower === 'movies' || nameLower === 'videos' || nameLower === 'video') {
+        emblemSvg = '<g opacity="0.85" fill="#ffffff"><rect x="22" y="23" width="20" height="14" rx="1.5" fill="none" stroke="#ffffff" stroke-width="1.5"/><polygon points="29,26 36,30 29,34"/></g>';
+    } else if (nameLower === 'src' || nameLower === 'code' || nameLower === 'scripts') {
+        emblemSvg = '<g opacity="0.9" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M27 27l-4 4 4 4"/><path d="M37 27l4 4-4 4"/><path d="M33 25l-2 12"/></g>';
+    } else if (nameLower === '.git' || nameLower === 'git') {
+        emblemSvg = '<g opacity="0.85" fill="#ffffff"><circle cx="27" cy="26" r="2.2"/><circle cx="37" cy="28" r="2.2"/><circle cx="27" cy="36" r="2.2"/><path d="M27 28.2v5.6" stroke="#ffffff" stroke-width="1.8"/><path d="M27 30c3 0 7-1 10-2" fill="none" stroke="#ffffff" stroke-width="1.8"/></g>';
+    } else {
+        emblemSvg = '<rect x="22" y="30" width="20" height="2" rx="1" fill="rgba(255,255,255,0.25)"/><rect x="22" y="31" width="20" height="1" rx="0.5" fill="rgba(0,35,80,0.22)"/>';
+    }
+
+    return '<svg class="os-folder-icon mac-folder" viewBox="0 0 64 54" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+        '<path d="M 6 10 C 6 7 8 5 11 5 L 24 5 C 27.5 5 29.8 7.2 32.5 10 L 34.5 12 L 53 12 C 56.5 12 59 14.5 59 18 L 59 45 C 59 48.5 56.5 51 53 51 L 11 51 C 7.5 51 5 48.5 5 45 L 5 12 C 5 10.9 5.4 10 6 10 Z" fill="url(#macTabGrad)"/>' +
+        '<path d="M 6 16 L 58 16 L 58 24 L 6 24 Z" fill="#043a7a" opacity="0.55"/>' +
+        '<g filter="url(#macFolderDrop)">' +
+            '<path d="M 4 16.5 C 4 13.5 6.5 11 9.5 11 L 54.5 11 C 57.5 11 60 13.5 60 16.5 L 60 45 C 60 48.2 57.5 51 54.5 51 L 9.5 51 C 6.5 51 4 48.2 4 45 Z" fill="url(#macBodyGrad)"/>' +
+            '<path d="M 8 11.8 L 56 11.8" stroke="url(#macSpecular)" stroke-width="1.2" stroke-linecap="round"/>' +
+            emblemSvg +
+        '</g>' +
+    '</svg>';
+}
+
+function getWinFolderSvg(folderName) {
+    let emblemSvg = '';
+    const nameLower = (folderName || '').toLowerCase();
+    
+    if (nameLower === 'downloads') {
+        emblemSvg = '<g opacity="0.85" fill="#2d3748"><path d="M32 38l-6-6h4V22h4v10h4z"/><path d="M24 41h16v1.8H24z"/></g>';
+    } else if (nameLower === 'documents' || nameLower === 'docs') {
+        emblemSvg = '<g opacity="0.85" fill="#2d3748"><path d="M26 21h8l6 6v14a2 2 0 0 1-2 2H26a2 2 0 0 1-2-2V23a2 2 0 0 1 2-2zm7 1.5V27h4.5L33 22.5z"/></g>';
+    } else if (nameLower === 'desktop') {
+        emblemSvg = '<g opacity="0.85" fill="#2d3748"><rect x="23" y="22" width="18" height="12" rx="1.5" fill="none" stroke="#2d3748" stroke-width="1.5"/><path d="M30 35h4v3h-4z"/><path d="M26 38h12v1.5H26z"/></g>';
+    } else if (nameLower === 'pictures' || nameLower === 'images' || nameLower === 'photos') {
+        emblemSvg = '<g opacity="0.85" fill="#2d3748"><rect x="23" y="22" width="18" height="14" rx="1.5" fill="none" stroke="#2d3748" stroke-width="1.5"/><circle cx="28" cy="26" r="1.5"/><path d="M24 33l5-5 4 4 3-3 4 4v1H24z"/></g>';
+    } else if (nameLower === 'music' || nameLower === 'audio') {
+        emblemSvg = '<g opacity="0.85" fill="#2d3748"><path d="M36 21v11.5a3.5 3.5 0 1 1-2.5-3.3V24.5l-8 2.2V35a3.5 3.5 0 1 1-2.5-3.3V24a1.5 1.5 0 0 1 1.2-1.5l10.5-2.8A1.5 1.5 0 0 1 36 21z"/></g>';
+    } else if (nameLower === 'movies' || nameLower === 'videos' || nameLower === 'video') {
+        emblemSvg = '<g opacity="0.85" fill="#2d3748"><rect x="22" y="23" width="20" height="14" rx="1.5" fill="none" stroke="#2d3748" stroke-width="1.5"/><polygon points="29,26 36,30 29,34"/></g>';
+    } else if (nameLower === 'src' || nameLower === 'code' || nameLower === 'scripts') {
+        emblemSvg = '<g opacity="0.9" fill="none" stroke="#2d3748" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M27 27l-4 4 4 4"/><path d="M37 27l4 4-4 4"/><path d="M33 25l-2 12"/></g>';
+    } else if (nameLower === '.git' || nameLower === 'git') {
+        emblemSvg = '<g opacity="0.85" fill="#2d3748"><circle cx="27" cy="26" r="2.2"/><circle cx="37" cy="28" r="2.2"/><circle cx="27" cy="36" r="2.2"/><path d="M27 28.2v5.6" stroke="#2d3748" stroke-width="1.8"/><path d="M27 30c3 0 7-1 10-2" fill="none" stroke="#2d3748" stroke-width="1.8"/></g>';
+    }
+
+    return '<svg class="os-folder-icon win-folder" viewBox="0 0 64 54" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+        '<path d="M 6 12 C 6 9.5 8 7.5 10.5 7.5 L 25 7.5 C 27.5 7.5 29.5 9 31.5 11.5 L 34 14.5 L 54 14.5 C 57 14.5 59 16.5 59 19.5 L 59 45 C 59 48 57 50 54 50 L 10 50 C 7 50 5 48 5 45 L 5 14 C 5 12.8 5.4 12 6 12 Z" fill="url(#winTabGrad)"/>' +
+        '<path d="M 12 11 L 38 11 L 46 19 L 46 28 L 12 28 Z" fill="url(#winDocGrad)"/>' +
+        '<path d="M 38 11 L 38 19 L 46 19 Z" fill="#cbd5e1"/>' +
+        '<g filter="url(#winFolderDrop)">' +
+            '<path d="M 4 18 C 4 15.2 6.2 13 9 13 L 55 13 C 57.8 13 60 15.2 60 18 L 60 45 C 60 48 57.8 50.5 55 50.5 L 9 50.5 C 6.2 50.5 4 48 4 45 Z" fill="url(#winBodyGrad)"/>' +
+            '<path d="M 8 13.8 L 56 13.8" stroke="rgba(255,255,255,0.75)" stroke-width="1.2" stroke-linecap="round"/>' +
+            emblemSvg +
+        '</g>' +
+    '</svg>';
+}
+
+function getFolderSvg(folderName) {
+    if (currentFolderStyle === 'windows') {
+        return getWinFolderSvg(folderName);
+    }
+    return getMacFolderSvg(folderName);
+}
+
+function updateFolderStyleMenu() {
+    const macOpt = document.getElementById('opt-folder-mac');
+    const winOpt = document.getElementById('opt-folder-win');
+    if (macOpt) macOpt.classList.toggle('active', currentFolderStyle === 'mac');
+    if (winOpt) winOpt.classList.toggle('active', currentFolderStyle === 'windows');
+}
+
+function setFolderStyle(style) {
+    currentFolderStyle = style === 'windows' ? 'windows' : 'mac';
+    safeStorage.setItem('venel_folder_style', currentFolderStyle);
+    updateFolderStyleMenu();
+    closeViewMenu();
+    if (displayedItems && displayedItems.length > 0) {
+        renderItems(displayedItems);
+    }
+}
+
+// ══════════════════════════════════════════════════════════
 // 🎨 VISUAL FILE TYPES & BADGES
 // ══════════════════════════════════════════════════════════
 function getFileVisual(name, isDir) {
     if (isDir) {
-        return { icon: '📁', badge: '', color: '#ffbe76', isImage: false, isDir: true, typeLabel: 'File folder' };
+        return { 
+            icon: '📁', 
+            svg: getFolderSvg(name),
+            badge: '', 
+            color: '#74b9ff', 
+            isImage: false, 
+            isDir: true, 
+            typeLabel: 'File folder' 
+        };
     }
     const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
     switch(ext) {
@@ -1957,7 +2063,7 @@ function renderItemHtml(item) {
     const sep = isWindows ? '\\' : '/';
     const fullItemPath = (item.isSearchResult && item.path) ? item.path : (currentPath.endsWith(sep) ? currentPath + item.name : currentPath + sep + item.name);
 
-    let iconHtml = '<i>' + visual.icon + '</i>';
+    let iconHtml = visual.svg || ('<i>' + visual.icon + '</i>');
     if (visual.isImage) {
         iconHtml = '<img src="/api/files/raw?path=' + encodeURIComponent(fullItemPath) + '" class="item-thumb" onerror="this.onerror=null; this.outerHTML=\'<i>🖼️</i>\';"/>';
     }
@@ -4022,7 +4128,11 @@ async function showPropertiesModal() {
         const d = await res.json();
 
         const visual = getFileVisual(d.name, d.isDirectory);
-        document.getElementById('prop-icon').innerText = visual.icon;
+        const propIconEl = document.getElementById('prop-icon');
+        if (propIconEl) {
+            if (visual.svg) propIconEl.innerHTML = visual.svg;
+            else propIconEl.innerText = visual.icon;
+        }
         document.getElementById('prop-title').innerText = d.name;
         document.getElementById('prop-path').innerText = d.path;
         document.getElementById('prop-type').innerText = visual.typeLabel;
@@ -4788,9 +4898,11 @@ function renderBookmarks() {
                 const icon = b.icon || visual.icon || (isDir ? '📁' : '📄');
                 const badge = isDir ? 'DIR' : (b.ext || b.name.split('.').pop() || 'FILE').toUpperCase();
 
+                const favIconMarkup = (isDir && visual.svg) ? '<div class="fav-item-icon-svg">' + visual.svg + '</div>' : '<i class="fav-item-icon">' + icon + '</i>';
+
                 favHtml += '<div class="fav-pinned-item ' + (isActive ? 'active' : '') + '" onclick="navigateToBookmark(\'' + escapePath(b.path) + '\', ' + isDir + ')" title="' + escapeHtml(b.path) + '">' +
                     '<div class="fav-item-main">' +
-                        '<i class="fav-item-icon">' + icon + '</i>' +
+                        favIconMarkup +
                         '<span class="fav-item-name">' + escapeHtml(b.name) + '</span>' +
                     '</div>' +
                     '<div style="display: flex; align-items: center; gap: 4px;">' +
@@ -4851,7 +4963,7 @@ function toggleSidebarSection(sectionName) {
 }
 
 function initSidebarSections() {
-    ['working-dir', 'favorites', 'places', 'sftp'].forEach(function(sec) {
+    ['working-dir', 'favorites', 'places', 'sftp', 'cloud'].forEach(function(sec) {
         try {
             const stored = safeStorage.getItem('venel_sec_collapsed_' + sec);
             if (stored === '1') {
@@ -5089,7 +5201,7 @@ let sftpCurrentAuthMode = 'password';
 
 let cloudActiveSessions = [];
 let cloudSavedProfiles = [];
-let currentRemoteCloudProvider = 'sftp';
+let currentCloudProvider = 's3';
 
 function parseCloudUrl(url) {
     if (!url || typeof url !== 'string' || !url.startsWith('cloud://')) return null;
@@ -5596,6 +5708,542 @@ function deleteSavedSftpProfile(profileId, e) {
     saveSftpProfilesToStorage();
     renderSftpSidebar();
     showToast('Saved SFTP connection removed', '🗑️');
+}
+
+// ══════════════════════════════════════════════════════════
+// ☁️ CLOUD STORAGE MANAGER (AWS S3, MinIO, Azure Blob)
+// ══════════════════════════════════════════════════════════
+
+function loadCloudSavedProfiles() {
+    try {
+        const raw = safeStorage.getItem('venel_cloud_profiles');
+        cloudSavedProfiles = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(cloudSavedProfiles)) cloudSavedProfiles = [];
+    } catch {
+        cloudSavedProfiles = [];
+    }
+}
+
+function saveCloudProfilesToStorage() {
+    try {
+        safeStorage.setItem('venel_cloud_profiles', JSON.stringify(cloudSavedProfiles));
+    } catch {}
+}
+
+async function refreshCloudSessionsList() {
+    loadCloudSavedProfiles();
+    try {
+        const res = await fetch('/api/cloud/sessions').catch(() => null);
+        if (res && res.ok) {
+            cloudActiveSessions = await res.json();
+            if (!Array.isArray(cloudActiveSessions)) cloudActiveSessions = [];
+        } else {
+            cloudActiveSessions = [];
+        }
+    } catch {
+        cloudActiveSessions = [];
+    }
+
+    renderCloudSidebar();
+}
+
+function renderCloudSidebar() {
+    const listEl = document.getElementById('cloud-connections-list');
+    const badgeEl = document.getElementById('cloud-active-count-badge');
+    if (!listEl) return;
+
+    if (badgeEl) {
+        const count = cloudActiveSessions.length;
+        badgeEl.textContent = count;
+        badgeEl.style.display = count > 0 ? 'inline-block' : 'none';
+    }
+
+    let html = '';
+
+    // 1. Active Connected Cloud Sessions
+    if (cloudActiveSessions.length > 0) {
+        cloudActiveSessions.forEach(session => {
+            const isCurrent = currentPath.startsWith('cloud://' + session.connectionId);
+            const targetUrl = `cloud://${session.connectionId}/`;
+            const provBadgeClass = session.provider === 'azure_blob' ? 'cloud-badge-azure' : ((session.endpoint && session.endpoint.includes('minio')) ? 'cloud-badge-minio' : 'cloud-badge-s3');
+            const provLabel = session.provider === 'azure_blob' ? 'Azure' : ((session.endpoint && session.endpoint.includes('minio')) ? 'MinIO' : 'S3');
+
+            html += `<div class="sftp-conn-item active ${isCurrent ? 'selected' : ''}" onclick="navigateTo('${escapePath(targetUrl)}')">` +
+                '<div class="sftp-conn-info">' +
+                    '<div class="sftp-conn-title-row">' +
+                        '<span class="sftp-conn-dot" title="Active Cloud Session"></span>' +
+                        `<span class="sftp-conn-name" title="${escapeHtml(session.name || session.bucketOrContainer)}">${escapeHtml(session.name || session.bucketOrContainer)}</span>` +
+                        `<span class="cloud-provider-badge ${provBadgeClass}">${provLabel}</span>` +
+                    '</div>' +
+                    `<div class="sftp-conn-sub">${escapeHtml(session.bucketOrContainer || session.endpoint || 'Root')}</div>` +
+                '</div>' +
+                '<div class="sftp-conn-actions">' +
+                    `<button class="sftp-icon-btn danger" onclick="disconnectCloudSession('${session.connectionId}', event)" title="Disconnect Cloud Storage">⏏️</button>` +
+                '</div>' +
+            '</div>';
+        });
+    }
+
+    // 2. Saved Connection Profiles (not currently connected)
+    const activeIds = new Set(cloudActiveSessions.map(s => s.connectionId));
+    const inactiveProfiles = cloudSavedProfiles.filter(p => !activeIds.has(p.id));
+
+    if (inactiveProfiles.length > 0) {
+        inactiveProfiles.forEach(prof => {
+            const provBadgeClass = prof.provider === 'azure_blob' ? 'cloud-badge-azure' : ((prof.endpoint && prof.endpoint.includes('minio')) ? 'cloud-badge-minio' : 'cloud-badge-s3');
+            const provLabel = prof.provider === 'azure_blob' ? 'Azure' : ((prof.endpoint && prof.endpoint.includes('minio')) ? 'MinIO' : 'S3');
+
+            html += `<div class="sftp-conn-item" onclick="connectSavedCloudProfile('${prof.id}')" title="Click to Connect">` +
+                '<div class="sftp-conn-info">' +
+                    '<div class="sftp-conn-title-row">' +
+                        '<span style="font-size: 13px;">⚡</span>' +
+                        `<span class="sftp-conn-name" title="${escapeHtml(prof.name || prof.bucketName)}">${escapeHtml(prof.name || prof.bucketName)}</span>` +
+                        `<span class="cloud-provider-badge ${provBadgeClass}">${provLabel}</span>` +
+                    '</div>' +
+                    `<div class="sftp-conn-sub">${escapeHtml(prof.bucketName || prof.endpoint || 'Cloud')}</div>` +
+                '</div>' +
+                '<div class="sftp-conn-actions">' +
+                    `<button class="sftp-icon-btn" onclick="openCloudModal(getSavedCloudProfileById('${prof.id}'), event)" title="Edit Profile">✏️</button>` +
+                    `<button class="sftp-icon-btn danger" onclick="deleteSavedCloudProfile('${prof.id}', event)" title="Delete Profile">✕</button>` +
+                '</div>' +
+            '</div>';
+        });
+    }
+
+    if (cloudActiveSessions.length === 0 && cloudSavedProfiles.length === 0) {
+        html = '<div style="padding: 10px 8px; font-size: 11px; color: var(--text-muted); text-align: center; line-height: 1.4;">' +
+            'No cloud storage connected.<br><button class="sftp-browse-btn" onclick="openCloudModal()" style="margin-top: 6px;">+ Connect to Cloud</button>' +
+        '</div>';
+    }
+
+    listEl.innerHTML = html;
+}
+
+function getSavedCloudProfileById(id) {
+    return cloudSavedProfiles.find(p => p.id === id);
+}
+
+function openCloudModal(profileToEdit = null, event = null, initialProvider = 's3') {
+    if (profileToEdit && (profileToEdit instanceof Event || profileToEdit.target)) {
+        event = profileToEdit;
+        profileToEdit = null;
+    }
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+
+    const modal = document.getElementById('modal-cloud');
+    if (!modal) return;
+
+    const alertEl = document.getElementById('cloud-status-alert');
+    if (alertEl) alertEl.style.display = 'none';
+
+    const titleEl = document.getElementById('cloud-modal-title');
+    const s3Name = document.getElementById('cloud-s3-input-name');
+    const s3Bucket = document.getElementById('cloud-s3-input-bucket');
+    const s3Region = document.getElementById('cloud-s3-input-region');
+    const s3Endpoint = document.getElementById('cloud-s3-input-endpoint');
+    const s3AccessKey = document.getElementById('cloud-s3-input-access-key');
+    const s3SecretKey = document.getElementById('cloud-s3-input-secret-key');
+    const s3Prefix = document.getElementById('cloud-s3-input-prefix');
+    const s3PathStyle = document.getElementById('cloud-s3-chk-path-style');
+
+    const azName = document.getElementById('cloud-azure-input-name');
+    const azConnStr = document.getElementById('cloud-azure-input-connection-string');
+    const azContainer = document.getElementById('cloud-azure-input-container');
+    const azPrefix = document.getElementById('cloud-azure-input-prefix');
+
+    const saveChk = document.getElementById('cloud-chk-save-profile');
+    const rememberChk = document.getElementById('cloud-chk-remember-creds');
+
+    if (profileToEdit) {
+        modal.setAttribute('data-edit-id', profileToEdit.id);
+        if (titleEl) titleEl.textContent = 'Edit Cloud Connection';
+        const prov = (profileToEdit.provider === 'azure_blob' || profileToEdit.provider === 'azure') ? 'azure' : 's3';
+        switchCloudProvider(prov);
+
+        if (prov === 's3') {
+            if (s3Name) s3Name.value = profileToEdit.name || '';
+            if (s3Bucket) s3Bucket.value = profileToEdit.bucketName || '';
+            if (s3Region) s3Region.value = profileToEdit.region || 'us-east-1';
+            if (s3Endpoint) s3Endpoint.value = profileToEdit.endpoint || '';
+            if (s3AccessKey) s3AccessKey.value = profileToEdit.accessKey || '';
+            if (s3SecretKey) s3SecretKey.value = profileToEdit.secretKey || '';
+            if (s3Prefix) s3Prefix.value = profileToEdit.initialPrefix || '';
+            if (s3PathStyle) s3PathStyle.checked = Boolean(profileToEdit.forcePathStyle);
+        } else {
+            if (azName) azName.value = profileToEdit.name || '';
+            if (azConnStr) azConnStr.value = profileToEdit.connectionString || '';
+            if (azContainer) azContainer.value = profileToEdit.bucketName || '';
+            if (azPrefix) azPrefix.value = profileToEdit.initialPrefix || '';
+        }
+
+        if (saveChk) saveChk.checked = true;
+        if (rememberChk) rememberChk.checked = Boolean(profileToEdit.accessKey || profileToEdit.secretKey || profileToEdit.connectionString);
+    } else {
+        modal.removeAttribute('data-edit-id');
+        if (titleEl) titleEl.textContent = 'Connect to Cloud Storage';
+        switchCloudProvider(initialProvider || 's3');
+
+        if (s3Name) s3Name.value = '';
+        if (s3Bucket) s3Bucket.value = '';
+        if (s3Region) s3Region.value = 'us-east-1';
+        if (s3Endpoint) s3Endpoint.value = '';
+        if (s3AccessKey) s3AccessKey.value = '';
+        if (s3SecretKey) s3SecretKey.value = '';
+        if (s3Prefix) s3Prefix.value = '';
+        if (s3PathStyle) s3PathStyle.checked = false;
+
+        if (azName) azName.value = '';
+        if (azConnStr) azConnStr.value = '';
+        if (azContainer) azContainer.value = '';
+        if (azPrefix) azPrefix.value = '';
+
+        if (saveChk) saveChk.checked = true;
+        if (rememberChk) rememberChk.checked = true;
+    }
+
+    modal.style.display = 'flex';
+    setTimeout(() => {
+        if (currentCloudProvider === 's3' && s3Bucket && !s3Bucket.value) s3Bucket.focus();
+        else if (currentCloudProvider === 'azure' && azConnStr && !azConnStr.value) azConnStr.focus();
+    }, 50);
+}
+
+function closeCloudModal(e = null) {
+    if (e && e.target && e.target.id !== 'modal-cloud' && !e.target.classList.contains('modal-close-x') && !e.target.closest('.modal-close-x') && !e.target.classList.contains('cancel') && !e.target.closest('.cancel')) {
+        return;
+    }
+    const modal = document.getElementById('modal-cloud');
+    if (modal) modal.style.display = 'none';
+}
+
+function switchCloudProvider(provider) {
+    currentCloudProvider = (provider === 'azure' || provider === 'azure_blob') ? 'azure' : 's3';
+    const tabS3 = document.getElementById('btn-cloud-tab-s3');
+    const tabAzure = document.getElementById('btn-cloud-tab-azure');
+    const panelS3 = document.getElementById('cloud-provider-panel-s3');
+    const panelAzure = document.getElementById('cloud-provider-panel-azure');
+
+    if (tabS3) tabS3.classList.toggle('active', currentCloudProvider === 's3');
+    if (tabAzure) tabAzure.classList.toggle('active', currentCloudProvider === 'azure');
+
+    if (panelS3) panelS3.style.display = currentCloudProvider === 's3' ? 'flex' : 'none';
+    if (panelAzure) panelAzure.style.display = currentCloudProvider === 'azure' ? 'flex' : 'none';
+}
+
+function applyS3Preset(preset) {
+    const endpointInput = document.getElementById('cloud-s3-input-endpoint');
+    const regionInput = document.getElementById('cloud-s3-input-region');
+    const pathStyleChk = document.getElementById('cloud-s3-chk-path-style');
+
+    if (preset === 'minio') {
+        if (endpointInput) endpointInput.value = 'http://localhost:9000';
+        if (regionInput) regionInput.value = 'us-east-1';
+        if (pathStyleChk) pathStyleChk.checked = true;
+        showToast('Configured MinIO local defaults (Endpoint: :9000, Path-Style on) 🦩', 'ℹ️');
+    } else if (preset === 'r2') {
+        if (endpointInput) endpointInput.value = 'https://<account-id>.r2.cloudflarestorage.com';
+        if (regionInput) regionInput.value = 'auto';
+        if (pathStyleChk) pathStyleChk.checked = false;
+        showToast('Configured Cloudflare R2 preset ⚡', 'ℹ️');
+    } else if (preset === 'custom') {
+        if (pathStyleChk) pathStyleChk.checked = true;
+        showToast('Configured custom S3 endpoint preset ⚙️', 'ℹ️');
+    } else { // aws
+        if (endpointInput) endpointInput.value = '';
+        if (regionInput) regionInput.value = 'us-east-1';
+        if (pathStyleChk) pathStyleChk.checked = false;
+        showToast('Configured AWS S3 defaults (Standard Global Endpoint) ☁️', 'ℹ️');
+    }
+}
+
+function toggleCloudPasswordVisibility(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+function handleCloudSaveCheckboxChange() {
+    const saveChk = document.getElementById('cloud-chk-save-profile');
+    const remLabel = document.getElementById('cloud-lbl-remember-creds');
+    if (remLabel && saveChk) {
+        remLabel.style.display = saveChk.checked ? 'flex' : 'none';
+    }
+}
+
+function getCloudFormData() {
+    if (currentCloudProvider === 's3') {
+        const name = (document.getElementById('cloud-s3-input-name')?.value || '').trim();
+        const bucketName = (document.getElementById('cloud-s3-input-bucket')?.value || '').trim();
+        const region = (document.getElementById('cloud-s3-input-region')?.value || 'us-east-1').trim();
+        const endpoint = (document.getElementById('cloud-s3-input-endpoint')?.value || '').trim();
+        const accessKey = (document.getElementById('cloud-s3-input-access-key')?.value || '').trim();
+        const secretKey = (document.getElementById('cloud-s3-input-secret-key')?.value || '').trim();
+        const initialPrefix = (document.getElementById('cloud-s3-input-prefix')?.value || '').trim();
+        const forcePathStyle = document.getElementById('cloud-s3-chk-path-style')?.checked || false;
+
+        return {
+            provider: 's3',
+            name: name || bucketName,
+            bucketName,
+            region: region || 'us-east-1',
+            endpoint: endpoint || null,
+            accessKey: accessKey || null,
+            secretKey: secretKey || null,
+            initialPrefix: initialPrefix || null,
+            forcePathStyle
+        };
+    } else {
+        const name = (document.getElementById('cloud-azure-input-name')?.value || '').trim();
+        const connectionString = (document.getElementById('cloud-azure-input-connection-string')?.value || '').trim();
+        const container = (document.getElementById('cloud-azure-input-container')?.value || '').trim();
+        const initialPrefix = (document.getElementById('cloud-azure-input-prefix')?.value || '').trim();
+
+        return {
+            provider: 'azure_blob',
+            name: name || container || 'Azure Blob',
+            connectionString,
+            bucketName: container || null,
+            initialPrefix: initialPrefix || null
+        };
+    }
+}
+
+function showCloudAlert(message, type = 'info') {
+    const alertEl = document.getElementById('cloud-status-alert');
+    if (!alertEl) return;
+    alertEl.className = 'sftp-alert-' + type;
+    alertEl.textContent = message;
+    alertEl.style.display = 'block';
+}
+
+async function testCloudConnection() {
+    const data = getCloudFormData();
+    if (data.provider === 's3') {
+        if (!data.bucketName) {
+            showCloudAlert('Please enter an S3 / MinIO bucket name.', 'error');
+            return;
+        }
+        if (!data.accessKey || !data.secretKey) {
+            showCloudAlert('Please enter Access Key ID and Secret Access Key.', 'error');
+            return;
+        }
+    } else {
+        if (!data.connectionString) {
+            showCloudAlert('Please enter Azure Blob Connection String or SAS URL.', 'error');
+            return;
+        }
+    }
+
+    const testBtn = document.getElementById('btn-cloud-test');
+    const spinner = document.getElementById('cloud-test-btn-spinner');
+    const btnText = document.getElementById('cloud-test-btn-text');
+
+    if (testBtn) testBtn.disabled = true;
+    if (spinner) spinner.style.display = 'inline-block';
+    if (btnText) btnText.textContent = 'Testing...';
+    showCloudAlert('Testing cloud connection...', 'info');
+
+    try {
+        const res = await fetch('/api/cloud/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        let result = {};
+        try {
+            result = await res.json();
+        } catch {
+            result = { success: false, errorMessage: `Server returned HTTP ${res.status}` };
+        }
+        if (result.success) {
+            const countMsg = (result.itemCount != null) ? ` (${result.itemCount} items found)` : '';
+            showCloudAlert(`✅ Connected successfully!${countMsg} Latency: ${result.latencyMs || 0}ms`, 'success');
+        } else {
+            showCloudAlert(`❌ Connection test failed: ${result.errorMessage || 'Check credentials and bucket.'}`, 'error');
+        }
+    } catch (err) {
+        showCloudAlert(`❌ Connection test error: ${err.message}`, 'error');
+    } finally {
+        if (testBtn) testBtn.disabled = false;
+        if (spinner) spinner.style.display = 'none';
+        if (btnText) btnText.textContent = '⚡ Test Connection';
+    }
+}
+
+async function submitCloudConnect() {
+    const data = getCloudFormData();
+    if (data.provider === 's3') {
+        if (!data.bucketName) {
+            showCloudAlert('Please enter an S3 / MinIO bucket name.', 'error');
+            return;
+        }
+        if (!data.accessKey || !data.secretKey) {
+            showCloudAlert('Please enter Access Key ID and Secret Access Key.', 'error');
+            return;
+        }
+    } else {
+        if (!data.connectionString) {
+            showCloudAlert('Please enter Azure Blob Connection String or SAS URL.', 'error');
+            return;
+        }
+    }
+
+    const connectBtn = document.getElementById('btn-cloud-connect');
+    const spinner = document.getElementById('cloud-connect-btn-spinner');
+    const btnText = document.getElementById('cloud-connect-btn-text');
+
+    if (connectBtn) connectBtn.disabled = true;
+    if (spinner) spinner.style.display = 'inline-block';
+    if (btnText) btnText.textContent = 'Connecting...';
+    showCloudAlert('Connecting to Cloud Storage...', 'info');
+
+    try {
+        const res = await fetch('/api/cloud/connect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        let result = {};
+        try {
+            result = await res.json();
+        } catch {
+            result = { success: false, errorMessage: `Server returned HTTP ${res.status}` };
+        }
+        if (!result.success) {
+            showCloudAlert(`❌ Connect failed: ${result.errorMessage || 'Unable to connect to cloud storage.'}`, 'error');
+            return;
+        }
+
+        // Save connection profile if requested
+        const saveChk = document.getElementById('cloud-chk-save-profile');
+        const rememberChk = document.getElementById('cloud-chk-remember-creds');
+        const modal = document.getElementById('modal-cloud');
+        const editId = modal ? modal.getAttribute('data-edit-id') : null;
+
+        if (saveChk && saveChk.checked) {
+            const shouldRemember = rememberChk && rememberChk.checked;
+            const profile = {
+                id: editId || `cloud_prof_${Date.now()}`,
+                name: data.name || data.bucketName,
+                provider: data.provider,
+                bucketName: data.bucketName,
+                region: data.region,
+                endpoint: data.endpoint,
+                accessKey: shouldRemember ? data.accessKey : null,
+                secretKey: shouldRemember ? data.secretKey : null,
+                connectionString: shouldRemember ? data.connectionString : null,
+                forcePathStyle: data.forcePathStyle,
+                initialPrefix: data.initialPrefix
+            };
+
+            const existingIdx = cloudSavedProfiles.findIndex(p => p.id === profile.id);
+            if (existingIdx >= 0) {
+                cloudSavedProfiles[existingIdx] = profile;
+            } else {
+                cloudSavedProfiles.push(profile);
+            }
+            saveCloudProfilesToStorage();
+        }
+
+        closeCloudModal();
+        await refreshCloudSessionsList();
+
+        // Navigate to the cloud directory
+        const cloudPath = `cloud://${result.connectionId}${result.currentPath || '/'}`;
+        navigateTo(cloudPath);
+        showToast(`Connected to ${result.name || data.bucketName} ☁️`, '✅');
+    } catch (err) {
+        showCloudAlert(`❌ Connect error: ${err.message}`, 'error');
+    } finally {
+        if (connectBtn) connectBtn.disabled = false;
+        if (spinner) spinner.style.display = 'none';
+        if (btnText) btnText.textContent = 'Connect';
+    }
+}
+
+async function connectSavedCloudProfile(profileId) {
+    const prof = getSavedCloudProfileById(profileId);
+    if (!prof) return;
+
+    const hasCreds = (prof.provider === 's3' && prof.accessKey && prof.secretKey) ||
+                     (prof.provider === 'azure_blob' && prof.connectionString);
+
+    if (hasCreds) {
+        showToast(`Connecting to ${prof.name}... ⏳`, '☁️');
+        try {
+            const res = await fetch('/api/cloud/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    provider: prof.provider,
+                    name: prof.name,
+                    bucketName: prof.bucketName,
+                    region: prof.region,
+                    endpoint: prof.endpoint,
+                    accessKey: prof.accessKey,
+                    secretKey: prof.secretKey,
+                    connectionString: prof.connectionString,
+                    forcePathStyle: prof.forcePathStyle,
+                    initialPrefix: prof.initialPrefix
+                })
+            });
+            let result = {};
+            try {
+                result = await res.json();
+            } catch {
+                result = { success: false, errorMessage: `Server returned HTTP ${res.status}` };
+            }
+            if (result.success) {
+                await refreshCloudSessionsList();
+                const cloudPath = `cloud://${result.connectionId}${result.currentPath || '/'}`;
+                navigateTo(cloudPath);
+                showToast(`Connected to ${prof.name} ☁️`, '✅');
+                return;
+            } else {
+                showToast(`Connect failed: ${result.errorMessage || 'Cloud storage unavailable'}`, '⚠️');
+            }
+        } catch (err) {
+            showToast(`Connection failed: ${err.message}`, '❌');
+        }
+    }
+
+    openCloudModal(prof);
+}
+
+async function disconnectCloudSession(connectionId, e) {
+    if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+    }
+    try {
+        await fetch('/api/cloud/disconnect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ connectionId })
+        });
+        showToast('Cloud storage session disconnected ⏏️', 'ℹ️');
+        await refreshCloudSessionsList();
+
+        if (currentPath.startsWith('cloud://' + connectionId)) {
+            goHome();
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+function deleteSavedCloudProfile(profileId, e) {
+    if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+    }
+    cloudSavedProfiles = cloudSavedProfiles.filter(p => p.id !== profileId);
+    saveCloudProfilesToStorage();
+    renderCloudSidebar();
+    showToast('Saved cloud connection removed', '🗑️');
 }
 
 function handleFavoritesDragOver(e) {
@@ -6442,6 +7090,27 @@ async function createFolder() {
         return;
     }
 
+    const cloudInfo = parseCloudUrl(currentPath);
+    if (cloudInfo) {
+        try {
+            const prefix = cloudInfo.remotePath === '/' ? '' : (cloudInfo.remotePath.startsWith('/') ? cloudInfo.remotePath.substring(1) : cloudInfo.remotePath);
+            const res = await fetch('/api/cloud/createFolder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ connectionId: cloudInfo.connectionId, currentPrefix: prefix, folderName: name })
+            });
+            if (res.ok) {
+                showToast('Created cloud folder "' + name + '"', '📁');
+                loadFiles(currentPath);
+            } else {
+                showToast('Could not create folder on Cloud Storage', '❌');
+            }
+        } catch {
+            showToast('Error creating folder on Cloud Storage', '❌');
+        }
+        return;
+    }
+
     try {
         const res = await fetch('/api/files/newFolder', {
             method: 'POST',
@@ -6480,6 +7149,28 @@ async function createFile() {
             }
         } catch {
             showToast('Error creating file on SFTP', '❌');
+        }
+        return;
+    }
+
+    const cloudInfo = parseCloudUrl(currentPath);
+    if (cloudInfo) {
+        try {
+            const prefix = cloudInfo.remotePath === '/' ? '' : (cloudInfo.remotePath.startsWith('/') ? cloudInfo.remotePath.substring(1) : cloudInfo.remotePath);
+            const key = prefix ? (prefix.endsWith('/') ? prefix + name : prefix + '/' + name) : name;
+            const res = await fetch('/api/cloud/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ connectionId: cloudInfo.connectionId, remotePath: key, content: '' })
+            });
+            if (res.ok) {
+                showToast('Created cloud file "' + name + '"', '📄');
+                loadFiles(currentPath);
+            } else {
+                showToast('Could not create file on Cloud Storage', '❌');
+            }
+        } catch {
+            showToast('Error creating file on Cloud Storage', '❌');
         }
         return;
     }
@@ -6581,6 +7272,38 @@ async function submitDelete() {
             loadFiles(currentPath);
         } else {
             showToast('Failed to delete remote item(s)', '❌');
+        }
+        return;
+    }
+
+    const cloudInfo = parseCloudUrl(currentPath);
+    if (cloudInfo) {
+        showToast('Deleting ' + itemsToDelete.length + ' cloud item(s)...', '⏳');
+        let successCount = 0;
+        for (const item of itemsToDelete) {
+            try {
+                const prefix = cloudInfo.remotePath === '/' ? '' : (cloudInfo.remotePath.startsWith('/') ? cloudInfo.remotePath.substring(1) : cloudInfo.remotePath);
+                const itemKey = item.key || (prefix ? (prefix.endsWith('/') ? prefix + item.name : prefix + '/' + item.name) : item.name);
+                const res = await fetch('/api/cloud/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        connectionId: cloudInfo.connectionId,
+                        key: itemKey,
+                        isDirectory: item.type === 'Directory' || item.isDir
+                    })
+                });
+                if (res.ok) successCount++;
+            } catch {}
+        }
+        if (successCount > 0) {
+            showToast('Deleted ' + successCount + ' cloud item(s)', '🗑️');
+            selectedItem = null;
+            selectedItems = [];
+            lastSelectedName = null;
+            loadFiles(currentPath);
+        } else {
+            showToast('Failed to delete cloud item(s)', '❌');
         }
         return;
     }
@@ -7570,7 +8293,7 @@ function renderCommanderPaneItems(paneId) {
                     'onclick="selectCommanderItem(\'' + paneId + '\', ' + idx + ', event)" ' +
                     'ondblclick="openCommanderItem(\'' + paneId + '\', ' + idx + ')" ' +
                     'draggable="true" ondragstart="handleCommanderDragStart(\'' + paneId + '\', ' + idx + ', event)">' +
-                    '<span class="commander-item-icon">' + visual.icon + '</span>' +
+                    '<span class="commander-item-icon">' + (visual.svg || visual.icon) + '</span>' +
                     '<span class="commander-item-name" title="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</span>' +
                     gitBadgeHtml +
                     '<span class="commander-item-size">' + (isDir ? '&lt;DIR&gt;' : formatBytes(item.size)) + '</span>' +
@@ -9318,7 +10041,10 @@ function showHoverCardForItem(itemEl, mouseX, mouseY) {
     const iconEl = document.getElementById('hover-card-icon');
     const nameEl = document.getElementById('hover-card-name');
     const typeEl = document.getElementById('hover-card-type');
-    if (iconEl) iconEl.textContent = visual.icon;
+    if (iconEl) {
+        if (visual.svg) iconEl.innerHTML = visual.svg;
+        else iconEl.textContent = visual.icon;
+    }
     if (nameEl) nameEl.textContent = item.name;
     if (typeEl) typeEl.textContent = visual.typeLabel || (isDir ? 'File folder' : 'File');
 
@@ -9548,7 +10274,11 @@ async function openAiAssistantModal(targetItem) {
 
     // UI Updates
     const visual = getFileVisual(item.name, isDir);
-    document.getElementById('ai-target-icon').textContent = visual.icon;
+    const aiIconEl = document.getElementById('ai-target-icon');
+    if (aiIconEl) {
+        if (visual.svg) aiIconEl.innerHTML = visual.svg;
+        else aiIconEl.textContent = visual.icon;
+    }
     document.getElementById('ai-target-name').textContent = item.name;
     document.getElementById('ai-target-meta').textContent = isDir ? 'Directory' : formatBytes(item.size || 0);
 
@@ -9753,6 +10483,7 @@ if (savedPreviewCollapsed) togglePreview(true);
 if (typeof isCompactBars !== 'undefined' && isCompactBars) applyCompactBarsState();
 updateDockStripVisibility();
 updateViewMenuChecks();
+updateFolderStyleMenu();
 
 // Update OS-specific tab shortcut badges
 const badgeShortcut = document.getElementById('badge-tab-shortcut');
@@ -9780,6 +10511,11 @@ try {
 // Initialize SFTP Remote Sessions & Saved Profiles
 try {
     refreshSftpSessionsList();
+} catch {}
+
+// Initialize Cloud Storage Sessions & Saved Profiles
+try {
+    refreshCloudSessionsList();
 } catch {}
 
 // Initialize About & Version displays

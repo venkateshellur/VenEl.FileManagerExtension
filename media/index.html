@@ -8,6 +8,49 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <!-- SVG Sprite Definitions for High-Fidelity OS Native Folder Graphics (macOS / Windows) -->
+    <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true" focusable="false">
+        <defs>
+            <!-- macOS Finder Folder Gradients & Filters -->
+            <linearGradient id="macTabGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#46a8ff"/>
+                <stop offset="100%" stop-color="#0962c7"/>
+            </linearGradient>
+            <linearGradient id="macBodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#5ec5fc"/>
+                <stop offset="30%" stop-color="#289cf5"/>
+                <stop offset="85%" stop-color="#006be5"/>
+                <stop offset="100%" stop-color="#0058c4"/>
+            </linearGradient>
+            <linearGradient id="macSpecular" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="rgba(255,255,255,0.85)"/>
+                <stop offset="100%" stop-color="rgba(255,255,255,0.1)"/>
+            </linearGradient>
+            <filter id="macFolderDrop" x="-15%" y="-15%" width="130%" height="135%" filterUnits="userSpaceOnUse">
+                <feDropShadow dx="0" dy="2.5" stdDeviation="2.2" flood-color="rgba(0,18,48,0.4)"/>
+            </filter>
+
+            <!-- Windows 11 Fluent Folder Gradients & Filters -->
+            <linearGradient id="winTabGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#ffc83b"/>
+                <stop offset="100%" stop-color="#e69500"/>
+            </linearGradient>
+            <linearGradient id="winBodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#ffe885"/>
+                <stop offset="35%" stop-color="#ffd54f"/>
+                <stop offset="90%" stop-color="#ffb300"/>
+                <stop offset="100%" stop-color="#f59e0b"/>
+            </linearGradient>
+            <linearGradient id="winDocGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#ffffff"/>
+                <stop offset="100%" stop-color="#e2e8f0"/>
+            </linearGradient>
+            <filter id="winFolderDrop" x="-15%" y="-15%" width="130%" height="135%" filterUnits="userSpaceOnUse">
+                <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(60,35,0,0.3)"/>
+            </filter>
+        </defs>
+    </svg>
+
     <!-- Click-Catching Dim Backdrop for Folder Dropdown -->
     <div id="path-dropdown-backdrop" class="dropdown-backdrop" onclick="closePathDropdown(event)" style="display: none;"></div>
 
@@ -50,8 +93,11 @@
             <button id="btn-toggle-dual-pane" class="tool-btn dual-pane-toggle-btn" onclick="toggleDualPaneMode()" title="Toggle Dual-Pane Commander Mode (⌥D / Alt+D)">
                 <span class="dual-pane-icon">⫴</span> <span class="dual-pane-label">Dual Pane</span>
             </button>
-            <button id="btn-open-sftp-toolbar" class="tool-btn sftp-toolbar-btn" onclick="openRemoteCloudModal()" title="Connect to Remote SFTP or Cloud Storage (⌘K / Ctrl+K)">
-                <span>🌐</span> <span class="sftp-btn-label">Remote &amp; Cloud</span>
+            <button id="btn-open-sftp-toolbar" class="tool-btn sftp-toolbar-btn" onclick="openSftpModal()" title="Connect to Remote SFTP Server (⌘K / Ctrl+K)">
+                <span>🌐</span> <span class="sftp-btn-label">SFTP</span>
+            </button>
+            <button id="btn-open-cloud-toolbar" class="tool-btn cloud-toolbar-btn" onclick="openCloudModal()" title="Connect to Cloud Storage (AWS S3, MinIO, Azure Blob)">
+                <span>☁️</span> <span class="cloud-btn-label">Cloud</span>
             </button>
             <button id="btn-view-dropdown" class="tool-btn view-dropdown-btn" onclick="toggleViewMenu(event)" title="Change layout view">
                 <span id="current-view-icon">⊞</span> <span id="current-view-label">Grid</span> <span style="font-size: 8px; opacity: 0.7; margin-left: 2px;">▾</span>
@@ -83,7 +129,7 @@
                     <span class="view-menu-icon">⊞</span>
                     <div class="view-menu-text">
                         <span class="view-menu-title">Grid / Medium Icons</span>
-                        <span class="view-menu-desc">Standard card tiles</span>
+                        <span class="view-menu-desc">Desktop icons & native folders</span>
                     </div>
                     <span class="view-menu-check">✓</span>
                 </div>
@@ -91,7 +137,7 @@
                     <span class="view-menu-icon">▦</span>
                     <div class="view-menu-text">
                         <span class="view-menu-title">Grid Small Icons</span>
-                        <span class="view-menu-desc">Compact grid cards & small icons</span>
+                        <span class="view-menu-desc">Compact desktop icon grid</span>
                     </div>
                     <span class="view-menu-check">✓</span>
                 </div>
@@ -99,7 +145,7 @@
                     <span class="view-menu-icon">🖼️</span>
                     <div class="view-menu-text">
                         <span class="view-menu-title">Large Icons</span>
-                        <span class="view-menu-desc">High-res previews & thumbnails</span>
+                        <span class="view-menu-desc">High-res previews & large folders</span>
                     </div>
                     <span class="view-menu-check">✓</span>
                 </div>
@@ -108,6 +154,25 @@
                     <div class="view-menu-text">
                         <span class="view-menu-title">Small Icons / Compact</span>
                         <span class="view-menu-desc">High-density mini rows</span>
+                    </div>
+                    <span class="view-menu-check">✓</span>
+                </div>
+
+                <div class="view-menu-divider" style="height: 1px; background: rgba(255, 255, 255, 0.08); margin: 6px 0;"></div>
+                <div style="padding: 4px 12px 2px; font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Folder Style</div>
+                <div class="view-menu-item folder-style-opt active" id="opt-folder-mac" data-style="mac" onclick="setFolderStyle('mac')">
+                    <span class="view-menu-icon">🍏</span>
+                    <div class="view-menu-text">
+                        <span class="view-menu-title">macOS Folder (Finder)</span>
+                        <span class="view-menu-desc">Apple Aqua blue with embossed glyphs</span>
+                    </div>
+                    <span class="view-menu-check">✓</span>
+                </div>
+                <div class="view-menu-item folder-style-opt" id="opt-folder-win" data-style="windows" onclick="setFolderStyle('windows')">
+                    <span class="view-menu-icon">🪟</span>
+                    <div class="view-menu-text">
+                        <span class="view-menu-title">Windows Folder (Explorer)</span>
+                        <span class="view-menu-desc">Fluent golden folder with document peek</span>
                     </div>
                     <span class="view-menu-check">✓</span>
                 </div>
@@ -191,10 +256,15 @@
                             <span class="menu-label" id="menu-label-open-workspace">Open Current as Workspace</span>
                         </div>
                         <div class="menu-divider"></div>
-                        <div class="menu-entry" onclick="menuAction(openRemoteCloudModal)">
+                        <div class="menu-entry" onclick="menuAction(openSftpModal)">
                             <span class="menu-icon">🌐</span>
-                            <span class="menu-label">Remote &amp; Cloud Connections...</span>
+                            <span class="menu-label">Connect to SFTP Server...</span>
                             <span class="menu-shortcut" data-shortcut-mac="⌘K" data-shortcut-win="Ctrl+K">⌘K</span>
+                        </div>
+                        <div class="menu-entry" onclick="menuAction(openCloudModal)">
+                            <span class="menu-icon">☁️</span>
+                            <span class="menu-label">Connect to Cloud Storage...</span>
+                            <span class="menu-shortcut"></span>
                         </div>
                         <div class="menu-entry" onclick="menuAction(openSettingsModal)">
                             <span class="menu-icon">⚙️</span>
@@ -660,33 +730,36 @@
                 </div>
             </div>
 
-            <!-- Collapsible Remote & Cloud Section (Approach A) -->
-            <div class="sidebar-collapsible-section" id="sidebar-section-remote-cloud" style="margin-top: 8px;">
-                <div class="sidebar-section-header" onclick="toggleSidebarSection('remote-cloud')">
+            <!-- Collapsible SFTP Servers Section -->
+            <div class="sidebar-collapsible-section" id="sidebar-section-sftp" style="margin-top: 8px;">
+                <div class="sidebar-section-header" onclick="toggleSidebarSection('sftp')">
                     <div class="sidebar-section-title-wrap">
-                        <span class="sidebar-section-chevron" id="chevron-remote-cloud">▼</span>
-                        <span class="sidebar-section-title">🌐 Remote &amp; Cloud</span>
-                        <span class="sidebar-section-count" id="remote-cloud-active-count-badge" style="display:none;">0</span>
+                        <span class="sidebar-section-chevron" id="chevron-sftp">▼</span>
+                        <span class="sidebar-section-title">🌐 SFTP Servers</span>
+                        <span class="sidebar-section-count" id="sftp-active-count-badge" style="display:none;">0</span>
                     </div>
-                    <button class="sidebar-action-btn" id="btn-quick-connect-remote-cloud" onclick="event.stopPropagation(); openRemoteCloudModal()" title="Connect to Cloud Storage or SFTP Server">+</button>
+                    <button class="sidebar-action-btn" id="btn-quick-connect-sftp" onclick="event.stopPropagation(); openSftpModal()" title="Connect to SFTP Server">+</button>
                 </div>
-                <div class="sidebar-section-body" id="remote-cloud-section-body">
-                    <!-- Sub-Group 1: ☁️ Cloud Storage (AWS S3, MinIO, Azure Blob) -->
-                    <div class="sidebar-subgroup-title" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px 4px; font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
-                        <span>☁️ Cloud Storage</span>
-                        <button class="sftp-icon-btn" onclick="event.stopPropagation(); openRemoteCloudModal('s3')" title="Add Cloud Bucket / Storage" style="font-size: 11px; padding: 1px 6px;">+</button>
-                    </div>
-                    <div id="cloud-connections-list" class="sftp-connections-list" style="margin-bottom: 6px;">
-                        <!-- Dynamically populated cloud sessions and saved profiles -->
-                    </div>
-
-                    <!-- Sub-Group 2: 🖥️ Remote SFTP Servers -->
-                    <div class="sidebar-subgroup-title" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px 4px; font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-top: 1px solid rgba(255,255,255,0.06); margin-top: 4px;">
-                        <span>🖥️ SFTP Servers</span>
-                        <button class="sftp-icon-btn" onclick="event.stopPropagation(); openRemoteCloudModal('sftp')" title="Add SFTP Connection" style="font-size: 11px; padding: 1px 6px;">+</button>
-                    </div>
+                <div class="sidebar-section-body" id="sftp-section-body">
                     <div id="sftp-connections-list" class="sftp-connections-list">
                         <!-- Dynamically populated active sessions and saved profiles -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Collapsible Cloud Storage Section -->
+            <div class="sidebar-collapsible-section" id="sidebar-section-cloud" style="margin-top: 8px;">
+                <div class="sidebar-section-header" onclick="toggleSidebarSection('cloud')">
+                    <div class="sidebar-section-title-wrap">
+                        <span class="sidebar-section-chevron" id="chevron-cloud">▼</span>
+                        <span class="sidebar-section-title">☁️ Cloud Storage</span>
+                        <span class="sidebar-section-count" id="cloud-active-count-badge" style="display:none;">0</span>
+                    </div>
+                    <button class="sidebar-action-btn" id="btn-quick-connect-cloud" onclick="event.stopPropagation(); openCloudModal()" title="Connect to Cloud Storage (AWS S3, MinIO, Azure Blob)">+</button>
+                </div>
+                <div class="sidebar-section-body" id="cloud-section-body">
+                    <div id="cloud-connections-list" class="sftp-connections-list">
+                        <!-- Dynamically populated cloud sessions and saved profiles -->
                     </div>
                 </div>
             </div>
@@ -1989,100 +2062,139 @@
         </div>
     </div>
 
-    <!-- 🌐 Remote & Cloud Storage Connection Modal (Approach A) -->
-    <div class="modal-overlay" id="modal-sftp" onclick="closeRemoteCloudModal(event)">
+    <!-- 🌐 Connect to SFTP Server Modal -->
+    <div class="modal-overlay" id="modal-sftp" onclick="closeSftpModal(event)">
         <div class="modal-box sftp-modal-box" onclick="event.stopPropagation()">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 14px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 18px;" id="remote-cloud-modal-icon">🌐</span>
-                    <span id="sftp-modal-title">Connect to Remote Server or Cloud Storage</span>
+                    <span style="font-size: 18px;">🌐</span>
+                    <span id="sftp-modal-title">Connect to SFTP Server</span>
                 </div>
-                <button type="button" onclick="closeRemoteCloudModal()" class="modal-close-x" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; padding: 4px 8px; border-radius: 4px;">✕</button>
+                <button type="button" onclick="closeSftpModal()" class="modal-close-x" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; padding: 4px 8px; border-radius: 4px;">✕</button>
+            </div>
+
+            <div class="sftp-modal-body" style="display: flex; flex-direction: column; gap: 12px; max-height: 70vh; overflow-y: auto; padding-right: 4px;">
+                <!-- Connection Name -->
+                <div class="sftp-form-group">
+                    <label class="sftp-label" for="sftp-input-name">Connection Name <span class="sftp-optional">(optional)</span></label>
+                    <input type="text" id="sftp-input-name" class="modal-input" placeholder="e.g. AWS Staging, Dev EC2, Home Server" autocomplete="off" />
+                </div>
+
+                <!-- Host & Port Row -->
+                <div style="display: flex; gap: 10px;">
+                    <div class="sftp-form-group" style="flex: 3;">
+                        <label class="sftp-label" for="sftp-input-host">Host / Server Address <span class="sftp-required">*</span></label>
+                        <input type="text" id="sftp-input-host" class="modal-input" placeholder="e.g. 192.168.1.50 or sftp.example.com" autocomplete="off" required />
+                    </div>
+                    <div class="sftp-form-group" style="flex: 1;">
+                        <label class="sftp-label" for="sftp-input-port">Port</label>
+                        <input type="number" id="sftp-input-port" class="modal-input" value="22" min="1" max="65535" />
+                    </div>
+                </div>
+
+                <!-- Username -->
+                <div class="sftp-form-group">
+                    <label class="sftp-label" for="sftp-input-user">Username <span class="sftp-required">*</span></label>
+                    <input type="text" id="sftp-input-user" class="modal-input" placeholder="e.g. ubuntu, root, deploy" autocomplete="off" required />
+                </div>
+
+                <!-- Auth Mode Selector -->
+                <div class="sftp-form-group">
+                    <label class="sftp-label">Authentication Method</label>
+                    <div class="sftp-auth-tabs">
+                        <button type="button" class="sftp-auth-tab active" id="btn-auth-tab-password" onclick="switchSftpAuthMode('password')">Password</button>
+                        <button type="button" class="sftp-auth-tab" id="btn-auth-tab-key" onclick="switchSftpAuthMode('key')">SSH Private Key</button>
+                    </div>
+                </div>
+
+                <!-- Password Auth Section -->
+                <div id="sftp-auth-panel-password" class="sftp-auth-panel">
+                    <div class="sftp-form-group">
+                        <label class="sftp-label" for="sftp-input-password">Password</label>
+                        <div style="position: relative; display: flex; align-items: center;">
+                            <input type="password" id="sftp-input-password" class="modal-input" placeholder="Enter password" style="padding-right: 36px;" />
+                            <button type="button" id="btn-toggle-sftp-pwd" onclick="toggleSftpPasswordVisibility()" style="position: absolute; right: 8px; background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 14px;" title="Show/Hide Password">👁️</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Key Auth Section -->
+                <div id="sftp-auth-panel-key" class="sftp-auth-panel" style="display: none;">
+                    <div class="sftp-form-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <label class="sftp-label" for="sftp-input-key" style="margin-bottom: 0;">Private Key (PEM / OpenSSH Content or File Path)</label>
+                            <button type="button" class="sftp-browse-btn" onclick="document.getElementById('sftp-key-file-picker').click()">Browse Key...</button>
+                            <input type="file" id="sftp-key-file-picker" onchange="handleSftpKeyFileSelected(event)" style="display: none;" />
+                        </div>
+                        <textarea id="sftp-input-key" class="modal-input" rows="4" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----&#10;OR enter /Users/.../.ssh/id_rsa" style="resize: vertical; font-family: monospace; font-size: 11px;"></textarea>
+                    </div>
+                    <div class="sftp-form-group">
+                        <label class="sftp-label" for="sftp-input-passphrase">Key Passphrase <span class="sftp-optional">(if key is encrypted)</span></label>
+                        <input type="password" id="sftp-input-passphrase" class="modal-input" placeholder="Passphrase (optional)" />
+                    </div>
+                </div>
+
+                <!-- Initial Remote Path -->
+                <div class="sftp-form-group">
+                    <label class="sftp-label" for="sftp-input-path">Initial Remote Path <span class="sftp-optional">(optional)</span></label>
+                    <input type="text" id="sftp-input-path" class="modal-input" placeholder="/ (or leave blank for default login directory)" />
+                </div>
+
+                <!-- Checkbox Settings -->
+                <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; user-select: none;">
+                        <input type="checkbox" id="sftp-chk-save-profile" checked onchange="handleSftpSaveCheckboxChange()" style="cursor: pointer;" />
+                        <span>Save this connection profile for 1-click reconnect</span>
+                    </label>
+                    <label id="sftp-lbl-remember-creds" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; color: var(--text-muted); user-select: none;">
+                        <input type="checkbox" id="sftp-chk-remember-creds" checked style="cursor: pointer;" />
+                        <span>Remember credentials (saved safely in local profile)</span>
+                    </label>
+                </div>
+
+                <!-- Feedback / Status Alert -->
+                <div id="sftp-status-alert" style="display: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; line-height: 1.4;"></div>
+            </div>
+
+            <div class="modal-actions" style="margin-top: 16px; border-top: 1px solid var(--border-color); padding-top: 12px; display: flex; align-items: center;">
+                <button type="button" class="modal-btn" id="btn-sftp-test" onclick="testSftpConnection()" style="border: 1px solid var(--border-color); display: flex; align-items: center; gap: 6px;">
+                    <span id="sftp-test-btn-spinner" class="spinner" style="display: none; width: 12px; height: 12px; border-width: 2px;"></span>
+                    <span id="sftp-test-btn-text">⚡ Test Connection</span>
+                </button>
+                <div style="flex: 1;"></div>
+                <button type="button" class="modal-btn cancel" onclick="closeSftpModal()">Cancel</button>
+                <button type="button" class="modal-btn confirm" id="btn-sftp-connect" onclick="submitSftpConnect()" style="display: flex; align-items: center; gap: 6px;">
+                    <span id="sftp-connect-btn-spinner" class="spinner" style="display: none; width: 12px; height: 12px; border-width: 2px;"></span>
+                    <span id="sftp-connect-btn-text">Connect</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ☁️ Connect to Cloud Storage Modal -->
+    <div class="modal-overlay" id="modal-cloud" onclick="closeCloudModal(event)">
+        <div class="modal-box sftp-modal-box" onclick="event.stopPropagation()">
+            <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 14px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;" id="cloud-modal-icon">☁️</span>
+                    <span id="cloud-modal-title">Connect to Cloud Storage</span>
+                </div>
+                <button type="button" onclick="closeCloudModal()" class="modal-close-x" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; padding: 4px 8px; border-radius: 4px;">✕</button>
             </div>
 
             <!-- Provider Selection Tabs -->
-            <div class="sftp-auth-tabs" style="margin-bottom: 14px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
-                <button type="button" class="sftp-auth-tab active" id="btn-provider-tab-sftp" onclick="switchRemoteCloudProvider('sftp')">🌐 SFTP / SSH</button>
-                <button type="button" class="sftp-auth-tab" id="btn-provider-tab-s3" onclick="switchRemoteCloudProvider('s3')">🟧 AWS S3 / MinIO</button>
-                <button type="button" class="sftp-auth-tab" id="btn-provider-tab-azure" onclick="switchRemoteCloudProvider('azure')">🟦 Azure Blob</button>
+            <div class="sftp-auth-tabs" style="margin-bottom: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+                <button type="button" class="sftp-auth-tab active" id="btn-cloud-tab-s3" onclick="switchCloudProvider('s3')">🟧 AWS S3 / MinIO</button>
+                <button type="button" class="sftp-auth-tab" id="btn-cloud-tab-azure" onclick="switchCloudProvider('azure')">🟦 Azure Blob</button>
             </div>
 
             <div class="sftp-modal-body" style="display: flex; flex-direction: column; gap: 12px; max-height: 65vh; overflow-y: auto; padding-right: 4px;">
-                <!-- ═════════ TAB 1: SFTP / SSH FORM ═════════ -->
-                <div id="remote-provider-panel-sftp" class="remote-provider-panel">
+                <!-- ═════════ TAB 1: AWS S3 / MinIO / R2 FORM ═════════ -->
+                <div id="cloud-provider-panel-s3" class="remote-provider-panel">
                     <!-- Connection Name -->
                     <div class="sftp-form-group">
-                        <label class="sftp-label" for="sftp-input-name">Connection Name <span class="sftp-optional">(optional)</span></label>
-                        <input type="text" id="sftp-input-name" class="modal-input" placeholder="e.g. AWS Staging, Dev EC2, Home Server" autocomplete="off" />
-                    </div>
-
-                    <!-- Host & Port Row -->
-                    <div style="display: flex; gap: 10px; margin-top: 10px;">
-                        <div class="sftp-form-group" style="flex: 3;">
-                            <label class="sftp-label" for="sftp-input-host">Host / Server Address <span class="sftp-required">*</span></label>
-                            <input type="text" id="sftp-input-host" class="modal-input" placeholder="e.g. 192.168.1.50 or sftp.example.com" autocomplete="off" required />
-                        </div>
-                        <div class="sftp-form-group" style="flex: 1;">
-                            <label class="sftp-label" for="sftp-input-port">Port</label>
-                            <input type="number" id="sftp-input-port" class="modal-input" value="22" min="1" max="65535" />
-                        </div>
-                    </div>
-
-                    <!-- Username -->
-                    <div class="sftp-form-group" style="margin-top: 10px;">
-                        <label class="sftp-label" for="sftp-input-user">Username <span class="sftp-required">*</span></label>
-                        <input type="text" id="sftp-input-user" class="modal-input" placeholder="e.g. ubuntu, root, deploy" autocomplete="off" required />
-                    </div>
-
-                    <!-- Auth Mode Selector -->
-                    <div class="sftp-form-group" style="margin-top: 10px;">
-                        <label class="sftp-label">Authentication Method</label>
-                        <div class="sftp-auth-tabs">
-                            <button type="button" class="sftp-auth-tab active" id="btn-auth-tab-password" onclick="switchSftpAuthMode('password')">Password</button>
-                            <button type="button" class="sftp-auth-tab" id="btn-auth-tab-key" onclick="switchSftpAuthMode('key')">SSH Private Key</button>
-                        </div>
-                    </div>
-
-                    <!-- Password Auth Section -->
-                    <div id="sftp-auth-panel-password" class="sftp-auth-panel">
-                        <div class="sftp-form-group">
-                            <label class="sftp-label" for="sftp-input-password">Password</label>
-                            <div style="position: relative; display: flex; align-items: center;">
-                                <input type="password" id="sftp-input-password" class="modal-input" placeholder="Enter password" style="padding-right: 36px;" />
-                                <button type="button" id="btn-toggle-sftp-pwd" onclick="toggleSftpPasswordVisibility()" style="position: absolute; right: 8px; background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 14px;" title="Show/Hide Password">👁️</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Key Auth Section -->
-                    <div id="sftp-auth-panel-key" class="sftp-auth-panel" style="display: none;">
-                        <div class="sftp-form-group">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                                <label class="sftp-label" for="sftp-input-key" style="margin-bottom: 0;">Private Key (PEM / OpenSSH Content or File Path)</label>
-                                <button type="button" class="sftp-browse-btn" onclick="document.getElementById('sftp-key-file-picker').click()">Browse Key...</button>
-                                <input type="file" id="sftp-key-file-picker" onchange="handleSftpKeyFileSelected(event)" style="display: none;" />
-                            </div>
-                            <textarea id="sftp-input-key" class="modal-input" rows="4" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----&#10;OR enter /Users/.../.ssh/id_rsa" style="resize: vertical; font-family: monospace; font-size: 11px;"></textarea>
-                        </div>
-                        <div class="sftp-form-group" style="margin-top: 8px;">
-                            <label class="sftp-label" for="sftp-input-passphrase">Key Passphrase <span class="sftp-optional">(if key is encrypted)</span></label>
-                            <input type="password" id="sftp-input-passphrase" class="modal-input" placeholder="Passphrase (optional)" />
-                        </div>
-                    </div>
-
-                    <!-- Initial Remote Path -->
-                    <div class="sftp-form-group" style="margin-top: 10px;">
-                        <label class="sftp-label" for="sftp-input-path">Initial Remote Path <span class="sftp-optional">(optional)</span></label>
-                        <input type="text" id="sftp-input-path" class="modal-input" placeholder="/ (or leave blank for default login directory)" />
-                    </div>
-                </div>
-
-                <!-- ═════════ TAB 2: AWS S3 / MinIO / R2 FORM ═════════ -->
-                <div id="remote-provider-panel-s3" class="remote-provider-panel" style="display: none;">
-                    <!-- Connection Name -->
-                    <div class="sftp-form-group">
-                        <label class="sftp-label" for="s3-input-name">Profile / Bucket Name <span class="sftp-optional">(optional)</span></label>
-                        <input type="text" id="s3-input-name" class="modal-input" placeholder="e.g. Production Assets, MinIO Local, Cloudflare R2" autocomplete="off" />
+                        <label class="sftp-label" for="cloud-s3-input-name">Profile / Bucket Name <span class="sftp-optional">(optional)</span></label>
+                        <input type="text" id="cloud-s3-input-name" class="modal-input" placeholder="e.g. Production Assets, MinIO Local, Cloudflare R2" autocomplete="off" />
                     </div>
 
                     <!-- Provider Presets -->
@@ -2099,106 +2211,106 @@
                     <!-- Bucket Name & Region Row -->
                     <div style="display: flex; gap: 10px; margin-top: 10px;">
                         <div class="sftp-form-group" style="flex: 2;">
-                            <label class="sftp-label" for="s3-input-bucket">Bucket Name <span class="sftp-required">*</span></label>
-                            <input type="text" id="s3-input-bucket" class="modal-input" placeholder="e.g. my-app-storage" autocomplete="off" required />
+                            <label class="sftp-label" for="cloud-s3-input-bucket">Bucket Name <span class="sftp-required">*</span></label>
+                            <input type="text" id="cloud-s3-input-bucket" class="modal-input" placeholder="e.g. my-app-storage" autocomplete="off" required />
                         </div>
                         <div class="sftp-form-group" style="flex: 1;">
-                            <label class="sftp-label" for="s3-input-region">Region</label>
-                            <input type="text" id="s3-input-region" class="modal-input" value="us-east-1" placeholder="us-east-1" />
+                            <label class="sftp-label" for="cloud-s3-input-region">Region</label>
+                            <input type="text" id="cloud-s3-input-region" class="modal-input" value="us-east-1" placeholder="us-east-1" />
                         </div>
                     </div>
 
                     <!-- Custom Service URL (Endpoint) -->
                     <div class="sftp-form-group" style="margin-top: 10px;">
-                        <label class="sftp-label" for="s3-input-endpoint">Service URL / Endpoint <span class="sftp-optional">(required for MinIO / R2 / Wasabi; blank for AWS)</span></label>
-                        <input type="text" id="s3-input-endpoint" class="modal-input" placeholder="e.g. http://localhost:9000 or https://<id>.r2.cloudflarestorage.com" autocomplete="off" />
+                        <label class="sftp-label" for="cloud-s3-input-endpoint">Service URL / Endpoint <span class="sftp-optional">(required for MinIO / R2 / Wasabi; blank for AWS)</span></label>
+                        <input type="text" id="cloud-s3-input-endpoint" class="modal-input" placeholder="e.g. http://localhost:9000 or https://<id>.r2.cloudflarestorage.com" autocomplete="off" />
                     </div>
 
                     <!-- Access Key ID & Secret Access Key Row -->
                     <div class="sftp-form-group" style="margin-top: 10px;">
-                        <label class="sftp-label" for="s3-input-access-key">Access Key ID <span class="sftp-required">*</span></label>
-                        <input type="text" id="s3-input-access-key" class="modal-input" placeholder="e.g. AKIAIOSFODNN7EXAMPLE or minioadmin" autocomplete="off" />
+                        <label class="sftp-label" for="cloud-s3-input-access-key">Access Key ID <span class="sftp-required">*</span></label>
+                        <input type="text" id="cloud-s3-input-access-key" class="modal-input" placeholder="e.g. AKIAIOSFODNN7EXAMPLE or minioadmin" autocomplete="off" />
                     </div>
 
                     <div class="sftp-form-group" style="margin-top: 10px;">
-                        <label class="sftp-label" for="s3-input-secret-key">Secret Access Key <span class="sftp-required">*</span></label>
+                        <label class="sftp-label" for="cloud-s3-input-secret-key">Secret Access Key <span class="sftp-required">*</span></label>
                         <div style="position: relative; display: flex; align-items: center;">
-                            <input type="password" id="s3-input-secret-key" class="modal-input" placeholder="Enter AWS/MinIO secret key" style="padding-right: 36px;" />
-                            <button type="button" onclick="togglePasswordVisibility('s3-input-secret-key')" style="position: absolute; right: 8px; background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 14px;" title="Show/Hide Secret">👁️</button>
+                            <input type="password" id="cloud-s3-input-secret-key" class="modal-input" placeholder="Enter AWS/MinIO secret key" style="padding-right: 36px;" />
+                            <button type="button" onclick="toggleCloudPasswordVisibility('cloud-s3-input-secret-key')" style="position: absolute; right: 8px; background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 14px;" title="Show/Hide Secret">👁️</button>
                         </div>
                     </div>
 
                     <!-- Initial Prefix / Folder -->
                     <div class="sftp-form-group" style="margin-top: 10px;">
-                        <label class="sftp-label" for="s3-input-prefix">Initial Subfolder / Prefix <span class="sftp-optional">(optional)</span></label>
-                        <input type="text" id="s3-input-prefix" class="modal-input" placeholder="e.g. backups/2026/ or leave blank for root" />
+                        <label class="sftp-label" for="cloud-s3-input-prefix">Initial Subfolder / Prefix <span class="sftp-optional">(optional)</span></label>
+                        <input type="text" id="cloud-s3-input-prefix" class="modal-input" placeholder="e.g. backups/2026/ or leave blank for root" />
                     </div>
 
                     <!-- S3 Path Style Checkbox -->
                     <div style="margin-top: 8px;">
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; user-select: none;">
-                            <input type="checkbox" id="s3-chk-path-style" style="cursor: pointer;" />
+                            <input type="checkbox" id="cloud-s3-chk-path-style" style="cursor: pointer;" />
                             <span>Force Path Style (Required for MinIO / LocalStack)</span>
                         </label>
                     </div>
                 </div>
 
-                <!-- ═════════ TAB 3: AZURE BLOB STORAGE FORM ═════════ -->
-                <div id="remote-provider-panel-azure" class="remote-provider-panel" style="display: none;">
+                <!-- ═════════ TAB 2: AZURE BLOB STORAGE FORM ═════════ -->
+                <div id="cloud-provider-panel-azure" class="remote-provider-panel" style="display: none;">
                     <!-- Connection Name -->
                     <div class="sftp-form-group">
-                        <label class="sftp-label" for="azure-input-name">Profile Name <span class="sftp-optional">(optional)</span></label>
-                        <input type="text" id="azure-input-name" class="modal-input" placeholder="e.g. Data Lake, Telemetry Logs, Azure Dev" autocomplete="off" />
+                        <label class="sftp-label" for="cloud-azure-input-name">Profile Name <span class="sftp-optional">(optional)</span></label>
+                        <input type="text" id="cloud-azure-input-name" class="modal-input" placeholder="e.g. Data Lake, Telemetry Logs, Azure Dev" autocomplete="off" />
                     </div>
 
                     <!-- Connection String / SAS URL -->
                     <div class="sftp-form-group" style="margin-top: 10px;">
-                        <label class="sftp-label" for="azure-input-connection-string">Connection String / SAS URL <span class="sftp-required">*</span></label>
+                        <label class="sftp-label" for="cloud-azure-input-connection-string">Connection String / SAS URL <span class="sftp-required">*</span></label>
                         <div style="position: relative; display: flex; align-items: center;">
-                            <input type="password" id="azure-input-connection-string" class="modal-input" placeholder="DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net" style="padding-right: 36px;" />
-                            <button type="button" onclick="togglePasswordVisibility('azure-input-connection-string')" style="position: absolute; right: 8px; background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 14px;" title="Show/Hide Secret">👁️</button>
+                            <input type="password" id="cloud-azure-input-connection-string" class="modal-input" placeholder="DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net" style="padding-right: 36px;" />
+                            <button type="button" onclick="toggleCloudPasswordVisibility('cloud-azure-input-connection-string')" style="position: absolute; right: 8px; background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 14px;" title="Show/Hide Secret">👁️</button>
                         </div>
                     </div>
 
                     <!-- Container Name -->
                     <div class="sftp-form-group" style="margin-top: 10px;">
-                        <label class="sftp-label" for="azure-input-container">Blob Container Name <span class="sftp-optional">(optional, leave blank to browse root)</span></label>
-                        <input type="text" id="azure-input-container" class="modal-input" placeholder="e.g. public-assets or telemetry" autocomplete="off" />
+                        <label class="sftp-label" for="cloud-azure-input-container">Blob Container Name <span class="sftp-optional">(optional, leave blank to browse root)</span></label>
+                        <input type="text" id="cloud-azure-input-container" class="modal-input" placeholder="e.g. public-assets or telemetry" autocomplete="off" />
                     </div>
 
                     <!-- Initial Prefix / Virtual Directory -->
                     <div class="sftp-form-group" style="margin-top: 10px;">
-                        <label class="sftp-label" for="azure-input-prefix">Initial Subfolder / Prefix <span class="sftp-optional">(optional)</span></label>
-                        <input type="text" id="azure-input-prefix" class="modal-input" placeholder="e.g. logs/ or leave blank for container root" />
+                        <label class="sftp-label" for="cloud-azure-input-prefix">Initial Subfolder / Prefix <span class="sftp-optional">(optional)</span></label>
+                        <input type="text" id="cloud-azure-input-prefix" class="modal-input" placeholder="e.g. logs/ or leave blank for container root" />
                     </div>
                 </div>
 
                 <!-- Shared Settings (Save Profile) -->
                 <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; user-select: none;">
-                        <input type="checkbox" id="sftp-chk-save-profile" checked onchange="handleRemoteCloudSaveCheckboxChange()" style="cursor: pointer;" />
+                        <input type="checkbox" id="cloud-chk-save-profile" checked onchange="handleCloudSaveCheckboxChange()" style="cursor: pointer;" />
                         <span>Save this connection profile for 1-click reconnect</span>
                     </label>
-                    <label id="sftp-lbl-remember-creds" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; color: var(--text-muted); user-select: none;">
-                        <input type="checkbox" id="sftp-chk-remember-creds" checked style="cursor: pointer;" />
+                    <label id="cloud-lbl-remember-creds" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; color: var(--text-muted); user-select: none;">
+                        <input type="checkbox" id="cloud-chk-remember-creds" checked style="cursor: pointer;" />
                         <span>Remember credentials (saved safely in local profile)</span>
                     </label>
                 </div>
 
                 <!-- Feedback / Status Alert -->
-                <div id="sftp-status-alert" style="display: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; line-height: 1.4;"></div>
+                <div id="cloud-status-alert" style="display: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; line-height: 1.4;"></div>
             </div>
 
             <div class="modal-actions" style="margin-top: 16px; border-top: 1px solid var(--border-color); padding-top: 12px; display: flex; align-items: center;">
-                <button type="button" class="modal-btn" id="btn-sftp-test" onclick="testRemoteCloudConnection()" style="border: 1px solid var(--border-color); display: flex; align-items: center; gap: 6px;">
-                    <span id="sftp-test-btn-spinner" class="spinner" style="display: none; width: 12px; height: 12px; border-width: 2px;"></span>
-                    <span id="sftp-test-btn-text">⚡ Test Connection</span>
+                <button type="button" class="modal-btn" id="btn-cloud-test" onclick="testCloudConnection()" style="border: 1px solid var(--border-color); display: flex; align-items: center; gap: 6px;">
+                    <span id="cloud-test-btn-spinner" class="spinner" style="display: none; width: 12px; height: 12px; border-width: 2px;"></span>
+                    <span id="cloud-test-btn-text">⚡ Test Connection</span>
                 </button>
                 <div style="flex: 1;"></div>
-                <button type="button" class="modal-btn cancel" onclick="closeRemoteCloudModal()">Cancel</button>
-                <button type="button" class="modal-btn confirm" id="btn-sftp-connect" onclick="submitRemoteCloudConnect()" style="display: flex; align-items: center; gap: 6px;">
-                    <span id="sftp-connect-btn-spinner" class="spinner" style="display: none; width: 12px; height: 12px; border-width: 2px;"></span>
-                    <span id="sftp-connect-btn-text">Connect</span>
+                <button type="button" class="modal-btn cancel" onclick="closeCloudModal()">Cancel</button>
+                <button type="button" class="modal-btn confirm" id="btn-cloud-connect" onclick="submitCloudConnect()" style="display: flex; align-items: center; gap: 6px;">
+                    <span id="cloud-connect-btn-spinner" class="spinner" style="display: none; width: 12px; height: 12px; border-width: 2px;"></span>
+                    <span id="cloud-connect-btn-text">Connect</span>
                 </button>
             </div>
         </div>
